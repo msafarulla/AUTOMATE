@@ -1,0 +1,40 @@
+# Python bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Packaging / build artifacts
+build/
+dist/
+*.egg-info/
+pip-wheel-metadata/
+pip-log.txt
+
+# IDE / editor settings
+.idea/
+.vscode/
+*.iml
+
+# OS cruft
+.DS_Store
+Thumbs.db
+
+# Logs and coverage
+logs/
+*.log
+.coverage
+coverage.xml
+htmlcov/
+
+# Local databases
+*.sqlite3
+
+# Assets
+screenshots/
+
