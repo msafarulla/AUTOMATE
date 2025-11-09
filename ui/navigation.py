@@ -1,0 +1,325 @@
+from playwright.sync_api import Locator, Page
+from core.screenshot import ScreenshotManager
+from utils.hash_utils import HashUtils
+from utils.wait_utils import WaitUtils
+from utils.eval_utils import safe_page_evaluate
+
+
+class NavigationManager:
+    def __init__(self, page: Page, screenshot_mgr: ScreenshotManager):
+        self.page = page
+        self.screenshot_mgr = screenshot_mgr
+
+    def change_warehouse(self, warehouse: str):
+        """Select facility and warehouse only if different"""
+        page = self.page
+
+        # Locate the warehouse/facility dropdown element
+        current_warehouse_el = page.locator(":text-matches('- SOA')").first
+
+        # Get the currently displayed warehouse/facility text
+        current_warehouse = current_warehouse_el.inner_text().strip()
+        print(f"🏢 Current warehouse: {current_warehouse}")
+
+        # If it already matches, skip changing
+        if warehouse.lower() in current_warehouse.lower():
+            print(f"✅ Already in desired warehouse: {current_warehouse}")
+            return
+
+        # Otherwise, open dropdown and change warehouse
+        current_warehouse_el.click()
+
+        warehouse_input = page.locator("input[type='text']:visible").first
+        warehouse_input.click()
+        page.wait_for_selector("ul.x-list-plain li", timeout=2000)
+
+        # Select the desired warehouse
+        page.locator(f"ul.x-list-plain li:has-text('{warehouse}')").click()
+
+        # Wait for the screen to reload
+        prev_hash = HashUtils.get_page_hash(page)
+        page.get_by_text("Apply", exact=True).click()
+        WaitUtils.wait_for_screen_change(lambda: page.main_frame, prev_hash)
+
+        # Capture screenshot and confirm
+        self.screenshot_mgr.capture(page, f"warehouse_{warehouse}",
+                                    f"Changed to {warehouse}")
+        print(f"✅ Changed warehouse to {warehouse}")
+
+    def open_menu_item(self, search_term: str, match_text: str) -> bool:
+        """
+        Opens a specific menu item by typing into the search box
+        and selecting the item whose text matches exactly (after normalization).
+        Also prints a side-by-side diff if no match is found.
+        """
+        import re
+        from difflib import ndiff
+
+        def normalize_text(s: str) -> str:
+            # Normalize invisible chars, spacing, and case
+            return re.sub(r'\s+', ' ', s.replace('\xa0', ' ')).strip().lower()
+
+        page = self.page
+        normalized_match = normalize_text(match_text)
+
+        for attempt in range(2):
+            self.close_active_windows()
+            page.wait_for_timeout(500)
+
+            self._open_menu_panel()
+            self._reset_menu_filter()
+
+            search_box = page.locator("div.x-window input[type='text']")
+            search_box.wait_for(timeout=2000)
+            try:
+                search_box.fill("")
+            except Exception:
+                pass
+            search_box.fill(search_term)
+            page.wait_for_timeout(300)
+
+            items = page.locator("ul.x-list-plain:visible li.x-boundlist-item")
+            count = self._wait_for_menu_results(items)
+            print(f"🔍 Found {count} items for '{search_term}' (attempt {attempt + 1})")
+
+            if count == 0:
+                print("⚠️ Menu returned no items; retrying after closing panel.")
+                self._ensure_menu_closed()
+                continue
+
+            for i in range(count):
+                text = items.nth(i).inner_text().strip()
+                normalized_text = normalize_text(text)
+                print(f"Option {i + 1}: RAW: {repr(text)}")
+
+                if normalized_text == normalized_match:
+                    self.screenshot_mgr.capture(page, f"Selecting {normalized_text} UI", f"Selecting {text} UI")
+                    print(f"✅ Exact match found: '{text}' — selecting it")
+                    self._activate_menu_selection(items.nth(i), "rf menu" in normalized_match)
+                    self._ensure_menu_closed()
+                    self._maybe_maximize_rf_window(normalized_match)
+                    page.wait_for_timeout(500)
+                    return True
+                else:
+                    diff = ''.join(ndiff([normalized_text], [normalized_match]))
+                    print(f"🟡 No match for Option {i + 1}. Diff:\n{diff}")
+
+            print("⚠️ No exact match in this attempt; closing panel and retrying.")
+            self._ensure_menu_closed()
+
+        print(f"❌ No exact match found for: '{match_text}' after retries")
+        self._ensure_menu_closed()
+        return False
+
+    def _open_menu_panel(self):
+        """Open the navigation panel (idempotent)."""
+        page = self.page
+        try:
+            panel = page.locator("div[id^='mps_menu']:visible")
+            if panel.count() > 0:
+                return
+        except Exception:
+            pass
+        page.locator("a.x-btn").first.click()
+
+    def _wait_for_menu_results(self, items_locator, retries: int = 10, delay_ms: int = 200) -> int:
+        """Poll for menu search results so slow loads don't return zero prematurely."""
+        for _ in range(retries):
+            count = items_locator.count()
+            if count > 0:
+                return count
+            self.page.wait_for_timeout(delay_ms)
+        return items_locator.count()
+
+    def close_active_windows(self, skip_titles=None):
+        """Close any open workspace windows so new screens start fresh."""
+        skip = {title.strip().lower() for title in (skip_titles or [])}
+        while True:
+            window = self._find_workspace_window(skip)
+            if window is None:
+                break
+            title = self._get_window_title(window)
+            print(f"🧹 Closing window: {title or 'Unnamed window'}")
+            if not self._close_window(window):
+                break
+            self.page.wait_for_timeout(200)
+
+    def _find_workspace_window(self, skip_titles):
+        windows = self.page.locator("div.x-window:visible")
+        count = windows.count()
+        for idx in range(count):
+            window = windows.nth(idx)
+            if self._should_skip_window(window, skip_titles):
+                continue
+            return window
+        return None
+
+    def _should_skip_window(self, window: Locator, skip_titles) -> bool:
+        try:
+            win_id = window.get_attribute("id") or ""
+            if win_id.startswith("mps_menu"):
+                return True
+        except Exception:
+            pass
+
+        title = self._get_window_title(window)
+        if not title:
+            return False
+        normalized = title.lower()
+        if normalized == "menu":
+            return True
+        return normalized in skip_titles
+
+    def _get_window_title(self, window: Locator) -> str:
+        try:
+            return window.locator(".x-title-text").first.inner_text().strip()
+        except Exception:
+            return ""
+
+    def _close_window(self, window: Locator) -> bool:
+        for locator in (
+            ".x-tool-close",
+            "a.x-btn:has-text('Close')",
+            "button:has-text('Close')",
+        ):
+            try:
+                window.locator(locator).first.click()
+                window.wait_for(state="hidden", timeout=2000)
+                return True
+            except Exception:
+                continue
+        try:
+            self.page.keyboard.press("Escape")
+            window.wait_for(state="hidden", timeout=1500)
+            return True
+        except Exception:
+            return False
+
+    def _reset_menu_filter(self):
+        """Click the Show All button to reset menu filtering if present."""
+        page = self.page
+        button = page.locator("div.x-window:visible a.x-btn:has-text('Show All')")
+        try:
+            button.wait_for(state="visible", timeout=500)
+            button.click()
+            page.wait_for_timeout(200)
+        except Exception:
+            pass
+
+    def _ensure_menu_closed(self):
+        """Make sure the menu overlay is not blocking the workspace."""
+        page = self.page
+        panel = page.locator("div[id^='mps_menu']:visible")
+        try:
+            if panel.count() == 0:
+                return
+        except Exception:
+            return
+
+        try:
+            panel.first.wait_for(state="hidden", timeout=1500)
+            return
+        except Exception:
+            pass
+
+        # Attempt to close via the close tool or Esc as a fallback
+        try:
+            panel.locator(".x-tool-close").first.click()
+        except Exception:
+            pass
+
+        try:
+            page.keyboard.press("Escape")
+        except Exception:
+            pass
+
+        try:
+            panel.first.wait_for(state="hidden", timeout=1000)
+        except Exception:
+            page.wait_for_timeout(500)
+
+    def _maybe_maximize_rf_window(self, normalized_match: str):
+        """Maximize RF window immediately after launching RF menu."""
+        if "rf menu" not in normalized_match:
+            return
+
+        try:
+            self.page.locator("div.x-window:has-text('RF Menu')").first.wait_for(
+                state="visible", timeout=4000
+            )
+        except Exception:
+            pass
+
+        try:
+            success = safe_page_evaluate(
+                self.page,
+                """
+            () => {
+                const win = Ext.ComponentQuery.query('window[title~="RF"]')[0];
+                if (!win) return false;
+                win.setHeight(window.innerHeight * 0.9);
+                win.center();
+                win.updateLayout();
+                return true;
+            }
+                """,
+                description="NavigationManager._maybe_maximize_rf_window",
+            )
+            if success:
+                print("🪟 RF window maximized from navigation.")
+        except Exception as e:
+            print(f"⚠️ Unable to maximize RF window: {e}")
+
+        try:
+            prev_hash = HashUtils.get_page_hash(self.page)
+        except Exception:
+            prev_hash = None
+
+        try:
+            self.page.keyboard.press("Control+p")
+            if prev_hash:
+                WaitUtils.wait_for_screen_change(lambda: self.page.main_frame, prev_hash)
+            print("⌨️ Sent Control+P to RF window (navigation).")
+        except Exception as e:
+            print(f"⚠️ Unable to trigger Control+P refresh: {e}")
+
+    def _activate_menu_selection(self, item_locator: Locator, use_info_button: bool):
+        """
+        Select the menu entry, preferring the blue info button when requested since
+        some RF-focused menu items only launch via that icon.
+        """
+        if use_info_button and self._click_info_icon(item_locator):
+            return
+
+        item_locator.click()
+
+    def _click_info_icon(self, item_locator: Locator) -> bool:
+        """Try multiple selectors to hit the blue info button within a menu row."""
+        selectors = [
+            "button:has-text('i')",
+            "a:has-text('i')",
+            "[class*='info']",
+            "[data-qtip*='Quick Menu']",
+            "[data-qtip*='Info']",
+        ]
+
+        for sel in selectors:
+            candidate = item_locator.locator(sel).first
+            try:
+                candidate.wait_for(state="visible", timeout=200)
+                candidate.click()
+                return True
+            except Exception:
+                continue
+
+        # Fallback: click near the right edge where the icon normally sits.
+        try:
+            box = item_locator.bounding_box()
+            if not box:
+                return False
+            x = box["x"] + box["width"] - 8
+            y = box["y"] + (box["height"] / 2)
+            self.page.mouse.click(x, y)
+            return True
+        except Exception:
+            return False
