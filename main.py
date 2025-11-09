@@ -65,3 +65,97 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
+🧹 Closing window: RF Menu
+Error in main flow: Locator.click: Timeout 30000ms exceeded.
+Call log:
+  - waiting for locator("a.x-btn").first
+    - locator resolved to <a tabindex="-1" hidefocus="on" id="button-1013" unselectable="on" data-savedtabindex="0" componentid="button-1013" data-tabindexsaved="true" class="x-btn x-unselectable x-box-item x-toolbar-item x-btn-default-toolbar-medium">…</a>
+  - attempting click action
+    2 × waiting for element to be visible, enabled and stable
+      - element is visible, enabled and stable
+      - scrolling into view if needed
+      - done scrolling
+      - <div role="presentation" id="ext-element-86" class="x-mask x-mask-fixed"></div> intercepts pointer events
+    - retrying click action
+    - waiting 20ms
+    2 × waiting for element to be visible, enabled and stable
+      - element is visible, enabled and stable
+      - scrolling into view if needed
+      - done scrolling
+      - <div role="presentation" id="ext-element-86" class="x-mask x-mask-fixed"></div> intercepts pointer events
+    - retrying click action
+      - waiting 100ms
+    56 × waiting for element to be visible, enabled and stable
+       - element is visible, enabled and stable
+       - scrolling into view if needed
+       - done scrolling
+       - <div role="presentation" id="ext-element-86" class="x-mask x-mask-fixed"></div> intercepts pointer events
+     - retrying click action
+       - waiting 500ms
+
+Traceback (most recent call last):
+  File "E:\dnt\chihu\home\vxmsafar\AUTOMATE\main.py", line 55, in main
+    nav_mgr.open_menu_item("RF MENU", "RF Menu (Distribution)")
+    ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\dnt\chihu\home\vxmsafar\AUTOMATE\ui\navigation.py", line 69, in open_menu_item
+    self._open_menu_panel()
+    ~~~~~~~~~~~~~~~~~~~~~^^
+  File "E:\dnt\chihu\home\vxmsafar\AUTOMATE\ui\navigation.py", line 123, in _open_menu_panel
+    page.locator("a.x-btn").first.click()
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "E:\dnt\chihu\home\vxmsafar\AUTOMATE\.venv\Lib\site-packages\playwright\sync_api\_generated.py", line 15543, in click
+    self._sync(
+    ~~~~~~~~~~^
+        self._impl_obj.click(
+        ^^^^^^^^^^^^^^^^^^^^^
+    ...<9 lines>...
+        )
+        ^
+    )
+    ^
+  File "E:\dnt\chihu\home\vxmsafar\AUTOMATE\.venv\Lib\site-packages\playwright\_impl\_sync_base.py", line 115, in _sync
+    return task.result()
+           ~~~~~~~~~~~^^
+  File "E:\dnt\chihu\home\vxmsafar\AUTOMATE\.venv\Lib\site-packages\playwright\_impl\_locator.py", line 160, in click
+    return await self._frame.click(self._selector, strict=True, **params)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\dnt\chihu\home\vxmsafar\AUTOMATE\.venv\Lib\site-packages\playwright\_impl\_frame.py", line 549, in click
+    await self._channel.send("click", self._timeout, locals_to_params(locals()))
+  File "E:\dnt\chihu\home\vxmsafar\AUTOMATE\.venv\Lib\site-packages\playwright\_impl\_connection.py", line 69, in send
+    return await self._connection.wrap_api_call(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<3 lines>...
+    )
+    ^
+  File "E:\dnt\chihu\home\vxmsafar\AUTOMATE\.venv\Lib\site-packages\playwright\_impl\_connection.py", line 558, in wrap_api_call
+    raise rewrite_error(error, f"{parsed_st['apiName']}: {error}") from None
+playwright._impl._errors.TimeoutError: Locator.click: Timeout 30000ms exceeded.
+Call log:
+  - waiting for locator("a.x-btn").first
+    - locator resolved to <a tabindex="-1" hidefocus="on" id="button-1013" unselectable="on" data-savedtabindex="0" componentid="button-1013" data-tabindexsaved="true" class="x-btn x-unselectable x-box-item x-toolbar-item x-btn-default-toolbar-medium">…</a>
+  - attempting click action
+    2 × waiting for element to be visible, enabled and stable
+      - element is visible, enabled and stable
+      - scrolling into view if needed
+      - done scrolling
+      - <div role="presentation" id="ext-element-86" class="x-mask x-mask-fixed"></div> intercepts pointer events
+    - retrying click action
+    - waiting 20ms
+    2 × waiting for element to be visible, enabled and stable
+      - element is visible, enabled and stable
+      - scrolling into view if needed
+      - done scrolling
+      - <div role="presentation" id="ext-element-86" class="x-mask x-mask-fixed"></div> intercepts pointer events
+    - retrying click action
+      - waiting 100ms
+    56 × waiting for element to be visible, enabled and stable
+       - element is visible, enabled and stable
+       - scrolling into view if needed
+       - done scrolling
+       - <div role="presentation" id="ext-element-86" class="x-mask x-mask-fixed"></div> intercepts pointer events
+     - retrying click action
+       - waiting 500ms
+
+
