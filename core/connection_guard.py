@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Optional
+from typing import Callable, Optional, TypeVar
 
 from playwright.sync_api import Frame, Page
 
@@ -9,6 +9,9 @@ from core.screenshot import ScreenshotManager
 
 class ConnectionResetDetected(RuntimeError):
     """Raised when the browser shows the generic connection-reset error page."""
+
+
+T = TypeVar("T")
 
 
 class ConnectionResetGuard:
@@ -34,6 +37,15 @@ class ConnectionResetGuard:
         """Raise immediately if the guard already detected the reset page."""
         if self._reason:
             raise ConnectionResetDetected(self._reason)
+
+    def guard(self, func: Callable[..., T], *args, **kwargs) -> T:
+        """Run `func` and raise immediately if the reset page was seen before or after."""
+        self.ensure_ok()
+        try:
+            result = func(*args, **kwargs)
+        finally:
+            self.ensure_ok()
+        return result
 
     # --- internal helpers -------------------------------------------------
 

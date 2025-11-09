@@ -37,16 +37,17 @@ def main():
         rf_menu = RFMenuManager(page, page_mgr, screenshot_mgr)
         conn_guard = ConnectionResetGuard(page, screenshot_mgr)
 
+        def run_receive_cycle():
+            nav_mgr.open_menu_item("RF MENU", "RF Menu (Distribution)")
+            receive_op = ReceiveOperation(page, page_mgr, screenshot_mgr, rf_menu)
+            receive_op.execute(asn='23907432', item='J105SXC200TR', quantity=1)
 
         try:
             # Login and setup
-            auth_mgr.login(username, password, settings.app.base_url)
-            conn_guard.ensure_ok()
-            nav_mgr.change_warehouse(settings.app.change_warehouse)
-            conn_guard.ensure_ok()
+            conn_guard.guard(auth_mgr.login, username, password, settings.app.base_url)
+            conn_guard.guard(nav_mgr.change_warehouse, settings.app.change_warehouse)
 
             while 1:
-                conn_guard.ensure_ok()
                 # # Launch Post Message screen oh
                 # nav_mgr.open_menu_item("POST", "Post Message (Integration)")
                 # # Send the payload with a built-in retry before moving on
@@ -57,11 +58,7 @@ def main():
                 # if not success:
                 #     print("⚠️ Post Message failed; continuing with the remaining flow.")
 
-                nav_mgr.open_menu_item("RF MENU", "RF Menu (Distribution)")
-                conn_guard.ensure_ok()
-                receive_op = ReceiveOperation(page, page_mgr, screenshot_mgr, rf_menu)
-                receive_op.execute(asn='23907432', item='J105SXC200TR', quantity=1)
-                conn_guard.ensure_ok()
+                conn_guard.guard(run_receive_cycle)
 
             input("Press Enter to exit...")
         except ConnectionResetDetected as e:
@@ -74,5 +71,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-
