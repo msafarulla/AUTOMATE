@@ -1,3 +1,4 @@
+import time
 from playwright.sync_api import Locator, Page
 from core.screenshot import ScreenshotManager
 from utils.hash_utils import HashUtils
@@ -120,7 +121,32 @@ class NavigationManager:
                 return
         except Exception:
             pass
+        self._wait_for_mask_to_clear()
         page.locator("a.x-btn").first.click()
+        self._wait_for_mask_to_clear(timeout_ms=2000)
+
+    def _wait_for_mask_to_clear(self, timeout_ms: int = 4000, poll_ms: int = 150):
+        """Pause while ExtJS masks intercept pointer events."""
+        page = self.page
+        mask = page.locator("div.x-mask:visible")
+        deadline = time.time() + (timeout_ms / 1000)
+        notified = False
+        while True:
+            try:
+                if mask.count() == 0:
+                    return
+            except Exception:
+                return
+
+            if not notified:
+                print("⏳ Waiting for blocking mask to clear...")
+                notified = True
+
+            if time.time() >= deadline:
+                print("⚠️ Mask still present; continuing anyway.")
+                return
+
+            page.wait_for_timeout(poll_ms)
 
     def _wait_for_menu_results(self, items_locator, retries: int = 10, delay_ms: int = 200) -> int:
         """Poll for menu search results so slow loads don't return zero prematurely."""
