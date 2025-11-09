@@ -66,6 +66,8 @@ class BrowserConfig:
     headless: bool = not True
     device_scale_factor: float = field(default_factory=get_scale_factor)
     screenshot_dir: str = "screenshots"
+    screenshot_format: str = "jpeg"
+    screenshot_quality: int = 70
 
 
 

@@ -1,16 +1,23 @@
 import os
 from datetime import datetime
 from pathlib import Path
-from typing import Callable, Optional
+from typing import Callable, Optional, Any
 from playwright.sync_api import Page, Frame
 from utils.eval_utils import safe_page_evaluate, safe_locator_evaluate, PageUnavailableError
 
 
 class ScreenshotManager:
-    def __init__(self, output_dir: str = "screenshots"):
+    def __init__(self, output_dir: str = "screenshots", image_format: str = "png", image_quality: Optional[int] = None):
         self.output_dir = Path(output_dir)
         self.output_dir.mkdir(exist_ok=True)
         self.sequence = 0
+        fmt = (image_format or "png").lower()
+        if fmt == "jpg":
+            fmt = "jpeg"
+        if fmt not in {"png", "jpeg"}:
+            raise ValueError(f"Unsupported screenshot format: {image_format}")
+        self.image_format = fmt
+        self.image_quality = image_quality if (fmt == "jpeg" and image_quality is not None) else None
         self._rf_pre_capture_hook: Optional[Callable[[], None]] = None
         self._rf_post_capture_hook: Optional[Callable[[], None]] = None
 
@@ -24,7 +31,7 @@ class ScreenshotManager:
     def capture(self, page: Page, label: str, overlay_text: str = None):
         """Capture full page screenshot"""
         self.sequence += 1
-        filename = self.output_dir / f"{self.sequence:03d}_{label}.png"
+        filename = self._build_filename(label)
         overlay_added = False
         timestamp_added = False
 
@@ -39,7 +46,7 @@ class ScreenshotManager:
             except PageUnavailableError:
                 print("⚠️ Page unavailable while decorating screenshot; continuing without overlays.")
 
-            page.screenshot(path=str(filename))
+            page.screenshot(**self._screenshot_kwargs(filename))
         except PageUnavailableError:
             print("⚠️ Unable to capture screenshot because the page/context closed.")
             return None
@@ -61,7 +68,7 @@ class ScreenshotManager:
     def capture_rf_window(self, page: Page, label: str, overlay_text: str = None):
         """Capture RF Menu window screenshot"""
         self.sequence += 1
-        filename = self.output_dir / f"{self.sequence:03d}_{label}.png"
+        filename = self._build_filename(label)
         overlay_added = False
         timestamp_added = False
 
@@ -84,7 +91,7 @@ class ScreenshotManager:
             except PageUnavailableError:
                 print("⚠️ RF window decorations skipped because the page/context closed.")
 
-            target.screenshot(path=str(filename))
+            target.screenshot(**self._screenshot_kwargs(filename))
         except PageUnavailableError:
             print("⚠️ Unable to capture RF window because the page/context closed.")
             return None
@@ -92,7 +99,7 @@ class ScreenshotManager:
             print(f"Failed to capture RF window: {e}")
             self._add_timestamp(page)
             timestamp_added = True
-            page.screenshot(path=str(filename))
+            page.screenshot(**self._screenshot_kwargs(filename))
         finally:
             if overlay_added:
                 try:
@@ -108,6 +115,16 @@ class ScreenshotManager:
 
         print(f"📸 RF Screenshot saved: {filename}")
         return filename
+
+    def _build_filename(self, label: str) -> Path:
+        suffix = ".jpg" if self.image_format == "jpeg" else ".png"
+        return self.output_dir / f"{self.sequence:03d}_{label}{suffix}"
+
+    def _screenshot_kwargs(self, filename: Path) -> dict[str, Any]:
+        kwargs: dict[str, Any] = {"path": str(filename), "type": self.image_format}
+        if self.image_quality is not None:
+            kwargs["quality"] = self.image_quality
+        return kwargs
 
     def _run_rf_hook(self, hook: Optional[Callable[[], None]]):
         if not hook:

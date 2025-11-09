@@ -24,7 +24,11 @@ def main():
         page = browser_mgr.new_page()
 
         # Initialize managers
-        screenshot_mgr = ScreenshotManager(settings.browser.screenshot_dir)
+        screenshot_mgr = ScreenshotManager(
+            settings.browser.screenshot_dir,
+            image_format=settings.browser.screenshot_format,
+            image_quality=settings.browser.screenshot_quality,
+        )
         page_mgr = PageManager(page)
         auth_mgr = AuthManager(page, screenshot_mgr)
         nav_mgr = NavigationManager(page, screenshot_mgr)
