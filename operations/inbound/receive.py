@@ -44,6 +44,7 @@ class ReceiveOperation(BaseOperation):
         rf_iframe = self.rf_menu.get_iframe()
         item_input = rf_iframe.locator("input#verfiyItemBrcd")
         item_input.wait_for(state="visible", timeout=1500)
+        self.item_name = item
         item_input.fill(item)
         self.screenshot_mgr.capture_rf_window(self.page, f"item_{item}", f"Scanned Item {item}")
         prev_hash = HashUtils.get_frame_hash(rf_iframe)
@@ -56,7 +57,7 @@ class ReceiveOperation(BaseOperation):
         qty_input = rf_iframe.locator("input#input1input2")
         qty_input.wait_for(state="visible", timeout=1000)
         qty_input.fill(str(qty))
-        self.screenshot_mgr.capture_rf_window(self.page, f"qty_{qty}", f"Entered {qty} Units")
+        self.screenshot_mgr.capture_rf_window(self.page, f"Entered SKU {self.item_name}, {qty} {'Units' if qty >1 else 'Unit'}", f"Entered {qty} {'Units' if qty >1 else 'Unit'}")
         prev_hash = HashUtils.get_frame_hash(rf_iframe)
         qty_input.press("Enter")
         WaitUtils.wait_for_screen_change(self.rf_menu.get_iframe, prev_hash)
