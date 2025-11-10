@@ -133,7 +133,11 @@ class RFMenuManager:
         for attempt in range(1, max_attempts + 1):
             prev_hash = HashUtils.get_frame_hash(rf_iframe)
             self.page.keyboard.press("Control+p")
-            WaitUtils.wait_for_screen_change(self.get_iframe, prev_hash)
+            WaitUtils.wait_for_screen_change(
+                self.get_iframe,
+                prev_hash,
+                timeout_ms=9000,
+            )
             if self._home_menu_has_hash(rf_iframe):
                 if attempt > 1:
                     print(f"🔁 Control+P succeeded on attempt {attempt}.")
