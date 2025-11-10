@@ -68,7 +68,7 @@ def main():
 
         try:
             # Login and setup
-            # conn_guard.guard(auth_mgr.login, username, password, settings.app.base_url)
+            conn_guard.guard(auth_mgr.login, username, password, settings.app.base_url)
             conn_guard.guard(nav_mgr.change_warehouse, settings.app.change_warehouse)
 
             # Choose which version to use:
@@ -77,7 +77,7 @@ def main():
 
             # Option 2: Use new refactored version (recommended!)
             while 1:
-                conn_guard.guard(run_post_cycle)
+                # conn_guard.guard(run_post_cycle)
                 conn_guard.guard(run_receive_cycle_new)
 
             print("✅ Operation completed successfully!")
