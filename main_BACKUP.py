@@ -1,10 +1,4 @@
-"""
-Updated main.py showing how to use both old and new operations side-by-side.
-
-You can gradually migrate operations one at a time without breaking anything!
-"""
-from operations.inbound.receive import ReceiveOperation  # Old version
-from operations.inbound.receive_refactored import ReceiveOperationRefactored  # New version
+from operations.inbound.receive import ReceiveOperation
 from ui.rf_menu import RFMenuManager
 from DB import DB
 from config.settings import Settings
@@ -43,16 +37,9 @@ def main():
         rf_menu = RFMenuManager(page, page_mgr, screenshot_mgr)
         conn_guard = ConnectionResetGuard(page, screenshot_mgr)
 
-        def run_receive_cycle_old():
-            """Use the OLD receive operation (still works!)"""
+        def run_receive_cycle():
             nav_mgr.open_menu_item("RF MENU", "RF Menu (Distribution)")
             receive_op = ReceiveOperation(page, page_mgr, screenshot_mgr, rf_menu)
-            receive_op.execute(asn='23907432', item='J105SXC200TR', quantity=1)
-
-        def run_receive_cycle_new():
-            """Use the NEW refactored receive operation (much cleaner!)"""
-            nav_mgr.open_menu_item("RF MENU", "RF Menu (Distribution)")
-            receive_op = ReceiveOperationRefactored(page, page_mgr, screenshot_mgr, rf_menu)
             receive_op.execute(asn='23907432', item='J105SXC200TR', quantity=1)
 
         try:
@@ -60,16 +47,20 @@ def main():
             conn_guard.guard(auth_mgr.login, username, password, settings.app.base_url)
             conn_guard.guard(nav_mgr.change_warehouse, settings.app.change_warehouse)
 
-            # Choose which version to use:
-            # Option 1: Use old version (still works)
-            # conn_guard.guard(run_receive_cycle_old)
+            while 1:
+                # # Launch Post Message screen oh
+                # nav_mgr.open_menu_item("POST", "Post Message (Integration)")
+                # # Send the payload with a built-in retry before moving on
+                # success, response_info = post_message_mgr.send_message(settings.app.post_message_text)
+                # print(f"Response summary: {response_info['summary']}")
+                # if response_info.get("payload"):
+                #     print(f"Response payload: {response_info['payload']}")
+                # if not success:
+                #     print("⚠️ Post Message failed; continuing with the remaining flow.")
 
-            # Option 2: Use new refactored version (recommended!)
-            conn_guard.guard(run_receive_cycle_new)
+                conn_guard.guard(run_receive_cycle)
 
-            print("✅ Operation completed successfully!")
             input("Press Enter to exit...")
-
         except ConnectionResetDetected as e:
             print(f"❌ Halting run: {e}")
         except Exception as e:
