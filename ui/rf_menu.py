@@ -94,12 +94,12 @@ class RFMenuManager:
 
             if re.search(r"(?i)info", visible_text):
                 message = f"Info: {visible_text}"
-                self._capture_response_screen("info", message)
+                self._capture_response_screen(message)
                 return False, message
 
             if re.search(r"(?i)error|invalid", visible_text):
                 message = f"Error: {visible_text}"
-                self._capture_response_screen("error", message)
+                self._capture_response_screen(message)
                 return True, message
 
             return False, None
@@ -119,11 +119,10 @@ class RFMenuManager:
         self.page.keyboard.press("Control+a")
         WaitUtils.wait_for_screen_change(self.get_iframe, prev_hash)
 
-        self.screenshot_mgr.capture_rf_window(self.page, "after_accept",
-                                              "Accepted/Proceeded")
+        self.screenshot_mgr.capture_rf_window(self.page, "after_accept","Accepted/Proceeded")
         return True
 
-    def _display_tran_id_via_ctrl_p(self, rf_iframe: Frame, max_attempts: int = 3):
+    def _display_tran_id_via_ctrl_p(self, rf_iframe: Frame, max_attempts: int = 5):
         """Send Control+P until the RF home list shows the tran_id hash marker."""
         for attempt in range(1, max_attempts + 1):
             prev_hash = HashUtils.get_frame_hash(rf_iframe)
@@ -146,12 +145,12 @@ class RFMenuManager:
         hash_index = text.find('#')
         return hash_index != -1
 
-    def _capture_response_screen(self, kind: str, message: str):
-        label = f"{kind}_{self._slugify_for_filename(message)}"
+    def _capture_response_screen(self, message: str):
+        label = f"{self._slugify_for_filename(message)}"
         overlay_text = message[:120]
         self.screenshot_mgr.capture_rf_window(self.page, label, overlay_text)
 
-    def _slugify_for_filename(self, text: str, max_len: int = 40) -> str:
+    def _slugify_for_filename(self, text: str, max_len: int = 70) -> str:
         slug = re.sub(r"[^A-Za-z0-9]+", "_", text).strip("_")
         if not slug:
             slug = "response"
