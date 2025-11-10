@@ -63,7 +63,7 @@ _SCREEN_WIDTH, _SCREEN_HEIGHT = get_screen_size_safe()
 class BrowserConfig:
     width: int = field(default_factory=lambda: _SCREEN_WIDTH)
     height: int = field(default_factory=lambda: _SCREEN_HEIGHT)
-    headless: bool = True
+    headless: bool = not True
     device_scale_factor: float = field(default_factory=get_scale_factor)
     screenshot_dir: str = "screenshots"
     screenshot_format: str = "jpeg"

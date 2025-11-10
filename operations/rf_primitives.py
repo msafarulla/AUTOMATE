@@ -18,10 +18,10 @@ class RFPrimitives:
     """
 
     def __init__(
-            self,
-            page: Page,
-            get_iframe_func: Callable[[], Frame],
-            screenshot_mgr: ScreenshotManager
+        self,
+        page: Page,
+        get_iframe_func: Callable[[], Frame],
+        screenshot_mgr: ScreenshotManager
     ):
         """
         Args:
@@ -38,14 +38,14 @@ class RFPrimitives:
     # ========================================================================
 
     def fill_and_submit(
-            self,
-            selector: str,
-            value: str,
-            screenshot_label: str,
-            screenshot_text: Optional[str] = None,
-            wait_for_change: bool = True,
-            check_errors: bool = True,
-            timeout: int = 2000
+        self,
+        selector: str,
+        value: str,
+        screenshot_label: str,
+        screenshot_text: Optional[str] = None,
+        wait_for_change: bool = True,
+        check_errors: bool = True,
+        timeout: int = 2000
     ) -> tuple[bool, Optional[str]]:
         """
         Core primitive: Fill an input field and press Enter.
@@ -95,7 +95,10 @@ class RFPrimitives:
 
         # Check for errors
         if check_errors:
-            return self._check_for_errors()
+            has_error, msg = self._check_for_errors()
+            if has_error:
+                print(f"❌ Operation failed with error: {msg[:150] if msg else 'Unknown error'}")
+            return has_error, msg
 
         return False, None
 
@@ -104,10 +107,10 @@ class RFPrimitives:
     # ========================================================================
 
     def read_field(
-            self,
-            selector: str,
-            timeout: int = 5000,
-            transform: Optional[Callable[[str], str]] = None
+        self,
+        selector: str,
+        timeout: int = 5000,
+        transform: Optional[Callable[[str], str]] = None
     ) -> str:
         """
         Read a value from the screen.
@@ -139,10 +142,10 @@ class RFPrimitives:
     # ========================================================================
 
     def select_menu_option(
-            self,
-            choice: str,
-            label: str,
-            timeout: int = 1000
+        self,
+        choice: str,
+        label: str,
+        timeout: int = 1000
     ) -> tuple[bool, Optional[str]]:
         """
         Select a menu option by number (like pressing "1" for Inbound).
@@ -171,11 +174,11 @@ class RFPrimitives:
     # ========================================================================
 
     def press_key(
-            self,
-            key: str,
-            screenshot_label: str,
-            screenshot_text: Optional[str] = None,
-            wait_for_change: bool = True
+        self,
+        key: str,
+        screenshot_label: str,
+        screenshot_text: Optional[str] = None,
+        wait_for_change: bool = True
     ):
         """
         Press a keyboard shortcut (Ctrl+B, Ctrl+A, etc.).
@@ -213,6 +216,18 @@ class RFPrimitives:
         """Accept/proceed from info or error screen (Ctrl+A)."""
         self.press_key("Control+a", "accepted_message", "Accepted/Proceeded")
 
+    def handle_error_and_continue(self) -> bool:
+        """
+        Check for error/info, take screenshot, accept it, and continue.
+        Returns True if there was an error, False otherwise.
+        """
+        has_error, msg = self._check_for_errors()
+        if msg:  # If there's any message (error or info)
+            print(f"{'❌ Error' if has_error else 'ℹ️ Info'}: {msg[:100]}")
+            self.accept_message()
+            return has_error
+        return False
+
     # ========================================================================
     # HELPER: Error checking
     # ========================================================================
@@ -228,26 +243,35 @@ class RFPrimitives:
             rf_iframe = self.get_iframe()
             self.page.wait_for_timeout(500)
 
-            visible_text = rf_iframe.locator("body").inner_text().strip()[:100]
-            visible_text_lower = visible_text.lower()
+            # Get full text and normalize whitespace/newlines
+            visible_text = rf_iframe.locator("body").inner_text().strip()
+            # Replace newlines and multiple spaces with single space
+            import re
+            visible_text_normalized = re.sub(r'\s+', ' ', visible_text)
+            visible_text_lower = visible_text_normalized.lower()
 
-            # Check for errors
+            # Check for errors (case insensitive)
             if "error" in visible_text_lower or "invalid" in visible_text_lower:
+                # Create clean label for filename (remove special chars)
+                label = re.sub(r'[^A-Za-z0-9]+', '_', visible_text_normalized[:50])
                 self.screenshot_mgr.capture_rf_window(
                     self.page,
-                    f"error_{visible_text[:30]}",
-                    f"Error: {visible_text[:60]}"
+                    f"error_{label}",
+                    f"Error: {visible_text_normalized[:80]}"
                 )
-                return True, visible_text
+                print(f"❌ Error detected: {visible_text_normalized[:100]}")
+                return True, visible_text_normalized
 
             # Check for info/warnings (not errors)
             if "info" in visible_text_lower or "warning" in visible_text_lower:
+                label = re.sub(r'[^A-Za-z0-9]+', '_', visible_text_normalized[:50])
                 self.screenshot_mgr.capture_rf_window(
                     self.page,
-                    f"info_{visible_text[:30]}",
-                    f"Info: {visible_text[:60]}"
+                    f"info_{label}",
+                    f"Info: {visible_text_normalized[:80]}"
                 )
-                return False, visible_text
+                print(f"ℹ️ Info message: {visible_text_normalized[:100]}")
+                return False, visible_text_normalized
 
         except Exception as e:
             print(f"⚠️ Error checking failed: {e}")
@@ -293,11 +317,12 @@ class RFWorkflows:
                 raise RuntimeError(f"Navigation failed at {label}: {msg}")
 
     def scan_barcode(
-            self,
-            selector: str,
-            value: str,
-            label: str,
-            timeout: int = 2000
+        self,
+        selector: str,
+        value: str,
+        label: str,
+        timeout: int = 2000,
+        auto_accept_errors: bool = False
     ) -> tuple[bool, Optional[str]]:
         """
         Simulate scanning a barcode (fill input and submit).
@@ -309,6 +334,7 @@ class RFWorkflows:
             value: Barcode value to scan
             label: Label for what's being scanned (e.g., "ASN", "Item")
             timeout: How long to wait for the field
+            auto_accept_errors: If True, automatically press Ctrl+A on errors/info
 
         Returns:
             (has_error, error_message)
@@ -316,7 +342,7 @@ class RFWorkflows:
         Example:
             workflows.scan_barcode("input#shipinpId", "12345", "ASN")
         """
-        return self.rf.fill_and_submit(
+        has_error, msg = self.rf.fill_and_submit(
             selector=selector,
             value=value,
             screenshot_label=f"scan_{label}_{value}",
@@ -324,12 +350,18 @@ class RFWorkflows:
             timeout=timeout
         )
 
+        # Auto-accept if requested
+        if auto_accept_errors and msg:
+            self.rf.accept_message()
+
+        return has_error, msg
+
     def enter_quantity(
-            self,
-            selector: str,
-            qty: int,
-            item_name: str = "",
-            timeout: int = 1000
+        self,
+        selector: str,
+        qty: int,
+        item_name: str = "",
+        timeout: int = 1000
     ) -> bool:
         """
         Enter a quantity value.
@@ -360,10 +392,10 @@ class RFWorkflows:
         return not has_error
 
     def confirm_location(
-            self,
-            selector: str,
-            location: str,
-            timeout: int = 3000
+        self,
+        selector: str,
+        location: str,
+        timeout: int = 3000
     ) -> tuple[bool, Optional[str]]:
         """
         Confirm a putaway/destination location.

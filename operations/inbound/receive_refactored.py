@@ -39,13 +39,22 @@ class ReceiveOperationRefactored(BaseOperation):
         ])
 
         # Scan ASN (1 line instead of 8!)
-        workflows.scan_barcode("input#shipinpId", asn, "ASN")
+        has_error, msg = workflows.scan_barcode("input#shipinpId", asn, "ASN")
+        if has_error:
+            print(f"❌ ASN scan failed: {msg}")
+            return False
 
         # Scan item (1 line instead of 8!)
-        workflows.scan_barcode("input#verfiyItemBrcd", item, "Item")
+        has_error, msg = workflows.scan_barcode("input#verfiyItemBrcd", item, "Item")
+        if has_error:
+            print(f"❌ Item scan failed: {msg}")
+            return False
 
         # Enter quantity (1 line instead of 8!)
         success = workflows.enter_quantity("input#input1input2", quantity, item)
+        if not success:
+            print(f"❌ Quantity entry failed")
+            return False
 
         if success:
             # Read suggested location (1 line instead of 5!)
