@@ -22,8 +22,7 @@ class RFPrimitives:
         page: Page,
         get_iframe_func: Callable[[], Frame],
         screenshot_mgr: ScreenshotManager,
-        reset_to_home: Optional[Callable[[], None]] = None,
-        ensure_tran_id: Optional[Callable[[], None]] = None
+        reset_to_home: Optional[Callable[[], None]] = None
     ):
         """
         Args:
@@ -35,7 +34,6 @@ class RFPrimitives:
         self.get_iframe = get_iframe_func
         self.screenshot_mgr = screenshot_mgr
         self._reset_to_home = reset_to_home
-        self._ensure_tran_id = ensure_tran_id
 
     # ========================================================================
     # PRIMITIVE 1: Fill input field and submit
@@ -221,10 +219,7 @@ class RFPrimitives:
 
     def ensure_tran_id_marker(self):
         """Ensure the tran id marker is visible on the RF home screen."""
-        if self._ensure_tran_id:
-            self._ensure_tran_id()
-            return
-        # Fallback: best-effort single Ctrl+P without hash validation
+        # Best-effort single Ctrl+P without hash validation
         self.press_key("Control+p", "rf_tran_marker", "Show tran id", wait_for_change=False)
 
     def accept_message(self):
@@ -457,8 +452,7 @@ class RFMenuIntegration:
             page=rf_menu_manager.page,
             get_iframe_func=rf_menu_manager.get_iframe,
             screenshot_mgr=rf_menu_manager.screenshot_mgr,
-            reset_to_home=rf_menu_manager.reset_to_home,
-            ensure_tran_id=rf_menu_manager.ensure_tran_id_marker
+            reset_to_home=rf_menu_manager.reset_to_home
         )
 
         # Create workflows

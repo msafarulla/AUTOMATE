@@ -45,7 +45,7 @@ class RFMenuManager:
             prev_hash,
             warn_on_timeout=False,
         )
-        self.ensure_tran_id_marker(rf_iframe)
+        self._display_tran_id_via_ctrl_p(rf_iframe)
         self.screenshot_mgr.capture_rf_window(self.page, "RF_HOME", "RF Home")
 
 
@@ -145,8 +145,7 @@ class RFMenuManager:
                 if attempt > 1:
                     print(f"🔁 Control+P succeeded on attempt {attempt}.")
                 return
-
-        print("⚠️ RF home menu never showed # marker after Control+P attempts.")
+        print("⚠️ RF home menu never showed # marker after Control+P attempts.") #what to do if so? todo
 
     def _home_menu_has_hash(self, rf_iframe: Frame) -> bool:
         try:
