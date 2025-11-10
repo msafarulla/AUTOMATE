@@ -310,21 +310,6 @@ class NavigationManager:
         except Exception as e:
             print(f"⚠️ Unable to maximize RF window: {e}")
 
-        try:
-            prev_hash = HashUtils.get_page_hash(self.page)
-        except Exception:
-            prev_hash = None
-
-        try:
-            self.page.keyboard.press("Control+p")
-            if prev_hash:
-                WaitUtils.wait_for_screen_change(
-                    lambda: self.page.main_frame,
-                    prev_hash
-                )
-            print("⌨️ Sent Control+P to RF window (navigation).")
-        except Exception as e:
-            print(f"⚠️ Unable to trigger Control+P refresh: {e}")
 
     def _maybe_center_post_message_window(self, normalized_match: str):
         """Pin the Post Message window near the top-center so it does not cascade down."""
