@@ -1,5 +1,4 @@
 from playwright.sync_api import Page, Frame
-from typing import Optional
 from core.page_manager import PageManager
 from core.screenshot import ScreenshotManager
 from utils.hash_utils import HashUtils
@@ -110,7 +109,7 @@ class RFMenuManager:
     def accept_proceed(self, rf_iframe: Frame = None) -> bool:
         """Press Ctrl+A to accept/proceed"""
         if rf_iframe is None:
-            rf_iframe = self.get_iframe()  # grab fresh frame in case RF iframe was recreated
+            rf_iframe = self.get_iframe()
 
         self.page.wait_for_timeout(500)
         if rf_iframe.locator("div.error").count() == 0:
@@ -123,16 +122,12 @@ class RFMenuManager:
         self.screenshot_mgr.capture_rf_window(self.page, "after_accept","Accepted/Proceeded")
         return True
 
-    def _display_tran_id_via_ctrl_p(self, rf_iframe: Optional[Frame] = None, max_attempts: int = 5):
+    def _display_tran_id_via_ctrl_p(self, rf_iframe: Frame, max_attempts: int = 5):
         """Send Control+P until the RF home list shows the tran_id hash marker."""
-        if rf_iframe is None:
-            rf_iframe = self.get_iframe()
-
         for attempt in range(1, max_attempts + 1):
-            prev_hash = self._safe_frame_hash(rf_iframe)
+            prev_hash = HashUtils.get_frame_hash(rf_iframe)
             self.page.keyboard.press("Control+p")
             WaitUtils.wait_for_screen_change(self.get_iframe, prev_hash)
-            rf_iframe = self._ensure_live_rf_frame(rf_iframe)
             if self._home_menu_has_hash(rf_iframe):
                 if attempt > 1:
                     print(f"🔁 Control+P succeeded on attempt {attempt}.")
@@ -149,25 +144,6 @@ class RFMenuManager:
             return False
         hash_index = text.find('#')
         return hash_index != -1
-
-    def _safe_frame_hash(self, rf_iframe: Frame) -> str:
-        """Return a hash for the provided frame, refreshing the handle if it detached."""
-        try:
-            return HashUtils.get_frame_hash(rf_iframe)
-        except Exception:
-            rf_iframe = self._ensure_live_rf_frame(rf_iframe)
-            return HashUtils.get_frame_hash(rf_iframe)
-
-    def _ensure_live_rf_frame(self, rf_iframe: Optional[Frame]) -> Frame:
-        """Return the provided frame if still live, otherwise reacquire."""
-        if rf_iframe:
-            try:
-                # Playwright raises if the frame is detached; touching a locator is sufficient.
-                rf_iframe.locator("body")
-                return rf_iframe
-            except Exception:
-                pass
-        return self.get_iframe()
 
     def _capture_response_screen(self, message: str):
         label = f"{self._slugify_for_filename(message)}"
