@@ -104,6 +104,72 @@ class RFPrimitives:
 
         return False, None
 
+    def fill_field(
+        self,
+        selector: str,
+        value: str,
+        screenshot_label: str,
+        screenshot_text: Optional[str] = None,
+        timeout: int = 2000
+    ):
+        """
+        Fill an input field without submitting. Useful when multiple fields
+        need values before pressing Enter once.
+        """
+        rf_iframe = self.get_iframe()
+
+        input_field = rf_iframe.locator(selector).first
+        input_field.wait_for(state="visible", timeout=timeout)
+        input_field.fill(value)
+
+        screenshot_text = screenshot_text or f"Filled {value}"
+        self.screenshot_mgr.capture_rf_window(
+            self.page,
+            screenshot_label,
+            screenshot_text
+        )
+
+        return input_field
+
+    def submit_current_input(
+        self,
+        screenshot_label: str,
+        screenshot_text: Optional[str] = None,
+        wait_for_change: bool = True,
+        check_errors: bool = True,
+        timeout: int = 2000
+    ) -> tuple[bool, Optional[str]]:
+        """
+        Press Enter on whichever RF input currently has focus.
+
+        Useful when multiple fields were filled individually and now need
+        to be submitted together (e.g., quantity + license plate).
+        """
+        rf_iframe = self.get_iframe()
+        focused_input = rf_iframe.locator(":focus")
+        focused_input.wait_for(state="visible", timeout=timeout)
+
+        screenshot_text = screenshot_text or "Submitted focused input"
+        self.screenshot_mgr.capture_rf_window(
+            self.page,
+            screenshot_label,
+            screenshot_text
+        )
+
+        prev_hash = HashUtils.get_frame_hash(rf_iframe) if wait_for_change else None
+        focused_input.press("Enter")
+
+        if wait_for_change:
+            WaitUtils.wait_for_screen_change(self.get_iframe, prev_hash)
+
+        if check_errors:
+            has_error, msg = self._check_for_errors()
+            if has_error:
+                print(f"❌ Operation failed with error: {msg[:150] if msg else 'Unknown error'}")
+            return has_error, msg
+
+        return False, None
+
     # ========================================================================
     # PRIMITIVE 2: Read a field value
     # ========================================================================
@@ -331,6 +397,40 @@ class RFWorkflows:
         selector: str,
         value: str,
         label: str,
+        timeout: int = 2000
+    ) -> tuple[bool, Optional[str]]:
+        """
+        Fill a barcode field without pressing Enter.
+
+        Use this when the current screen requires multiple inputs before
+        submitting. Call scan_barcode_auto_enter if the value should be
+        entered and submitted immediately, or call press_enter
+        after filling all required fields.
+
+        Args:
+            selector: CSS selector for the input field
+            value: Barcode value to scan
+            label: Label for what's being scanned (e.g., "ASN", "Item")
+            timeout: How long to wait for the field
+
+        Returns:
+            (False, None) so it can be composed with press_enter
+        """
+        self.rf.fill_field(
+            selector=selector,
+            value=value,
+            screenshot_label=f"scan_{label}_{value}",
+            screenshot_text=f"Scanned {label}: {value}",
+            timeout=timeout
+        )
+
+        return False, None
+
+    def scan_barcode_auto_enter(
+        self,
+        selector: str,
+        value: str,
+        label: str,
         timeout: int = 2000,
         auto_accept_errors: bool = False
     ) -> tuple[bool, Optional[str]]:
@@ -350,7 +450,7 @@ class RFWorkflows:
             (has_error, error_message)
 
         Example:
-            workflows.scan_barcode("input#shipinpId", "12345", "ASN")
+            workflows.scan_barcode_auto_enter("input#shipinpId", "12345", "ASN")
         """
         has_error, msg = self.rf.fill_and_submit(
             selector=selector,
@@ -361,6 +461,28 @@ class RFWorkflows:
         )
 
         # Auto-accept if requested
+        if auto_accept_errors and msg:
+            self.rf.accept_message()
+
+        return has_error, msg
+
+    def press_enter(
+        self,
+        label: str,
+        wait_for_change: bool = True,
+        auto_accept_errors: bool = False,
+        timeout: int = 2000
+    ) -> tuple[bool, Optional[str]]:
+        """
+        Press Enter on the currently focused RF input (typically after multiple scan_barcode calls).
+        """
+        has_error, msg = self.rf.submit_current_input(
+            screenshot_label=f"press_enter_{label}",
+            screenshot_text=f"Pressed Enter ({label})",
+            wait_for_change=wait_for_change,
+            timeout=timeout
+        )
+
         if auto_accept_errors and msg:
             self.rf.accept_message()
 

@@ -39,13 +39,13 @@ class ReceiveOperationRefactored(BaseOperation):
         ])
 
         # Scan ASN (1 line instead of 8!)
-        has_error, msg = workflows.scan_barcode("input#shipinpId", asn, "ASN")
+        has_error, msg = workflows.scan_barcode_auto_enter("input#shipinpId", asn, "ASN")
         if has_error:
             print(f"❌ ASN scan failed: {msg}")
             return False
 
         # Scan item (1 line instead of 8!)
-        has_error, msg = workflows.scan_barcode("input#verfiyItemBrcd", item, "Item")
+        has_error, msg = workflows.scan_barcode_auto_enter("input#verfiyItemBrcd", item, "Item")
         if has_error:
             print(f"❌ Item scan failed: {msg}")
             return False
@@ -118,8 +118,8 @@ Total: ~30 lines of repetitive code
 NEW CODE (using primitives):
 -----------------------------
 
-workflows.scan_barcode("input#shipinpId", asn, "ASN")
-workflows.scan_barcode("input#verfiyItemBrcd", item, "Item")
+workflows.scan_barcode_auto_enter("input#shipinpId", asn, "ASN")
+workflows.scan_barcode_auto_enter("input#verfiyItemBrcd", item, "Item")
 success = workflows.enter_quantity("input#input1input2", quantity, item)
 
 Total: 3 lines!
