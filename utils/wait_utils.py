@@ -13,7 +13,7 @@ class WaitUtils:
     def wait_for_screen_change(
             frame_or_provider: Union[Frame, FrameProvider],
             prev_hash: str,
-            timeout_ms: int = 5000,
+            timeout_ms: int = 25000,
             check_interval_ms: int = 200,
             warn_on_timeout: bool = True,
     ) -> bool:
