@@ -47,7 +47,7 @@ class NavigationManager:
                                     f"Changed to {warehouse}")
         print(f"✅ Changed warehouse to {warehouse}")
 
-    def open_menu_item(self, search_term: str, match_text: str) -> bool:
+    def open_menu_item(self, search_term: str, match_text: str, max_attempt: int = 10) -> bool:
         """
         Opens a specific menu item by typing into the search box
         and selecting the item whose text matches exactly (after normalization).
@@ -63,7 +63,7 @@ class NavigationManager:
         page = self.page
         normalized_match = normalize_text(match_text)
 
-        for attempt in range(2):
+        for attempt in range(max_attempt):
             self.close_active_windows()
             page.wait_for_timeout(500)
 
@@ -107,6 +107,7 @@ class NavigationManager:
 
                     self._ensure_menu_closed()
                     self._maybe_maximize_rf_window(normalized_match)
+                    self._maybe_center_post_message_window(normalized_match)
                     page.wait_for_timeout(500)
                     return True
                 else:
@@ -321,6 +322,27 @@ class NavigationManager:
         except Exception as e:
             print(f"⚠️ Unable to trigger Control+P refresh: {e}")
 
+    def _maybe_center_post_message_window(self, normalized_match: str):
+        """Pin the Post Message window near the top-center so it does not cascade down."""
+        if "post message" not in normalized_match:
+            return
+
+        for attempt in range(8):
+            success = self._reposition_ext_window(
+                selector='window[title*="Post Message"]',
+                offset_top_ratio=0.05,
+                fallback_width=640,
+                label="Post Message",
+            )
+            if success:
+                if attempt:
+                    print(f"🪟 Post Message window centered after retry {attempt + 1}.")
+                else:
+                    print("🪟 Post Message window centered near top.")
+                return
+            self.page.wait_for_timeout(200)
+        print("⚠️ Post Message window never appeared for centering.")
+
     def _activate_menu_selection(self, item_locator: Locator, use_info_button: bool):
         """
         Select the menu entry, preferring the blue info button when requested since
@@ -360,4 +382,70 @@ class NavigationManager:
             self.page.mouse.click(x, y)
             return True
         except Exception:
+            return False
+
+    def _reposition_ext_window(
+        self,
+        *,
+        selector: str,
+        offset_top_ratio: float = 0.08,
+        fallback_width: float = 600,
+        fallback_height: float = 480,
+        label: str = "Ext window",
+    ) -> bool:
+        """Utility to move ExtJS windows to a predictable place."""
+        try:
+            return bool(
+                safe_page_evaluate(
+                    self.page,
+                    """
+                (params) => {
+                    if (!window.Ext || !Ext.ComponentQuery) {
+                        return false;
+                    }
+                    const wins = Ext.ComponentQuery.query(params.selector) || [];
+                    if (!wins.length) {
+                        return false;
+                    }
+                    const win = wins[wins.length - 1];
+                    const width =
+                        (win.getWidth && win.getWidth()) ||
+                        (win.el && win.el.getWidth && win.el.getWidth()) ||
+                        params.fallbackWidth;
+                    const height =
+                        (win.getHeight && win.getHeight()) ||
+                        (win.el && win.el.getHeight && win.el.getHeight()) ||
+                        params.fallbackHeight;
+                    const topRatio = Math.max(0, Math.min(0.4, params.offsetTopRatio));
+                    const x = Math.max(12, (window.innerWidth - width) / 2);
+                    const y = Math.max(12, window.innerHeight * topRatio);
+                    if (win.setPosition) {
+                        win.setPosition(x, y);
+                    } else if (win.setXY) {
+                        win.setXY([x, y]);
+                    } else {
+                        win.center?.();
+                        win.setY?.(y);
+                    }
+                    if (win.setHeight && height) {
+                        const maxHeight = window.innerHeight - 24;
+                        win.setHeight(Math.min(maxHeight, Math.max(200, height)));
+                    }
+                    win.toFront?.();
+                    win.updateLayout?.();
+                    return true;
+                }
+                    """,
+                    {
+                        "selector": selector,
+                        "offsetTopRatio": float(offset_top_ratio),
+                        "fallbackWidth": float(fallback_width),
+                        "fallbackHeight": float(fallback_height),
+                        "label": label,
+                    },
+                    description=f"NavigationManager._reposition_ext_window[{label}]",
+                )
+            )
+        except Exception as exc:
+            print(f"⚠️ Unable to reposition {label}: {exc}")
             return False
