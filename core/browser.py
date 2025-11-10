@@ -53,12 +53,17 @@ class BrowserManager:
         scale = max(cfg.device_scale_factor, 1.0)
         viewport_width = int(cfg.width / scale)
         viewport_height = int((cfg.height - 300) / scale)
+
         print(
             f"[BrowserManager] viewport={viewport_width}x{viewport_height} "
             f"(raw={cfg.width}x{cfg.height}, scale={cfg.device_scale_factor})"
         )
+
+        # Explicit type annotation for type checkers, no runtime cast needed
+        viewport: ViewportSize = {"width": viewport_width, "height": viewport_height}
+
         return self.browser.new_context(
-            viewport=cast(ViewportSize, {"width": viewport_width, "height": viewport_height}),
+            viewport=viewport,
             device_scale_factor=cfg.device_scale_factor,
             ignore_https_errors=True
         )
