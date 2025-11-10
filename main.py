@@ -55,6 +55,17 @@ def main():
             receive_op = ReceiveOperationRefactored(page, page_mgr, screenshot_mgr, rf_menu)
             receive_op.execute(asn='23907432', item='J105SXC200TR', quantity=1)
 
+        def run_post_cycle():
+            """Launch Post Message screen"""
+            nav_mgr.open_menu_item("POST", "Post Message (Integration)")
+            # Send the payload with a built-in retry before moving on
+            success, response_info = post_message_mgr.send_message(settings.app.post_message_text)
+            print(f"Response summary: {response_info['summary']}")
+            if response_info.get("payload"):
+                print(f"Response payload: {response_info['payload']}")
+            if not success:
+                print("⚠️ Post Message failed; continuing with the remaining flow.")
+
         try:
             # Login and setup
             conn_guard.guard(auth_mgr.login, username, password, settings.app.base_url)
@@ -66,6 +77,7 @@ def main():
 
             # Option 2: Use new refactored version (recommended!)
             while 1:
+                conn_guard.guard(run_post_cycle)
                 conn_guard.guard(run_receive_cycle_new)
 
             print("✅ Operation completed successfully!")
