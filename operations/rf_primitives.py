@@ -34,8 +34,8 @@ class RFPrimitives:
         self.page = page
         self.get_iframe = get_iframe_func
         self.screenshot_mgr = screenshot_mgr
-        self._reset_to_home_cb = reset_to_home
-        self._ensure_tran_id_cb = ensure_tran_id
+        self._reset_to_home = reset_to_home
+        self._ensure_tran_id = ensure_tran_id
 
     # ========================================================================
     # PRIMITIVE 1: Fill input field and submit
@@ -214,15 +214,15 @@ class RFPrimitives:
 
     def go_home(self):
         """Navigate to RF home screen (Ctrl+B with tran id display)."""
-        if self._reset_to_home_cb:
-            self._reset_to_home_cb()
+        if self._reset_to_home:
+            self._reset_to_home()
             return
         self.press_key("Control+b", "RF_HOME", "RF Home")
 
     def ensure_tran_id_marker(self):
         """Ensure the tran id marker is visible on the RF home screen."""
-        if self._ensure_tran_id_cb:
-            self._ensure_tran_id_cb()
+        if self._ensure_tran_id:
+            self._ensure_tran_id()
             return
         # Fallback: best-effort single Ctrl+P without hash validation
         self.press_key("Control+p", "rf_tran_marker", "Show tran id", wait_for_change=False)
