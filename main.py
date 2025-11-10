@@ -71,7 +71,7 @@ def main():
             """Use the NEW refactored receive operation (much cleaner!)"""
             nav_mgr.open_menu_item("RF MENU", "RF Menu (Distribution)")
             load_op = LoadingOperation(page, page_mgr, screenshot_mgr, rf_menu)
-            load_op.execute(shipment='23907432', dockDoor='J105SXC200TR', quantity=1)
+            load_op.execute(shipment='23907432', dockDoor='J105SXC200TR', BOL='MOH')
 
         try:
             # Login and setup
