@@ -68,7 +68,7 @@ def main():
 
         try:
             # Login and setup
-            conn_guard.guard(auth_mgr.login, username, password, settings.app.base_url)
+            # conn_guard.guard(auth_mgr.login, username, password, settings.app.base_url)
             conn_guard.guard(nav_mgr.change_warehouse, settings.app.change_warehouse)
 
             # Choose which version to use:

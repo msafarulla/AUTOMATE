@@ -321,8 +321,8 @@ class NavigationManager:
                 WaitUtils.wait_for_screen_change(
                     lambda: self.page.main_frame,
                     prev_hash,
-                    timeout_ms=19000,
-                    warn_on_timeout=not False,
+                    timeout_ms=15000,  # for some reason it took longer to render
+                    warn_on_timeout=True,
                 )
             print("⌨️ Sent Control+P to RF window (navigation).")
         except Exception as e:
