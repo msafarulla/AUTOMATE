@@ -322,7 +322,7 @@ class NavigationManager:
                     lambda: self.page.main_frame,
                     prev_hash,
                     timeout_ms=19000,
-                    warn_on_timeout=False,
+                    warn_on_timeout=not False,
                 )
             print("⌨️ Sent Control+P to RF window (navigation).")
         except Exception as e:
