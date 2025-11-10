@@ -1,5 +1,5 @@
 import time
-from playwright.sync_api import Locator, Page
+from playwright.sync_api import Locator, Page, TimeoutError as PlaywrightTimeoutError
 from core.screenshot import ScreenshotManager
 from utils.hash_utils import HashUtils
 from utils.wait_utils import WaitUtils
@@ -88,6 +88,8 @@ class NavigationManager:
                 self._ensure_menu_closed()
                 continue
 
+            retry_due_to_click_failure = False
+
             for i in range(count):
                 text = items.nth(i).inner_text().strip()
                 normalized_text = normalize_text(text)
@@ -96,7 +98,13 @@ class NavigationManager:
                 if normalized_text == normalized_match:
                     self.screenshot_mgr.capture(page, f"Selecting {normalized_text} UI", f"Selecting {text} UI")
                     print(f"✅ Exact match found: '{text}' — selecting it")
-                    self._activate_menu_selection(items.nth(i), "rf menu" in normalized_match)
+                    try:
+                        self._activate_menu_selection(items.nth(i), "rf menu" in normalized_match)
+                    except PlaywrightTimeoutError:
+                        print("⚠️ Menu list went stale before click; retrying search.")
+                        retry_due_to_click_failure = True
+                        break
+
                     self._ensure_menu_closed()
                     self._maybe_maximize_rf_window(normalized_match)
                     page.wait_for_timeout(500)
@@ -104,6 +112,10 @@ class NavigationManager:
                 else:
                     diff = ''.join(ndiff([normalized_text], [normalized_match]))
                     print(f"🟡 No match for Option {i + 1}. Diff:\n{diff}")
+
+            if retry_due_to_click_failure:
+                self._ensure_menu_closed()
+                continue
 
             print("⚠️ No exact match in this attempt; closing panel and retrying.")
             self._ensure_menu_closed()
