@@ -41,7 +41,7 @@ class RFMenuManager:
         prev_hash = HashUtils.get_frame_hash(rf_iframe)
         self.page.keyboard.press("Control+b")
         WaitUtils.wait_for_screen_change(self.get_iframe, prev_hash)
-        self._display_tran_id_via_ctrl_p(rf_iframe)
+        self._display_tran_id_via_ctrl_p()
         self.screenshot_mgr.capture_rf_window(self.page, "RF_HOME", "RF Home")
 
 
@@ -109,7 +109,7 @@ class RFMenuManager:
     def accept_proceed(self, rf_iframe: Frame = None) -> bool:
         """Press Ctrl+A to accept/proceed"""
         if rf_iframe is None:
-            rf_iframe = self.get_iframe()
+            rf_iframe = self.get_iframe()  # grab fresh frame in case RF iframe was recreated
 
         self.page.wait_for_timeout(500)
         if rf_iframe.locator("div.error").count() == 0:
@@ -122,9 +122,10 @@ class RFMenuManager:
         self.screenshot_mgr.capture_rf_window(self.page, "after_accept","Accepted/Proceeded")
         return True
 
-    def _display_tran_id_via_ctrl_p(self, rf_iframe: Frame, max_attempts: int = 5):
+    def _display_tran_id_via_ctrl_p(self, max_attempts: int = 5):
         """Send Control+P until the RF home list shows the tran_id hash marker."""
         for attempt in range(1, max_attempts + 1):
+            rf_iframe = self.get_iframe()
             prev_hash = HashUtils.get_frame_hash(rf_iframe)
             self.page.keyboard.press("Control+p")
             WaitUtils.wait_for_screen_change(self.get_iframe, prev_hash)
