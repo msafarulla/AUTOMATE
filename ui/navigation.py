@@ -108,6 +108,7 @@ class NavigationManager:
                     self._ensure_menu_closed()
                     self._maybe_maximize_rf_window(normalized_match)
                     self._maybe_center_post_message_window(normalized_match)
+                    self._maybe_maximize_workspace_window(normalized_match)
                     page.wait_for_timeout(500)
                     return True
                 else:
@@ -343,6 +344,20 @@ class NavigationManager:
             self.page.wait_for_timeout(200)
         print("⚠️ Post Message window never appeared for centering.")
 
+    def _maybe_maximize_workspace_window(self, normalized_match: str):
+        """Maximize non-RF workspace windows so screenshots capture more detail."""
+        if "rf menu" in normalized_match:
+            return
+
+        for attempt in range(6):
+            if self._maximize_active_non_rf_window():
+                if attempt:
+                    print(f"🪟 Workspace window maximized after retry {attempt + 1}.")
+                else:
+                    print("🪟 Workspace window maximized for capture.")
+                return
+            self.page.wait_for_timeout(200)
+
     def _activate_menu_selection(self, item_locator: Locator, use_info_button: bool):
         """
         Select the menu entry, preferring the blue info button when requested since
@@ -448,4 +463,52 @@ class NavigationManager:
             )
         except Exception as exc:
             print(f"⚠️ Unable to reposition {label}: {exc}")
+            return False
+
+    def _maximize_active_non_rf_window(self) -> bool:
+        """Use Ext WindowManager to resize the active workspace window (excluding RF)."""
+        try:
+            return bool(
+                safe_page_evaluate(
+                    self.page,
+                    """
+                () => {
+                    if (!window.Ext || !Ext.WindowManager || !Ext.WindowManager.getActive) {
+                        return false;
+                    }
+                    const win = Ext.WindowManager.getActive();
+                    if (!win) {
+                        return false;
+                    }
+                    const title = ((win.title || win.titleText || '') + '').toLowerCase();
+                    if (!title || title.includes('rf menu') || title === 'rf') {
+                        return false;
+                    }
+                    const viewportWidth = window.innerWidth;
+                    const viewportHeight = window.innerHeight;
+                    const width = Math.max(400, viewportWidth * 0.92);
+                    const height = Math.max(300, viewportHeight * 0.9);
+                    const x = Math.max(8, (viewportWidth - width) / 2);
+                    const y = Math.max(8, viewportHeight * 0.04);
+                    if (win.setSize) {
+                        win.setSize(width, height);
+                    } else {
+                        win.setWidth?.(width);
+                        win.setHeight?.(height);
+                    }
+                    if (win.setPosition) {
+                        win.setPosition(x, y);
+                    } else if (win.center) {
+                        win.center();
+                    }
+                    win.updateLayout?.();
+                    win.toFront?.();
+                    return true;
+                }
+                    """,
+                    description="NavigationManager._maximize_active_non_rf_window",
+                )
+            )
+        except Exception as exc:
+            print(f"⚠️ Unable to maximize workspace window: {exc}")
             return False
