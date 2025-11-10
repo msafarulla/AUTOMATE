@@ -124,28 +124,17 @@ class RFMenuManager:
 
     def ensure_tran_id_marker(self, rf_iframe: Frame = None):
         """Ensure the RF home list displays the tran_id hash marker via Ctrl+P."""
-        # Always resolve the latest iframe; RF frames are frequently recreated.
-        self._display_tran_id_via_ctrl_p(self.get_iframe())
+        if rf_iframe is None:
+            rf_iframe = self.get_iframe()
+        self._display_tran_id_via_ctrl_p(rf_iframe)
 
     def _display_tran_id_via_ctrl_p(self, rf_iframe: Frame, max_attempts: int = 5):
         """Send Control+P until the RF home list shows the tran_id hash marker."""
-        current_frame = rf_iframe or self.get_iframe()
-        if self._home_menu_has_hash(current_frame, retries=3):
-            print("✅ Tran id marker already visible; skipping Ctrl+P.")
-            return
-
         for attempt in range(1, max_attempts + 1):
-            prev_hash = HashUtils.get_frame_hash(current_frame)
+            prev_hash = HashUtils.get_frame_hash(rf_iframe)
             self.page.keyboard.press("Control+p")
-            changed = WaitUtils.wait_for_screen_change(
-                self.get_iframe,
-                prev_hash,
-                timeout_ms=8000,
-            )
-            if not changed:
-                print(f"⚠️ Ctrl+P attempt {attempt} saw no DOM change; checking for marker anyway.")
-            current_frame = self.get_iframe()
-            if self._home_menu_has_hash(current_frame, retries=3):
+            WaitUtils.wait_for_screen_change(self.get_iframe, prev_hash)
+            if self._home_menu_has_hash(rf_iframe):
                 if attempt > 1:
                     print(f"🔁 Control+P succeeded on attempt {attempt}.")
                 return
@@ -154,19 +143,13 @@ class RFMenuManager:
 
         print("⚠️ RF home menu never showed # marker after Control+P attempts.")
 
-    def _home_menu_has_hash(self, rf_iframe: Frame, retries: int = 1, wait_ms: int = 120) -> bool:
-        """Detect whether the RF home list currently includes the tran id marker (#)."""
-        retries = max(1, retries)
-        for attempt in range(retries):
-            try:
-                text = rf_iframe.locator("body").inner_text().strip()
-            except Exception:
-                text = ""
-            if "#" in text:
-                return True
-            if attempt < retries - 1:
-                self.page.wait_for_timeout(wait_ms)
-        return False
+    def _home_menu_has_hash(self, rf_iframe: Frame) -> bool:
+        try:
+            text = rf_iframe.locator("body").inner_text().strip()
+        except Exception:
+            return False
+        hash_index = text.find('#')
+        return hash_index != -1
 
     def _capture_response_screen(self, message: str):
         label = f"{self._slugify_for_filename(message)}"
