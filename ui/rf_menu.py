@@ -41,7 +41,7 @@ class RFMenuManager:
         prev_hash = HashUtils.get_frame_hash(rf_iframe)
         self.page.keyboard.press("Control+b")
         WaitUtils.wait_for_screen_change(self.get_iframe, prev_hash)
-        self._display_tran_id_via_ctrl_p(rf_iframe)
+        self.ensure_tran_id_marker(rf_iframe)
         self.screenshot_mgr.capture_rf_window(self.page, "RF_HOME", "RF Home")
 
 
@@ -121,6 +121,12 @@ class RFMenuManager:
 
         self.screenshot_mgr.capture_rf_window(self.page, "after_accept","Accepted/Proceeded")
         return True
+
+    def ensure_tran_id_marker(self, rf_iframe: Frame = None):
+        """Ensure the RF home list displays the tran_id hash marker via Ctrl+P."""
+        if rf_iframe is None:
+            rf_iframe = self.get_iframe()
+        self._display_tran_id_via_ctrl_p(rf_iframe)
 
     def _display_tran_id_via_ctrl_p(self, rf_iframe: Frame, max_attempts: int = 5):
         """Send Control+P until the RF home list shows the tran_id hash marker."""
