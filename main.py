@@ -5,6 +5,7 @@ You can gradually migrate operations one at a time without breaking anything!
 """
 from operations.inbound.receive import ReceiveOperation  # Old version
 from operations.inbound.receive_refactored import ReceiveOperationRefactored  # New version
+from operations.outbound.loading import LoadingOperation
 from ui.rf_menu import RFMenuManager
 from DB import DB
 from config.settings import Settings
@@ -66,6 +67,12 @@ def main():
             if not success:
                 print("⚠️ Post Message failed; continuing with the remaining flow.")
 
+        def run_loading_cycle():
+            """Use the NEW refactored receive operation (much cleaner!)"""
+            nav_mgr.open_menu_item("RF MENU", "RF Menu (Distribution)")
+            load_op = LoadingOperation(page, page_mgr, screenshot_mgr, rf_menu)
+            load_op.execute(asn='23907432', item='J105SXC200TR', quantity=1)
+
         try:
             # Login and setup
             conn_guard.guard(auth_mgr.login, username, password, settings.app.base_url)
@@ -76,9 +83,10 @@ def main():
             # conn_guard.guard(run_receive_cycle_old)
 
             # Option 2: Use new refactored version (recommended!)
-            while 1:
-                # conn_guard.guard(run_post_cycle)
-                conn_guard.guard(run_receive_cycle_new)
+
+            # conn_guard.guard(run_post_cycle)
+            # conn_guard.guard(run_receive_cycle_new)
+            conn_guard.guard(run_loading_cycle)
 
             print("✅ Operation completed successfully!")
             input("Press Enter to exit...")
