@@ -311,8 +311,19 @@ class NavigationManager:
             print(f"⚠️ Unable to maximize RF window: {e}")
 
         try:
+            prev_hash = HashUtils.get_page_hash(self.page)
+        except Exception:
+            prev_hash = None
+
+        try:
             self.page.keyboard.press("Control+p")
-            self.page.wait_for_timeout(600)
+            if prev_hash:
+                WaitUtils.wait_for_screen_change(
+                    lambda: self.page.main_frame,
+                    prev_hash,
+                    timeout_ms=9000,
+                    warn_on_timeout=False,
+                )
             print("⌨️ Sent Control+P to RF window (navigation).")
         except Exception as e:
             print(f"⚠️ Unable to trigger Control+P refresh: {e}")

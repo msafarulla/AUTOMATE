@@ -14,7 +14,8 @@ class WaitUtils:
             frame_or_provider: Union[Frame, FrameProvider],
             prev_hash: str,
             timeout_ms: int = 5000,
-            check_interval_ms: int = 200
+            check_interval_ms: int = 200,
+            warn_on_timeout: bool = True,
     ) -> bool:
         """Wait for screen content to change by comparing hashes.
 
@@ -52,7 +53,8 @@ class WaitUtils:
 
                 elapsed = safe_page_evaluate(page, "Date.now()", description="WaitUtils.timer") - start_time
                 if elapsed >= timeout_ms:
-                    print(f"⚠️ Screen didn't change within {timeout_ms}ms")
+                    if warn_on_timeout:
+                        print(f"⚠️ Screen didn't change within {timeout_ms}ms")
                     return False
         except Exception as e:
             print(f"Error waiting for screen change: {e}")
