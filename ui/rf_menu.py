@@ -45,7 +45,12 @@ class RFMenuManager:
             prev_hash,
             warn_on_timeout=False,
         )
-        self._display_tran_id_via_ctrl_p(rf_iframe)
+        if not self._home_menu_has_hash(rf_iframe):
+            tran_prev_hash = HashUtils.get_frame_hash(rf_iframe)
+            self.page.keyboard.press("Control+p")
+            WaitUtils.wait_for_screen_change(rf_iframe, tran_prev_hash)
+            if not self._home_menu_has_hash(rf_iframe):
+                print("⚠️ RF home menu never showed # marker after Control+P.")
         self.screenshot_mgr.capture_rf_window(self.page, "RF_HOME", "RF Home")
 
 
