@@ -130,10 +130,20 @@ class RFMenuManager:
 
     def _display_tran_id_via_ctrl_p(self, rf_iframe: Frame, max_attempts: int = 5):
         """Send Control+P until the RF home list shows the tran_id hash marker."""
+        if self._home_menu_has_hash(rf_iframe):
+            print("✅ Tran id marker already visible; skipping Ctrl+P.")
+            return
+
         for attempt in range(1, max_attempts + 1):
             prev_hash = HashUtils.get_frame_hash(rf_iframe)
             self.page.keyboard.press("Control+p")
-            WaitUtils.wait_for_screen_change(self.get_iframe, prev_hash)
+            changed = WaitUtils.wait_for_screen_change(
+                self.get_iframe,
+                prev_hash,
+                timeout_ms=8000,
+            )
+            if not changed:
+                print(f"⚠️ Ctrl+P attempt {attempt} saw no DOM change; checking for marker anyway.")
             if self._home_menu_has_hash(rf_iframe):
                 if attempt > 1:
                     print(f"🔁 Control+P succeeded on attempt {attempt}.")
