@@ -13,6 +13,7 @@ class RFMenuManager:
         self.page_mgr = page_mgr
         self.screenshot_mgr = screenshot_mgr
         self._maximized = False
+        self._tran_marker_verified = False
         self._last_home_hash = None
         self.screenshot_mgr.register_rf_capture_hooks(
             self._before_rf_snapshot,
@@ -45,12 +46,18 @@ class RFMenuManager:
             prev_hash,
             warn_on_timeout=False,
         )
-        if not self._home_menu_has_hash(rf_iframe):
-            tran_prev_hash = HashUtils.get_frame_hash(rf_iframe)
-            self.page.keyboard.press("Control+p")
-            WaitUtils.wait_for_screen_change(rf_iframe, tran_prev_hash)
+        if not self._tran_marker_verified:
             if not self._home_menu_has_hash(rf_iframe):
-                print("⚠️ RF home menu never showed # marker after Control+P.")
+                tran_prev_hash = HashUtils.get_frame_hash(rf_iframe)
+                self.page.keyboard.press("Control+p")
+                WaitUtils.wait_for_screen_change(rf_iframe, tran_prev_hash)
+                if not self._home_menu_has_hash(rf_iframe):
+                    print("⚠️ RF home menu never showed # marker after Control+P.")
+                    self._tran_marker_verified = False
+                else:
+                    self._tran_marker_verified = True
+            else:
+                self._tran_marker_verified = True
         self.screenshot_mgr.capture_rf_window(self.page, "RF_HOME", "RF Home")
 
 
