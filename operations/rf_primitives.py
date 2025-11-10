@@ -21,7 +21,8 @@ class RFPrimitives:
         self,
         page: Page,
         get_iframe_func: Callable[[], Frame],
-        screenshot_mgr: ScreenshotManager
+        screenshot_mgr: ScreenshotManager,
+        reset_to_home_cb: Optional[Callable[[], None]] = None
     ):
         """
         Args:
@@ -32,6 +33,7 @@ class RFPrimitives:
         self.page = page
         self.get_iframe = get_iframe_func
         self.screenshot_mgr = screenshot_mgr
+        self._reset_to_home_cb = reset_to_home_cb
 
     # ========================================================================
     # PRIMITIVE 1: Fill input field and submit
@@ -209,7 +211,10 @@ class RFPrimitives:
     # ========================================================================
 
     def go_home(self):
-        """Navigate to RF home screen (Ctrl+B)."""
+        """Navigate to RF home screen (Ctrl+B with tran id display)."""
+        if self._reset_to_home_cb:
+            self._reset_to_home_cb()
+            return
         self.press_key("Control+b", "RF_HOME", "RF Home")
 
     def accept_message(self):
@@ -441,7 +446,8 @@ class RFMenuIntegration:
         self.primitives = RFPrimitives(
             page=rf_menu_manager.page,
             get_iframe_func=rf_menu_manager.get_iframe,
-            screenshot_mgr=rf_menu_manager.screenshot_mgr
+            screenshot_mgr=rf_menu_manager.screenshot_mgr,
+            reset_to_home_cb=rf_menu_manager.reset_to_home
         )
 
         # Create workflows
