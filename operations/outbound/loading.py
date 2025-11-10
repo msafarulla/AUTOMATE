@@ -9,7 +9,7 @@ class LoadingOperation(BaseOperation):
     Compare this to the old receive.py - notice how much shorter and clearer it is!
     """
 
-    def execute(self, asn: str, item: str, quantity: int):
+    def execute(self, shipment: str, dockDoor: str, quantity: int):
 
         # Create integration layer to get primitives and workflows
         integration = RFMenuIntegration(self.rf_menu)
@@ -22,23 +22,18 @@ class LoadingOperation(BaseOperation):
             ("1", "Load Trailer")
         ])
 
-        # Scan Shipment (1 line instead of 8!)
-        has_error, msg = workflows.scan_barcode("input#barcode20", asn, "Shipment Id")
+        # Scan Shipment
+        has_error, msg = workflows.scan_barcode("input#barcode20", shipment, "Shipment Id")
         if has_error:
             print(f"❌ Shipment scan failed: {msg}")
             return False
 
-        # # Scan item (1 line instead of 8!)
-        # has_error, msg = workflows.scan_barcode("input#verfiyItemBrcd", item, "Item")
-        # if has_error:
-        #     print(f"❌ Item scan failed: {msg}")
-        #     return False
-        #
-        # # Enter quantity (1 line instead of 8!)
-        # success = workflows.enter_quantity("input#input1input2", quantity, item)
-        # if not success:
-        #     print(f"❌ Quantity entry failed")
-        #     return False
+        # Scan Dock Door
+        has_error, msg = workflows.scan_barcode("input#barcode13", dockDoor, "Dock Door")
+        if has_error:
+            print(f"❌ Dock Door scan failed: {msg}")
+            return False
+
 
         if 1==1:
             # Read suggested location (1 line instead of 5!)
