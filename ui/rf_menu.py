@@ -92,13 +92,13 @@ class RFMenuManager:
             visible_text = rf_iframe.locator("body").inner_text().strip()[:80]
             visible_text = re.sub(r"\s+", " ", visible_text)
 
-            if re.search(r"(?i)info", visible_text):
-                message = f"Info: {visible_text}"
+            if re.search(r"(?i)info|warning", visible_text):
+                message = f"{visible_text}"
                 self._capture_response_screen(message)
                 return False, message
 
             if re.search(r"(?i)error|invalid", visible_text):
-                message = f"Error: {visible_text}"
+                message = f"{visible_text}"
                 self._capture_response_screen(message)
                 return True, message
 
