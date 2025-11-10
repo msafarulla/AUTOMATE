@@ -65,7 +65,8 @@ def main():
             # conn_guard.guard(run_receive_cycle_old)
 
             # Option 2: Use new refactored version (recommended!)
-            conn_guard.guard(run_receive_cycle_new)
+            while 1:
+                conn_guard.guard(run_receive_cycle_new)
 
             print("✅ Operation completed successfully!")
             input("Press Enter to exit...")
