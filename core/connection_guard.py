@@ -32,9 +32,6 @@ class ConnectionResetGuard:
         page.on("framenavigated", self._handle_frame_navigation)
         page.on("domcontentloaded", self._handle_page_event)
         page.on("load", self._handle_page_event)
-        page.on("close", lambda _: self._trip("browser page was closed"))
-        page.on("crash", lambda _: self._trip("browser page crashed"))
-        page.on("framedetached", self._handle_frame_detached)
 
     def ensure_ok(self):
         """Raise immediately if the guard already detected the reset page."""
@@ -58,10 +55,6 @@ class ConnectionResetGuard:
 
     def _handle_page_event(self, _page: Page):
         self._check_frame(self.page.main_frame)
-
-    def _handle_frame_detached(self, frame: Frame):
-        if frame == self.page.main_frame:
-            self._trip("main frame was detached")
 
     def _check_frame(self, frame: Frame):
         if self._reason:
