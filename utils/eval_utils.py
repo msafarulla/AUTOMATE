@@ -1,4 +1,5 @@
 from playwright.sync_api import Page, Locator
+from core.logger import app_log
 
 
 class PageUnavailableError(RuntimeError):
@@ -30,7 +31,7 @@ def safe_page_evaluate(page: Page, script: str, arg=None, description: str = "pa
     except Exception as exc:
         if _is_transient_error(exc):
             if not suppress_transient_log:
-                print(f"⚠️ {description} skipped because the page/context closed: {exc}")
+                app_log(f"⚠️ {description} skipped because the page/context closed: {exc}")
             raise PageUnavailableError(description) from exc
         raise
 
@@ -43,6 +44,6 @@ def safe_locator_evaluate(locator: Locator, script: str, description: str = "loc
     except Exception as exc:
         if _is_transient_error(exc):
             if not suppress_transient_log:
-                print(f"⚠️ {description} skipped because the page/context closed: {exc}")
+                app_log(f"⚠️ {description} skipped because the page/context closed: {exc}")
             raise PageUnavailableError(description) from exc
         raise

@@ -2,6 +2,8 @@ import os
 from dataclasses import dataclass, field
 import ctypes
 
+from core.logger import app_log, set_general_verbose, set_rf_verbose
+
 # Sensible fallbacks when detection is unavailable (e.g. headless CI)
 DEFAULT_SCREEN_WIDTH = 1920
 DEFAULT_SCREEN_HEIGHT = 1080
@@ -26,7 +28,7 @@ def get_screen_size_safe():
             height = root.winfo_screenheight()
             root.destroy()
     except Exception as e:
-        print(f"⚠️ Screen size detection failed: {e}")
+        app_log(f"⚠️ Screen size detection failed: {e}")
 
     width = width or DEFAULT_SCREEN_WIDTH
     height = height or DEFAULT_SCREEN_HEIGHT
@@ -52,11 +54,19 @@ def get_scale_factor():
             root.destroy()
             return round(float(scaling), 2)
     except Exception as exc:
-        print(f"⚠️ DPI detection failed: {exc}")
+        app_log(f"⚠️ DPI detection failed: {exc}")
         return 1.0
     
 
 _SCREEN_WIDTH, _SCREEN_HEIGHT = get_screen_size_safe()
+
+
+def _env_flag(name: str, default: bool) -> bool:
+    """Best-effort parsing of boolean env flags."""
+    value = os.getenv(name)
+    if value is None:
+        return default
+    return value.strip().lower() in {"1", "true", "yes", "on"}
 
 
 @dataclass
@@ -163,13 +173,15 @@ class AppConfig:
     </DistributionOrder>
   </Message>
 </tXML>"""
+    rf_verbose_logging: bool = False
+    app_verbose_logging: bool = False
 
 
 class Settings:
     browser = BrowserConfig()
     app = AppConfig()
 
-    print(f"Detected screen: {browser.width}x{browser.height}, scale={browser.device_scale_factor}")
+    app_log(f"Detected screen: {browser.width}x{browser.height}, scale={browser.device_scale_factor}")
 
     @classmethod
     def from_env(cls):
@@ -177,4 +189,8 @@ class Settings:
         cls.app.base_url = os.getenv("APP_URL", cls.app.base_url)
         cls.app.change_warehouse = os.getenv("DEFAULT_WAREHOUSE", cls.app.change_warehouse)
         cls.app.post_message_text = os.getenv("POST_MESSAGE_TEXT", cls.app.post_message_text)
+        cls.app.app_verbose_logging = _env_flag("APP_VERBOSE_LOGGING", cls.app.app_verbose_logging)
+        cls.app.rf_verbose_logging = _env_flag("RF_VERBOSE_LOGGING", cls.app.rf_verbose_logging)
+        set_general_verbose(cls.app.app_verbose_logging)
+        set_rf_verbose(cls.app.rf_verbose_logging)
         return cls

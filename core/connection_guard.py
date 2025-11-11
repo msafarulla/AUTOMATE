@@ -5,6 +5,7 @@ from typing import Callable, Optional, TypeVar
 from playwright.sync_api import Frame, Page
 
 from core.screenshot import ScreenshotManager
+from core.logger import app_log
 
 
 class ConnectionResetDetected(RuntimeError):
@@ -80,7 +81,7 @@ class ConnectionResetGuard:
         if self._reason:
             return
         self._reason = reason
-        print(f"❌ Connection reset detected: {reason}")
+        app_log(f"❌ Connection reset detected: {reason}")
         if self.screenshot_mgr:
             try:
                 self.screenshot_mgr.capture(self.page, "connection_reset", reason)

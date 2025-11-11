@@ -9,6 +9,7 @@ from playwright.sync_api import Page, Frame
 from core.screenshot import ScreenshotManager
 from utils.hash_utils import HashUtils
 from utils.wait_utils import WaitUtils
+from core.logger import rf_log
 
 
 class RFPrimitives:
@@ -99,7 +100,7 @@ class RFPrimitives:
         if check_errors:
             has_error, msg = self._check_for_errors()
             if has_error:
-                print(f"❌ Operation failed with error: {msg[:150] if msg else 'Unknown error'}")
+                rf_log(f"❌ Operation failed with error: {msg[:150] if msg else 'Unknown error'}")
             return has_error, msg
 
         return False, None
@@ -171,7 +172,7 @@ class RFPrimitives:
         if check_errors:
             has_error, msg = self._check_for_errors()
             if has_error:
-                print(f"❌ Operation failed with error: {msg[:150] if msg else 'Unknown error'}")
+                rf_log(f"❌ Operation failed with error: {msg[:150] if msg else 'Unknown error'}")
             return has_error, msg
 
         return False, None
@@ -305,7 +306,7 @@ class RFPrimitives:
         """
         has_error, msg = self._check_for_errors()
         if msg:  # If there's any message (error or info)
-            print(f"{'❌ Error' if has_error else 'ℹ️ Info'}: {msg[:100]}")
+            rf_log(f"{'❌ Error' if has_error else 'ℹ️ Info'}: {msg[:100]}")
             self.accept_message()
             return has_error
         return False
@@ -341,7 +342,7 @@ class RFPrimitives:
                     f"error_{label}",
                     f"Error: {visible_text_normalized[:80]}"
                 )
-                print(f"❌ Error detected: {visible_text_normalized[:100]}")
+                rf_log(f"❌ Error detected: {visible_text_normalized[:100]}")
                 return True, visible_text_normalized
 
             # Check for info/warnings (not errors)
@@ -352,11 +353,11 @@ class RFPrimitives:
                     f"info_{label}",
                     f"Info: {visible_text_normalized[:80]}"
                 )
-                print(f"ℹ️ Info message: {visible_text_normalized[:100]}")
+                rf_log(f"ℹ️ Info message: {visible_text_normalized[:100]}")
                 return False, visible_text_normalized
 
         except Exception as e:
-            print(f"⚠️ Error checking failed: {e}")
+            rf_log(f"⚠️ Error checking failed: {e}")
 
         return False, None
 
@@ -492,7 +493,7 @@ class RFWorkflows:
         """
         target_selector = self._last_scanned_selector
         if not target_selector:
-            print("⚠️ press_enter called without a tracked input; defaulting to focused field.")
+            rf_log("⚠️ press_enter called without a tracked input; defaulting to focused field.")
 
         has_error, msg = self.rf.submit_current_input(
             screenshot_label=f"press_enter_{label}",
@@ -526,12 +527,12 @@ class RFWorkflows:
         for selector, value, label in scans:
             has_error, msg = self.scan_barcode(selector, value, label)
             if has_error:
-                print(f"❌ {label} entry failed: {msg}")
+                rf_log(f"❌ {label} entry failed: {msg}")
                 return True, msg
         else:
             has_error, msg = self.press_enter(submit_label, wait_for_change=wait_for_change)
             if has_error:
-                print(f"❌ Submission failed: {msg}")
+                rf_log(f"❌ Submission failed: {msg}")
 
         return has_error, msg
 

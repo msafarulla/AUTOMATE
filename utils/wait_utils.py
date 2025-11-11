@@ -2,6 +2,7 @@ from playwright.sync_api import Page, Frame
 from typing import Callable, Union
 from utils.hash_utils import HashUtils
 from utils.eval_utils import safe_page_evaluate, PageUnavailableError
+from core.logger import app_log
 
 
 FrameProvider = Callable[[], Frame]
@@ -43,21 +44,21 @@ class WaitUtils:
                     current_hash = HashUtils.get_frame_hash(frame)
                 except Exception as exc:
                     if WaitUtils._is_frame_context_error(exc):
-                        print("ℹ️ RF frame navigation detected while waiting; treating as screen change.")
+                        app_log("ℹ️ RF frame navigation detected while waiting; treating as screen change.")
                         return True
                     raise
 
                 if current_hash != prev_hash:
-                    print("✅ Screen content changed")
+                    app_log("✅ Screen content changed")
                     return True
 
                 elapsed = safe_page_evaluate(page, "Date.now()", description="WaitUtils.timer") - start_time
                 if elapsed >= timeout_ms:
                     if warn_on_timeout:
-                        print(f"⚠️ Screen didn't change within {timeout_ms}ms")
+                        app_log(f"⚠️ Screen didn't change within {timeout_ms}ms")
                     return False
         except Exception as e:
-            print(f"Error waiting for screen change: {e}")
+            app_log(f"Error waiting for screen change: {e}")
             return False
 
     @staticmethod

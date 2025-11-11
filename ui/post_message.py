@@ -9,6 +9,7 @@ from playwright.sync_api import Frame, Locator, Page
 from core.screenshot import ScreenshotManager
 from utils.hash_utils import HashUtils
 from utils.wait_utils import WaitUtils
+from core.logger import app_log
 
 
 class PostMessageManager:
@@ -43,7 +44,7 @@ class PostMessageManager:
             if not response_info["is_error"]:
                 return True, response_info
 
-            print(f"⚠️ Post Message attempt {attempt} failed: {response_info['summary']}")
+            app_log(f"⚠️ Post Message attempt {attempt} failed: {response_info['summary']}")
             self._reset_form(frame)
             if attempt >= max_attempts:
                 break
@@ -61,7 +62,7 @@ class PostMessageManager:
                 break
             self.page.wait_for_timeout(poll_interval_ms)
 
-        print("⚠️ Falling back to main frame; Post Message textarea not detected in any iframe.")
+        app_log("⚠️ Falling back to main frame; Post Message textarea not detected in any iframe.")
         return self.page.main_frame
 
     def _has_visible_textarea(self, frame: Frame) -> bool:

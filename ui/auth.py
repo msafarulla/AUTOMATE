@@ -1,6 +1,7 @@
 from playwright.sync_api import Page
 from utils.eval_utils import safe_page_evaluate
 from core.screenshot import ScreenshotManager
+from core.logger import app_log
 
 
 class AuthManager:
@@ -12,19 +13,19 @@ class AuthManager:
         self.page.goto(base_url, wait_until="networkidle")
         self.page.wait_for_selector("#username", timeout=5000)
 
-        print("Filling username...")
+        app_log("Filling username...")
         self.page.fill('#username', username)
 
-        print("Filling password...")
+        app_log("Filling password...")
         self.page.fill('#password', password)
 
-        print("Dispatching events...")
+        app_log("Dispatching events...")
         self.page.dispatch_event('#username', 'input')
         self.page.dispatch_event('#password', 'input')
         self.page.dispatch_event('#username', 'keyup')
         self.page.dispatch_event('#password', 'keyup')
 
-        print("Waiting for button to be enabled...")
+        app_log("Waiting for button to be enabled...")
         self.page.wait_for_timeout(2000)
 
         # Verify button is enabled before clicking
@@ -34,9 +35,9 @@ class AuthManager:
         if is_disabled:
             raise Exception("Login button is still disabled after filling credentials")
 
-        print("Clicking login button...")
+        app_log("Clicking login button...")
         self.page.click('#loginButton')
         self.page.wait_for_timeout(5000)
 
         self.screenshot_mgr.capture(self.page, "logged_in", "Logged In")
-        print("✅ Logged in successfully")
+        app_log("✅ Logged in successfully")

@@ -5,16 +5,24 @@ from utils.hash_utils import HashUtils
 from utils.wait_utils import WaitUtils
 from utils.eval_utils import safe_page_evaluate, safe_locator_evaluate
 import re
+from core.logger import rf_log
 
 
 class RFMenuManager:
-    def __init__(self, page: Page, page_mgr: PageManager, screenshot_mgr: ScreenshotManager):
+    def __init__(
+        self,
+        page: Page,
+        page_mgr: PageManager,
+        screenshot_mgr: ScreenshotManager,
+        verbose_logging: bool = False,
+    ):
         self.page = page
         self.page_mgr = page_mgr
         self.screenshot_mgr = screenshot_mgr
         self._maximized = False
         self._tran_marker_verified = False
         self._last_home_hash = None
+        self.verbose_logging = verbose_logging
         self.screenshot_mgr.register_rf_capture_hooks(
             self._before_rf_snapshot,
             self._after_rf_snapshot,
@@ -51,7 +59,7 @@ class RFMenuManager:
                 self.page.keyboard.press("Control+p")
                 WaitUtils.wait_for_screen_change(rf_iframe, tran_prev_hash)
                 if not self._home_menu_has_hash(rf_iframe):
-                    print("⚠️ RF home menu never showed # marker after Control+P.")
+                    self._log("⚠️ RF home menu never showed # marker after Control+P.")
                     self._tran_marker_verified = False
                 else:
                     self._tran_marker_verified = True
@@ -153,9 +161,9 @@ class RFMenuManager:
             )
             if self._home_menu_has_hash(rf_iframe):
                 if attempt > 1:
-                    print(f"🔁 Control+P succeeded on attempt {attempt}.")
+                    self._log(f"🔁 Control+P succeeded on attempt {attempt}.")
                 return
-        print("⚠️ RF home menu never showed # marker after Control+P attempts.") #what to do if so? todo
+        self._log("⚠️ RF home menu never showed # marker after Control+P attempts.") #what to do if so? todo
 
     def _home_menu_has_hash(self, rf_iframe: Frame) -> bool:
         try:
@@ -203,7 +211,7 @@ class RFMenuManager:
 
         try:
             icon.click()
-            # print("🛈 Clicked RF info icon inside iframe.")
+            self._log("🛈 Clicked RF info icon inside iframe.")
         except Exception:
             return False
 
@@ -223,3 +231,7 @@ class RFMenuManager:
 
     def _after_rf_snapshot(self):
         self.click_info_icon()
+
+    def _log(self, message: str):
+        if self.verbose_logging:
+            rf_log(message)

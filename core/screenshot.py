@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Callable, Optional, Any
 from playwright.sync_api import Page, Frame
 from utils.eval_utils import safe_page_evaluate, safe_locator_evaluate, PageUnavailableError
+from core.logger import app_log
 
 
 class ScreenshotManager:
@@ -44,11 +45,11 @@ class ScreenshotManager:
                 self._add_timestamp(page)
                 timestamp_added = True
             except PageUnavailableError:
-                print("⚠️ Page unavailable while decorating screenshot; continuing without overlays.")
+                app_log("⚠️ Page unavailable while decorating screenshot; continuing without overlays.")
 
             page.screenshot(**self._screenshot_kwargs(filename))
         except PageUnavailableError:
-            print("⚠️ Unable to capture screenshot because the page/context closed.")
+            app_log("⚠️ Unable to capture screenshot because the page/context closed.")
             return None
         finally:
             if overlay_added:
@@ -62,7 +63,7 @@ class ScreenshotManager:
                 except PageUnavailableError:
                     pass
 
-        print(f"📸 Screenshot saved: {filename}")
+        app_log(f"📸 Screenshot saved: {filename}")
         return filename
 
     def capture_rf_window(self, page: Page, label: str, overlay_text: str = None):
@@ -89,14 +90,14 @@ class ScreenshotManager:
                 self._add_timestamp(page, rect)
                 timestamp_added = True
             except PageUnavailableError:
-                print("⚠️ RF window decorations skipped because the page/context closed.")
+                app_log("⚠️ RF window decorations skipped because the page/context closed.")
 
             target.screenshot(**self._screenshot_kwargs(filename))
         except PageUnavailableError:
-            print("⚠️ Unable to capture RF window because the page/context closed.")
+            app_log("⚠️ Unable to capture RF window because the page/context closed.")
             return None
         except Exception as e:
-            print(f"Failed to capture RF window: {e}")
+            app_log(f"Failed to capture RF window: {e}")
             self._add_timestamp(page)
             timestamp_added = True
             page.screenshot(**self._screenshot_kwargs(filename))
@@ -113,7 +114,7 @@ class ScreenshotManager:
                     pass
             self._run_rf_hook(self._rf_post_capture_hook)
 
-        print(f"📸 RF Screenshot saved: {filename}")
+        app_log(f"📸 RF Screenshot saved: {filename}")
         return filename
 
     def _build_filename(self, label: str) -> Path:
@@ -132,7 +133,7 @@ class ScreenshotManager:
         try:
             hook()
         except Exception as exc:
-            print(f"⚠️ RF capture hook failed: {exc}")
+            app_log(f"⚠️ RF capture hook failed: {exc}")
 
     def _add_overlay(self, page: Page, text: str, top_offset: float = 40):
         safe_page_evaluate(

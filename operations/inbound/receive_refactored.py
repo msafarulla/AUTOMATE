@@ -6,6 +6,7 @@ AFTER:  15 lines, clear and maintainable
 """
 from operations.base_operation import BaseOperation
 from operations.rf_primitives import RFMenuIntegration
+from core.logger import rf_log
 
 
 class ReceiveOperationRefactored(BaseOperation):
@@ -41,19 +42,19 @@ class ReceiveOperationRefactored(BaseOperation):
         # Scan ASN (1 line instead of 8!)
         has_error, msg = workflows.scan_barcode_auto_enter("input#shipinpId", asn, "ASN")
         if has_error:
-            print(f"❌ ASN scan failed: {msg}")
+            rf_log(f"❌ ASN scan failed: {msg}")
             return False
 
         # Scan item (1 line instead of 8!)
         has_error, msg = workflows.scan_barcode_auto_enter("input#verfiyItemBrcd", item, "Item")
         if has_error:
-            print(f"❌ Item scan failed: {msg}")
+            rf_log(f"❌ Item scan failed: {msg}")
             return False
 
         # Enter quantity (1 line instead of 8!)
         success = workflows.enter_quantity("input#input1input2", quantity, item)
         if not success:
-            print(f"❌ Quantity entry failed")
+            rf_log("❌ Quantity entry failed")
             return False
 
         if success:

@@ -4,6 +4,7 @@ from core.screenshot import ScreenshotManager
 from utils.hash_utils import HashUtils
 from utils.wait_utils import WaitUtils
 from utils.eval_utils import safe_page_evaluate
+from core.logger import app_log
 
 
 class NavigationManager:
@@ -20,11 +21,11 @@ class NavigationManager:
 
         # Get the currently displayed warehouse/facility text
         current_warehouse = current_warehouse_el.inner_text().strip()
-        print(f"🏢 Current warehouse: {current_warehouse}")
+        app_log(f"🏢 Current warehouse: {current_warehouse}")
 
         # If it already matches, skip changing
         if warehouse.lower() in current_warehouse.lower():
-            print(f"✅ Already in desired warehouse: {current_warehouse}")
+            app_log(f"✅ Already in desired warehouse: {current_warehouse}")
             return
 
         # Otherwise, open dropdown and change warehouse
@@ -45,7 +46,7 @@ class NavigationManager:
         # Capture screenshot and confirm
         self.screenshot_mgr.capture(page, f"warehouse_{warehouse}",
                                     f"Changed to {warehouse}")
-        print(f"✅ Changed warehouse to {warehouse}")
+        app_log(f"✅ Changed warehouse to {warehouse}")
 
     def open_menu_item(self, search_term: str, match_text: str, max_attempt: int = 10) -> bool:
         """
@@ -81,10 +82,10 @@ class NavigationManager:
 
             items = page.locator("ul.x-list-plain:visible li.x-boundlist-item")
             count = self._wait_for_menu_results(items)
-            print(f"🔍 Found {count} items for '{search_term}' (attempt {attempt + 1})")
+            app_log(f"🔍 Found {count} items for '{search_term}' (attempt {attempt + 1})")
 
             if count == 0:
-                print("⚠️ Menu returned no items; retrying after closing panel.")
+                app_log("⚠️ Menu returned no items; retrying after closing panel.")
                 self._ensure_menu_closed()
                 continue
 
@@ -93,15 +94,15 @@ class NavigationManager:
             for i in range(count):
                 text = items.nth(i).inner_text().strip()
                 normalized_text = normalize_text(text)
-                print(f"Option {i + 1}: RAW: {repr(text)}")
+                app_log(f"Option {i + 1}: RAW: {repr(text)}")
 
                 if normalized_text == normalized_match:
                     self.screenshot_mgr.capture(page, f"Selecting {normalized_text} UI", f"Selecting {text} UI")
-                    print(f"✅ Exact match found: '{text}' — selecting it")
+                    app_log(f"✅ Exact match found: '{text}' — selecting it")
                     try:
                         self._activate_menu_selection(items.nth(i), "rf menu" in normalized_match)
                     except PlaywrightTimeoutError:
-                        print("⚠️ Menu list went stale before click; retrying search.")
+                        app_log("⚠️ Menu list went stale before click; retrying search.")
                         retry_due_to_click_failure = True
                         break
 
@@ -113,16 +114,16 @@ class NavigationManager:
                     return True
                 else:
                     diff = ''.join(ndiff([normalized_text], [normalized_match]))
-                    print(f"🟡 No match for Option {i + 1}. Diff:\n{diff}")
+                    app_log(f"🟡 No match for Option {i + 1}. Diff:\n{diff}")
 
             if retry_due_to_click_failure:
                 self._ensure_menu_closed()
                 continue
 
-            print("⚠️ No exact match in this attempt; closing panel and retrying.")
+            app_log("⚠️ No exact match in this attempt; closing panel and retrying.")
             self._ensure_menu_closed()
 
-        print(f"❌ No exact match found for: '{match_text}' after retries")
+        app_log(f"❌ No exact match found for: '{match_text}' after retries")
         self._ensure_menu_closed()
         return False
 
@@ -153,11 +154,11 @@ class NavigationManager:
                 return
 
             if not notified:
-                print("⏳ Waiting for blocking mask to clear...")
+                app_log("⏳ Waiting for blocking mask to clear...")
                 notified = True
 
             if time.time() >= deadline:
-                print("⚠️ Mask still present; continuing anyway.")
+                app_log("⚠️ Mask still present; continuing anyway.")
                 return
 
             page.wait_for_timeout(poll_ms)
@@ -179,7 +180,7 @@ class NavigationManager:
             if window is None:
                 break
             title = self._get_window_title(window)
-            print(f"🧹 Closing window: {title or 'Unnamed window'}")
+            app_log(f"🧹 Closing window: {title or 'Unnamed window'}")
             if not self._close_window(window):
                 break
             self.page.wait_for_timeout(200)
@@ -306,9 +307,9 @@ class NavigationManager:
                 description="NavigationManager._maybe_maximize_rf_window",
             )
             if success:
-                print("🪟 RF window maximized from navigation.")
+                app_log("🪟 RF window maximized from navigation.")
         except Exception as e:
-            print(f"⚠️ Unable to maximize RF window: {e}")
+            app_log(f"⚠️ Unable to maximize RF window: {e}")
 
     def _maybe_center_post_message_window(self, normalized_match: str):
         """Pin the Post Message window near the top-center so it does not cascade down."""
@@ -324,12 +325,12 @@ class NavigationManager:
             )
             if success:
                 if attempt:
-                    print(f"🪟 Post Message window centered after retry {attempt + 1}.")
+                    app_log(f"🪟 Post Message window centered after retry {attempt + 1}.")
                 else:
-                    print("🪟 Post Message window centered near top.")
+                    app_log("🪟 Post Message window centered near top.")
                 return
             self.page.wait_for_timeout(200)
-        print("⚠️ Post Message window never appeared for centering.")
+        app_log("⚠️ Post Message window never appeared for centering.")
 
     def _maybe_maximize_workspace_window(self, normalized_match: str):
         """Maximize non-RF workspace windows so screenshots capture more detail."""
@@ -339,9 +340,9 @@ class NavigationManager:
         for attempt in range(6):
             if self._maximize_active_non_rf_window():
                 if attempt:
-                    print(f"🪟 Workspace window maximized after retry {attempt + 1}.")
+                    app_log(f"🪟 Workspace window maximized after retry {attempt + 1}.")
                 else:
-                    print("🪟 Workspace window maximized for capture.")
+                    app_log("🪟 Workspace window maximized for capture.")
                 return
             self.page.wait_for_timeout(200)
 
@@ -449,7 +450,7 @@ class NavigationManager:
                 )
             )
         except Exception as exc:
-            print(f"⚠️ Unable to reposition {label}: {exc}")
+            app_log(f"⚠️ Unable to reposition {label}: {exc}")
             return False
 
     def _maximize_active_non_rf_window(self) -> bool:
@@ -497,5 +498,5 @@ class NavigationManager:
                 )
             )
         except Exception as exc:
-            print(f"⚠️ Unable to maximize workspace window: {exc}")
+            app_log(f"⚠️ Unable to maximize workspace window: {exc}")
             return False

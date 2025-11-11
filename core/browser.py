@@ -1,6 +1,7 @@
 from playwright.sync_api import sync_playwright, Browser, BrowserContext, Page, ViewportSize
 from config.settings import Settings
 from typing import Optional, cast
+from core.logger import app_log
 
 
 class BrowserManager:
@@ -54,7 +55,7 @@ class BrowserManager:
         viewport_width = int(cfg.width / scale)
         viewport_height = int((cfg.height - 300) / scale)
 
-        print(
+        app_log(
             f"[BrowserManager] viewport={viewport_width}x{viewport_height} "
             f"(raw={cfg.width}x{cfg.height}, scale={cfg.device_scale_factor})"
         )

@@ -9,6 +9,7 @@ from core.connection_guard import ConnectionResetGuard, ConnectionResetDetected
 from ui.auth import AuthManager
 from ui.navigation import NavigationManager
 from ui.post_message import PostMessageManager
+from core.logger import app_log
 
 
 def main():
@@ -34,7 +35,12 @@ def main():
         auth_mgr = AuthManager(page, screenshot_mgr)
         nav_mgr = NavigationManager(page, screenshot_mgr)
         post_message_mgr = PostMessageManager(page, screenshot_mgr)
-        rf_menu = RFMenuManager(page, page_mgr, screenshot_mgr)
+        rf_menu = RFMenuManager(
+            page,
+            page_mgr,
+            screenshot_mgr,
+            verbose_logging=settings.app.rf_verbose_logging,
+        )
         conn_guard = ConnectionResetGuard(page, screenshot_mgr)
 
         def run_receive_cycle():
@@ -52,19 +58,17 @@ def main():
                 # nav_mgr.open_menu_item("POST", "Post Message (Integration)")
                 # # Send the payload with a built-in retry before moving on
                 # success, response_info = post_message_mgr.send_message(settings.app.post_message_text)
-                # print(f"Response summary: {response_info['summary']}")
-                # if response_info.get("payload"):
-                #     print(f"Response payload: {response_info['payload']}")
-                # if not success:
-                #     print("⚠️ Post Message failed; continuing with the remaining flow.")
+                # # DEBUG: Response summary/payload logging removed; use app_log if needed.
+                # # if not success:
+                # #     app_log("⚠️ Post Message failed; continuing with the remaining flow.")
 
                 conn_guard.guard(run_receive_cycle)
 
             input("Press Enter to exit...")
         except ConnectionResetDetected as e:
-            print(f"❌ Halting run: {e}")
+            app_log(f"❌ Halting run: {e}")
         except Exception as e:
-            print(f"Error in main flow: {e}")
+            app_log(f"Error in main flow: {e}")
             import traceback
             traceback.print_exc()
 

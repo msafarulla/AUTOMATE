@@ -6,6 +6,7 @@ import paramiko
 import os
 import platform
 import getpass
+from core.logger import app_log
 
 class DB:
     def __enter__(self):    
@@ -121,7 +122,7 @@ class DB:
         whse_conditions = []
         join_conditions = []
 
-        # print("Extracted Tables and Aliases:", table_aliases)  # Debugging output
+        # DEBUG: Extracted Tables and Aliases can be logged here if needed.
 
         if 1==1:
             whse_tables = []  # List of tables that have a WHSE column
@@ -132,7 +133,7 @@ class DB:
                 SELECT column_name FROM all_tab_columns 
                 WHERE table_name = '{table}' AND column_name = 'WHSE'
                 """
-                # print(f"Checking WHSE column for table: {table} (alias: {alias})")  # Debugging output
+                # DEBUG: Checking WHSE column for table (alias) details here if needed.
                 self.runSQL(column_check_query, False)
                 if self.fetchone():  # If WHSE column exists
                     whse_conditions.append(f"{alias}.WHSE = '{self.whse}'")
@@ -142,8 +143,7 @@ class DB:
             for table1, table2 in itertools.combinations(whse_tables, 2):
                 join_conditions.append(f"{table1}.WHSE = {table2}.WHSE")
 
-            # print("WHSE Conditions:", whse_conditions)  # Debugging output
-            # print("Join Conditions:", join_conditions)  # Debugging output
+            # DEBUG: WHSE and Join conditions available for inspection if needed.
 
             # Combine all WHSE filters and join conditions
             all_conditions = whse_conditions + join_conditions
@@ -213,4 +213,4 @@ if __name__ == '__main__':
     c1 = cnx1.runSQL('select * from ITEM_CBO fetch first 10 rows only',False)
     # c2 = cnx2.runSQL('select * from LPN_DETAIL fetch 10 rows')
     while row := c1.fetchone():
-        print(row)
+        app_log(str(row))
