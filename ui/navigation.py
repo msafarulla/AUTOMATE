@@ -310,7 +310,6 @@ class NavigationManager:
         except Exception as e:
             print(f"⚠️ Unable to maximize RF window: {e}")
 
-
     def _maybe_center_post_message_window(self, normalized_match: str):
         """Pin the Post Message window near the top-center so it does not cascade down."""
         if "post message" not in normalized_match:

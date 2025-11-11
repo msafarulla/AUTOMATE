@@ -34,8 +34,7 @@ class RFMenuManager:
         body = rf_iframe.locator("body")
         body.wait_for(state="visible", timeout=2000)
         try:
-            safe_locator_evaluate(body, "el => el.focus && el.focus()",
-                                   description="RFMenuManager.reset_to_home focus")
+            safe_locator_evaluate(body, "el => el.focus && el.focus()", description="RFMenuManager.reset_to_home focus")
         except Exception:
             pass
 
@@ -56,10 +55,7 @@ class RFMenuManager:
                     self._tran_marker_verified = False
                 else:
                     self._tran_marker_verified = True
-            else:
-                self._tran_marker_verified = True
         self.screenshot_mgr.capture_rf_window(self.page, "RF_HOME", "RF Home")
-
 
     def maximize_window(self):
         """Maximize RF Menu window"""
