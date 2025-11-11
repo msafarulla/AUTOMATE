@@ -137,17 +137,23 @@ class RFPrimitives:
         screenshot_text: Optional[str] = None,
         wait_for_change: bool = True,
         check_errors: bool = True,
-        timeout: int = 2000
+        timeout: int = 2000,
+        selector: Optional[str] = None
     ) -> tuple[bool, Optional[str]]:
         """
-        Press Enter on whichever RF input currently has focus.
+        Press Enter on whichever RF input currently has focus, or on a provided selector.
 
         Useful when multiple fields were filled individually and now need
-        to be submitted together (e.g., quantity + license plate).
+        to be submitted together (e.g., quantity + license plate). The optional
+        selector parameter ensures we target a specific input even if focus
+        moved elsewhere.
         """
         rf_iframe = self.get_iframe()
-        focused_input = rf_iframe.locator(":focus")
-        focused_input.wait_for(state="visible", timeout=timeout)
+        if selector:
+            target_input = rf_iframe.locator(selector).first
+        else:
+            target_input = rf_iframe.locator(":focus")
+        target_input.wait_for(state="visible", timeout=timeout)
 
         screenshot_text = screenshot_text or "Submitted focused input"
         self.screenshot_mgr.capture_rf_window(
@@ -157,7 +163,7 @@ class RFPrimitives:
         )
 
         prev_hash = HashUtils.get_frame_hash(rf_iframe) if wait_for_change else None
-        focused_input.press("Enter")
+        target_input.press("Enter")
 
         if wait_for_change:
             WaitUtils.wait_for_screen_change(self.get_iframe, prev_hash)
@@ -371,6 +377,7 @@ class RFWorkflows:
             primitives: The RFPrimitives instance to use
         """
         self.rf = primitives
+        self._last_scanned_selector: Optional[str] = None
 
     def navigate_to_screen(self, path: list[tuple[str, str]]):
         """
@@ -414,7 +421,9 @@ class RFWorkflows:
             timeout: How long to wait for the field
 
         Returns:
-            (False, None) so it can be composed with press_enter
+            (False, None) so it can be composed with press_enter. Also records the
+            selector of the most recently scanned field so press_enter knows
+            which input to submit.
         """
         self.rf.fill_field(
             selector=selector,
@@ -423,6 +432,8 @@ class RFWorkflows:
             screenshot_text=f"Scanned {label}: {value}",
             timeout=timeout
         )
+
+        self._last_scanned_selector = selector
 
         return False, None
 
@@ -452,6 +463,9 @@ class RFWorkflows:
         Example:
             workflows.scan_barcode_auto_enter("input#shipinpId", "12345", "ASN")
         """
+        # Auto-enter flows shouldn't leave stale selectors
+        self._last_scanned_selector = None
+
         has_error, msg = self.rf.fill_and_submit(
             selector=selector,
             value=value,
@@ -474,14 +488,21 @@ class RFWorkflows:
         timeout: int = 2000
     ) -> tuple[bool, Optional[str]]:
         """
-        Press Enter on the currently focused RF input (typically after multiple scan_barcode calls).
+        Press Enter on the last scanned RF input (typically after multiple scan_barcode calls).
         """
+        target_selector = self._last_scanned_selector
+        if not target_selector:
+            print("⚠️ press_enter called without a tracked input; defaulting to focused field.")
+
         has_error, msg = self.rf.submit_current_input(
             screenshot_label=f"press_enter_{label}",
             screenshot_text=f"Pressed Enter ({label})",
             wait_for_change=wait_for_change,
-            timeout=timeout
+            timeout=timeout,
+            selector=target_selector
         )
+
+        self._last_scanned_selector = None
 
         if auto_accept_errors and msg:
             self.rf.accept_message()
