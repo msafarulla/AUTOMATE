@@ -14,7 +14,7 @@ class LoadingOperation(BaseOperation):
         # Create integration layer to get primitives and workflows
         integration = RFMenuIntegration(self.rf_menu)
         workflows = integration.get_workflows()
-        # Navigate to receive screen (2 lines instead of 6!)
+        # Navigate to receive screen
         workflows.navigate_to_screen([
             ("2", "Outbound"),
             ("1", "Load Trailer")
@@ -26,17 +26,7 @@ class LoadingOperation(BaseOperation):
             ("input#barcode32", BOL, "BOL")
         ]
 
-        # Fill all fields before submitting once
-        for selector, value, label in scans:
-            has_error, msg = workflows.scan_barcode(selector, value, label)
-            if has_error:
-                print(f"❌ {label} entry failed: {msg}")
-                return False
-
-        has_error, msg = workflows.press_enter("load_trailer")
+        has_error, msg = workflows.scan_fields_and_submit(scans, "load_trailer")
         if has_error:
-            print(f"❌ Submission failed: {msg}")
             return False
-
-
         return True

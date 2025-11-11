@@ -509,6 +509,32 @@ class RFWorkflows:
 
         return has_error, msg
 
+    def scan_fields_and_submit(
+        self,
+        scans: list[tuple[str, str, str]],
+        submit_label: str,
+        wait_for_change: bool = True
+    ) -> tuple[bool, Optional[str]]:
+        """
+        Fill multiple fields (without submitting) and press Enter once at the end.
+
+        Args:
+            scans: List of (selector, value, label) tuples to scan.
+            submit_label: Label used for screenshots/logging when submitting.
+            wait_for_change: Whether to wait for a screen change after pressing Enter.
+        """
+        for selector, value, label in scans:
+            has_error, msg = self.scan_barcode(selector, value, label)
+            if has_error:
+                print(f"❌ {label} entry failed: {msg}")
+                return True, msg
+        else:
+            has_error, msg = self.press_enter(submit_label, wait_for_change=wait_for_change)
+            if has_error:
+                print(f"❌ Submission failed: {msg}")
+
+        return has_error, msg
+
     def enter_quantity(
         self,
         selector: str,
