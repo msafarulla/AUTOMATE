@@ -1,12 +1,5 @@
-"""
-Updated main.py showing how to use both old and new operations side-by-side.
-
-You can gradually migrate operations one at a time without breaking anything!
-"""
 from functools import wraps
-
-from operations.inbound.receive import ReceiveOperation  # Old version
-from operations.inbound.receive_refactored import ReceiveOperationRefactored  # New version
+from operations.inbound.receive_refactored import ReceiveOperationRefactored
 from operations.outbound.loading import LoadingOperation
 from ui.rf_menu import RFMenuManager
 from DB import DB
