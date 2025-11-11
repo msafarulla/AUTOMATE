@@ -44,13 +44,7 @@ def main():
         rf_menu = RFMenuManager(page, page_mgr, screenshot_mgr)
         conn_guard = ConnectionResetGuard(page, screenshot_mgr)
 
-        def run_receive_cycle_old():
-            """Use the OLD receive operation (still works!)"""
-            nav_mgr.open_menu_item("RF MENU", "RF Menu (Distribution)")
-            receive_op = ReceiveOperation(page, page_mgr, screenshot_mgr, rf_menu)
-            receive_op.execute(asn='23907432', item='J105SXC200TR', quantity=1)
-
-        def run_receive_cycle_new():
+        def run_receive_cycle():
             """Use the NEW refactored receive operation (much cleaner!)"""
             nav_mgr.open_menu_item("RF MENU", "RF Menu (Distribution)")
             receive_op = ReceiveOperationRefactored(page, page_mgr, screenshot_mgr, rf_menu)
@@ -85,8 +79,9 @@ def main():
             # Option 2: Use new refactored version (recommended!)
 
             # conn_guard.guard(run_post_cycle)
-            conn_guard.guard(run_receive_cycle_new)
-            conn_guard.guard(run_loading_cycle)
+            while 1:
+                conn_guard.guard(run_receive_cycle)
+                conn_guard.guard(run_loading_cycle)
 
             print("✅ Operation completed successfully!")
             input("Press Enter to exit...")
