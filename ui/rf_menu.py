@@ -55,7 +55,10 @@ class RFMenuManager:
                     self._tran_marker_verified = False
                 else:
                     self._tran_marker_verified = True
+            else:
+                self._tran_marker_verified = True
         self.screenshot_mgr.capture_rf_window(self.page, "RF_HOME", "RF Home")
+
 
     def maximize_window(self):
         """Maximize RF Menu window"""
