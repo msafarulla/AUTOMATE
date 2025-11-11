@@ -3,6 +3,8 @@ Updated main.py showing how to use both old and new operations side-by-side.
 
 You can gradually migrate operations one at a time without breaking anything!
 """
+from functools import wraps
+
 from operations.inbound.receive import ReceiveOperation  # Old version
 from operations.inbound.receive_refactored import ReceiveOperationRefactored  # New version
 from operations.outbound.loading import LoadingOperation
@@ -44,12 +46,32 @@ def main():
         rf_menu = RFMenuManager(page, page_mgr, screenshot_mgr)
         conn_guard = ConnectionResetGuard(page, screenshot_mgr)
 
+        def guarded(func):
+            """Decorator to automatically run handlers inside the connection guard."""
+            @wraps(func)
+            def wrapper(*args, **kwargs):
+                return conn_guard.guard(func, *args, **kwargs)
+
+            return wrapper
+
+        @guarded
+        def run_login():
+            """Authenticate once per session inside the guard."""
+            auth_mgr.login(username, password, settings.app.base_url)
+
+        @guarded
+        def run_change_warehouse():
+            """Switch warehouses safely inside the guard."""
+            nav_mgr.change_warehouse(settings.app.change_warehouse)
+
+        @guarded
         def run_receive_cycle():
             """Use the NEW refactored receive operation (much cleaner!)"""
             nav_mgr.open_menu_item("RF MENU", "RF Menu (Distribution)")
             receive_op = ReceiveOperationRefactored(page, page_mgr, screenshot_mgr, rf_menu)
             receive_op.execute(asn='23907432', item='J105SXC200TR', quantity=1)
 
+        @guarded
         def run_post_cycle():
             """Launch Post Message screen"""
             nav_mgr.open_menu_item("POST", "Post Message (Integration)")
@@ -61,6 +83,7 @@ def main():
             if not success:
                 print("⚠️ Post Message failed; continuing with the remaining flow.")
 
+        @guarded
         def run_loading_cycle():
             """Use the NEW refactored receive operation (much cleaner!)"""
             nav_mgr.open_menu_item("RF MENU", "RF Menu (Distribution)")
@@ -69,8 +92,8 @@ def main():
 
         try:
             # Login and setup
-            conn_guard.guard(auth_mgr.login, username, password, settings.app.base_url)
-            conn_guard.guard(nav_mgr.change_warehouse, settings.app.change_warehouse)
+            run_login()
+            run_change_warehouse()
 
             # Choose which version to use:
             # Option 1: Use old version (still works)
@@ -78,10 +101,10 @@ def main():
 
             # Option 2: Use new refactored version (recommended!)
 
-            # conn_guard.guard(run_post_cycle)
+            # run_post_cycle()
             while 1:
-                conn_guard.guard(run_receive_cycle)
-                conn_guard.guard(run_loading_cycle)
+                run_receive_cycle()
+                run_loading_cycle()
 
             print("✅ Operation completed successfully!")
             input("Press Enter to exit...")
