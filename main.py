@@ -85,7 +85,7 @@ def main():
             # Option 2: Use new refactored version (recommended!)
 
             # conn_guard.guard(run_post_cycle)
-            # conn_guard.guard(run_receive_cycle_new)
+            conn_guard.guard(run_receive_cycle_new)
             conn_guard.guard(run_loading_cycle)
 
             print("✅ Operation completed successfully!")
