@@ -94,14 +94,6 @@ def main():
             # Login and setup
             run_login()
             run_change_warehouse()
-
-            # Choose which version to use:
-            # Option 1: Use old version (still works)
-            # conn_guard.guard(run_receive_cycle_old)
-
-            # Option 2: Use new refactored version (recommended!)
-
-            # run_post_cycle()
             while 1:
                 run_receive_cycle()
                 run_loading_cycle()
