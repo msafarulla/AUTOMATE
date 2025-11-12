@@ -1,9 +1,3 @@
-"""
-Refactored Receive Operation using primitives.
-
-BEFORE: 50+ lines with lots of duplication
-AFTER:  15 lines, clear and maintainable
-"""
 from operations.base_operation import BaseOperation
 from operations.rf_primitives import RFMenuIntegration
 from core.logger import rf_log
