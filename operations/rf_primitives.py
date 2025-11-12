@@ -1,9 +1,3 @@
-"""
-RF Primitives - Reusable building blocks for ALL RF operations.
-
-This module provides low-level, composable functions that eliminate code duplication.
-Every RF operation should be built by combining these primitives.
-"""
 from typing import Optional, Callable, Any
 from playwright.sync_api import Page, Frame
 from core.screenshot import ScreenshotManager
@@ -73,6 +67,11 @@ class RFPrimitives:
         # If we were waiting for a change but it never happened, treat it as an error.
         if wait_for_change and not screen_changed:
             rf_log("⚠️ Submit did not trigger a screen change; treating as failure.")
+            self.screenshot_mgr.capture_rf_window(
+                self.page,
+                "submit_no_screen_change",
+                "Submit failed to trigger a screen change"
+            )
             return True, "Screen did not change after submit"
 
         # Check for errors
@@ -92,10 +91,7 @@ class RFPrimitives:
         screenshot_text: Optional[str] = None,
         timeout: int = 2000
     ):
-        """
-        Fill an input field without submitting. Useful when multiple fields
-        need values before pressing Enter once.
-        """
+
         rf_iframe = self.get_iframe()
 
         input_field = rf_iframe.locator(selector).first
@@ -120,14 +116,7 @@ class RFPrimitives:
         timeout: int = 2000,
         selector: Optional[str] = None
     ) -> tuple[bool, Optional[str]]:
-        """
-        Press Enter on whichever RF input currently has focus, or on a provided selector.
 
-        Useful when multiple fields were filled individually and now need
-        to be submitted together (e.g., quantity + license plate). The optional
-        selector parameter ensures we target a specific input even if focus
-        moved elsewhere.
-        """
         rf_iframe = self.get_iframe()
         if selector:
             target_input = rf_iframe.locator(selector).first
@@ -166,21 +155,7 @@ class RFPrimitives:
         timeout: int = 5000,
         transform: Optional[Callable[[str], str]] = None
     ) -> str:
-        """
-        Read a value from the screen.
 
-        Args:
-            selector: CSS selector for the field
-            timeout: How long to wait for field
-            transform: Optional function to transform the value
-
-        Returns:
-            The field value
-
-        Example:
-            # Read location and remove dashes
-            loc = primitives.read_field("span#locnField", transform=lambda x: x.replace('-', ''))
-        """
         rf_iframe = self.get_iframe()
         locator = rf_iframe.locator(selector)
         locator.wait_for(state="visible", timeout=timeout)
@@ -465,21 +440,6 @@ class RFWorkflows:
         item_name: str = "",
         timeout: int = 1000
     ) -> bool:
-        """
-        Enter a quantity value.
-
-        Args:
-            selector: CSS selector for the quantity input
-            qty: Quantity to enter
-            item_name: Optional item name for screenshot label
-            timeout: How long to wait for the field
-
-        Returns:
-            True if successful (no error), False if error
-
-        Example:
-            success = workflows.enter_quantity("input#qtyInput", 10, "ABC123")
-        """
         label = f"qty_{item_name}_{qty}" if item_name else f"qty_{qty}"
         unit = "Unit" if qty == 1 else "Units"
 
@@ -499,20 +459,7 @@ class RFWorkflows:
         location: str,
         timeout: int = 3000
     ) -> tuple[bool, Optional[str]]:
-        """
-        Confirm a putaway/destination location.
-
-        Args:
-            selector: CSS selector for the location input
-            location: Location to confirm
-            timeout: How long to wait for the field
-
-        Returns:
-            (has_error, error_message)
-
-        Example:
-            workflows.confirm_location("input#destLocn", "A-01-01")
-        """
+ 
         return self.rf.fill_and_submit(
             selector=selector,
             value=location,
@@ -527,16 +474,9 @@ class RFWorkflows:
 # ============================================================================
 
 class RFMenuIntegration:
-    """
-    Bridge between your existing RFMenuManager and the new primitives.
-    This lets you gradually migrate without breaking existing code.
-    """
 
     def __init__(self, rf_menu_manager):
-        """
-        Args:
-            rf_menu_manager: Your existing RFMenuManager instance
-        """
+
         self.rf_menu = rf_menu_manager
 
         # Create primitives using existing managers
