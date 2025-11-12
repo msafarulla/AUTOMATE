@@ -18,11 +18,7 @@ class WaitUtils:
             check_interval_ms: int = 200,
             warn_on_timeout: bool = True,
     ) -> bool:
-        """Wait for screen content to change by comparing hashes.
 
-        Accepts either a Frame (legacy) or a callable that always returns the latest Frame so we
-        can survive RF iframe recreations during navigation.
-        """
         try:
             def _get_frame() -> Frame:
                 if callable(frame_or_provider):

@@ -81,7 +81,7 @@ class RFPrimitives:
             has_error, msg = self._check_for_errors()
             if has_error:
                 rf_log(f"❌ Operation failed with error: {msg[:150] if msg else 'Unknown error'}")
-            return has_error, msg
+            return has_error if has_error else check_errors, msg if msg else "Test data is wrong"
 
         return False, None
 
@@ -296,12 +296,6 @@ class RFPrimitives:
     # ========================================================================
 
     def _check_for_errors(self) -> tuple[bool, Optional[str]]:
-        """
-        Check if an error or info message appeared.
-
-        Returns:
-            (has_error, message) tuple
-        """
         try:
             rf_iframe = self.get_iframe()
             self.page.wait_for_timeout(500)
@@ -450,9 +444,7 @@ class RFWorkflows:
         auto_accept_errors: bool = False,
         timeout: int = 2000
     ) -> tuple[bool, Optional[str]]:
-        """
-        Press Enter on the last scanned RF input (typically after multiple scan_barcode calls).
-        """
+
         target_selector = self._last_scanned_selector
         if not target_selector:
             rf_log("⚠️ press_enter called without a tracked input; defaulting to focused field.")
