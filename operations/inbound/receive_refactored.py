@@ -17,17 +17,6 @@ class ReceiveOperationRefactored(BaseOperation):
     """
 
     def execute(self, asn: str, item: str, quantity: int):
-        """
-        Execute ASN receiving workflow.
-
-        Args:
-            asn: ASN number to receive
-            item: Item barcode
-            quantity: Quantity to receive
-
-        Returns:
-            True if successful, False if error
-        """
         # Create integration layer to get primitives and workflows
         integration = RFMenuIntegration(self.rf_menu)
         workflows = integration.get_workflows()

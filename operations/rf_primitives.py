@@ -446,24 +446,6 @@ class RFWorkflows:
         timeout: int = 2000,
         auto_accept_errors: bool = False
     ) -> tuple[bool, Optional[str]]:
-        """
-        Simulate scanning a barcode (fill input and submit).
-
-        This is a semantic wrapper around fill_and_submit that makes code more readable.
-
-        Args:
-            selector: CSS selector for the input field
-            value: Barcode value to scan
-            label: Label for what's being scanned (e.g., "ASN", "Item")
-            timeout: How long to wait for the field
-            auto_accept_errors: If True, automatically press Ctrl+A on errors/info
-
-        Returns:
-            (has_error, error_message)
-
-        Example:
-            workflows.scan_barcode_auto_enter("input#shipinpId", "12345", "ASN")
-        """
         # Auto-enter flows shouldn't leave stale selectors
         self._last_scanned_selector = None
 
