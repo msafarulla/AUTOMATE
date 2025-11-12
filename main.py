@@ -99,12 +99,15 @@ def main():
             ensure_rf_menu_bootstrapped()
             load_op = LoadingOperation(page, page_mgr, screenshot_mgr, rf_menu)
             load_op.execute(shipment, dockDoor, BOL)
-
-        try:
-            # Login and setup
+        
+        def prep_session():
             run_login()
             run_change_warehouse()
             ensure_rf_menu_bootstrapped()
+
+
+        try:
+            prep_session()
             while 1:
                 receive(asn='23907432', item='J105SXC200TR')
                 loading(shipment='23907432', dockDoor='J105SXC200TR', BOL='MOH')
