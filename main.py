@@ -54,15 +54,17 @@ def main():
 
             return wrapper
 
-        def close_post_login_windows():
-            """Close any popup windows that appear immediately after sign-on."""
+        @guarded
+        def run_login():
+            """Authenticate once per session inside the guard."""
+            auth_mgr.login(username, password, settings.app.base_url)
             closed = 0
             try:
                 try:
                     page.wait_for_selector("div.x-window:visible", timeout=4000)
                 except PlaywrightTimeoutError:
                     app_log("ℹ️ No post-login windows detected.")
-                    return False
+                    return
 
                 for _ in range(5):
                     windows = page.locator("div.x-window:visible")
@@ -94,17 +96,8 @@ def main():
                     app_log(f"✅ Closed {closed} post-login {'windows' if closed > 1 else 'window'}.")
                 else:
                     app_log("ℹ️ No post-login windows required closing.")
-
-                return closed > 0
             except Exception as exc:
                 app_log(f"⚠️ Failed closing post-login windows: {exc}")
-                return False
-
-        @guarded
-        def run_login():
-            """Authenticate once per session inside the guard."""
-            auth_mgr.login(username, password, settings.app.base_url)
-            close_post_login_windows()
 
         @guarded
         def run_change_warehouse():
