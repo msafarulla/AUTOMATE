@@ -73,7 +73,7 @@ def _env_flag(name: str, default: bool) -> bool:
 class BrowserConfig:
     width: int = field(default_factory=lambda: _SCREEN_WIDTH)
     height: int = field(default_factory=lambda: _SCREEN_HEIGHT)
-    headless: bool = True
+    headless: bool = not True
     device_scale_factor: float = field(default_factory=get_scale_factor)
     screenshot_dir: str = "screenshots"
     screenshot_format: str = "jpeg"
@@ -84,6 +84,7 @@ class BrowserConfig:
 @dataclass
 class AppConfig:
     base_url: str = "https://wmqa.subaru1.com/manh/index.html?i=102"
+    base_url: str = "https://wmprod.subaru1.com/manh/index.html?i=102"
     change_warehouse: str = "LPM"
     timeout_default: int = 5000
     check_interval: int = 200
@@ -173,8 +174,8 @@ class AppConfig:
     </DistributionOrder>
   </Message>
 </tXML>"""
-    rf_verbose_logging: bool = False
-    app_verbose_logging: bool = False
+    rf_verbose_logging: bool = True
+    app_verbose_logging: bool = True
 
 
 class Settings:
