@@ -64,6 +64,7 @@ class AuthManager:
 
                 window_word = "windows" if count > 1 else "window"
                 app_log(f"⚠️ Detected {count} post-login {window_word}; attempting to close.")
+                self.screenshot_mgr.capture(self.page, "Default Windows", "Default Windows, will be closed")
 
                 try:
                     close_btn = windows.first.locator(".x-tool-close").first
