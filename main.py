@@ -44,6 +44,7 @@ def main():
             verbose_logging=settings.app.rf_verbose_logging,
         )
         conn_guard = ConnectionResetGuard(page, screenshot_mgr)
+        rf_menu_bootstrapped = False
 
         def guarded(func):
             """Decorator to automatically run handlers inside the connection guard."""
@@ -52,6 +53,16 @@ def main():
                 return conn_guard.guard(func, *args, **kwargs)
 
             return wrapper
+
+        @guarded
+        def ensure_rf_menu_bootstrapped():
+            """Open the RF Menu window once and reuse it like the login session."""
+            nonlocal rf_menu_bootstrapped
+            if rf_menu_bootstrapped:
+                return
+            nav_mgr.open_menu_item("RF MENU", "RF Menu (Distribution)")
+            rf_menu.reset_to_home()
+            rf_menu_bootstrapped = True
 
         @guarded
         def run_login():
@@ -66,7 +77,7 @@ def main():
         @guarded
         def receive(asn: str, item: str, quantity: int = 1):
             """Use the NEW refactored receive operation (much cleaner!)"""
-            nav_mgr.open_menu_item("RF MENU", "RF Menu (Distribution)")
+            ensure_rf_menu_bootstrapped()
             receive_op = ReceiveOperation(page, page_mgr, screenshot_mgr, rf_menu)
             receive_op.execute(asn, item, quantity)
 
@@ -85,7 +96,7 @@ def main():
         @guarded
         def loading(shipment: str, dockDoor: str, BOL: str):
             """Use the NEW refactored receive operation (much cleaner!)"""
-            nav_mgr.open_menu_item("RF MENU", "RF Menu (Distribution)")
+            ensure_rf_menu_bootstrapped()
             load_op = LoadingOperation(page, page_mgr, screenshot_mgr, rf_menu)
             load_op.execute(shipment, dockDoor, BOL)
 
@@ -93,6 +104,7 @@ def main():
             # Login and setup
             run_login()
             run_change_warehouse()
+            ensure_rf_menu_bootstrapped()
             while 1:
                 receive(asn='23907432', item='J105SXC200TR')
                 loading(shipment='23907432', dockDoor='J105SXC200TR', BOL='MOH')
