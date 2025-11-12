@@ -50,27 +50,7 @@ class RFPrimitives:
         check_errors: bool = True,
         timeout: int = 2000
     ) -> tuple[bool, Optional[str]]:
-        """
-        Core primitive: Fill an input field and press Enter.
 
-        This ONE method replaces all your _enter_asn, _enter_item, _enter_quantity, etc.
-
-        Args:
-            selector: CSS selector for the input field
-            value: Value to fill in the field
-            screenshot_label: Label for the screenshot filename
-            screenshot_text: Text overlay on screenshot (defaults to f"Entered {value}")
-            wait_for_change: Whether to wait for screen to change after Enter
-            check_errors: Whether to check for error/info messages
-            timeout: How long to wait for the field to appear
-
-        Returns:
-            (has_error, error_message) tuple
-
-        Example:
-            # Instead of writing 8 lines, you write 1:
-            primitives.fill_and_submit("input#shipinpId", "12345", "asn", "Scanned ASN 12345")
-        """
         rf_iframe = self.get_iframe()
 
         # Find and fill the input
