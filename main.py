@@ -54,15 +54,25 @@ def main():
 
             return wrapper
 
-        @guarded
-        def ensure_rf_menu_bootstrapped():
-            """Open the RF Menu window once and reuse it like the login session."""
+        def _bootstrap_rf_menu_if_needed():
             nonlocal rf_menu_bootstrapped
             if rf_menu_bootstrapped:
-                return
+                return False
             nav_mgr.open_menu_item("RF MENU", "RF Menu (Distribution)")
-            rf_menu.reset_to_home()
             rf_menu_bootstrapped = True
+            return True
+
+        @guarded
+        def bootstrap_rf_menu():
+            """Open the RF Menu window once per session."""
+            _bootstrap_rf_menu_if_needed()
+
+        @guarded
+        def get_rf_session():
+            """Ensure RF session is ready and reset to the home screen."""
+            did_bootstrap = _bootstrap_rf_menu_if_needed()
+            if not did_bootstrap:
+                rf_menu.reset_to_home()
 
         @guarded
         def run_login():
@@ -77,7 +87,7 @@ def main():
         @guarded
         def receive(asn: str, item: str, quantity: int = 1):
             """Use the NEW refactored receive operation (much cleaner!)"""
-            ensure_rf_menu_bootstrapped()
+            get_rf_session()
             receive_op = ReceiveOperation(page, page_mgr, screenshot_mgr, rf_menu)
             receive_op.execute(asn, item, quantity)
 
@@ -96,14 +106,14 @@ def main():
         @guarded
         def loading(shipment: str, dockDoor: str, BOL: str):
             """Use the NEW refactored receive operation (much cleaner!)"""
-            ensure_rf_menu_bootstrapped()
+            get_rf_session()
             load_op = LoadingOperation(page, page_mgr, screenshot_mgr, rf_menu)
             load_op.execute(shipment, dockDoor, BOL)
-        
+
         def prep_session():
             run_login()
             run_change_warehouse()
-            ensure_rf_menu_bootstrapped()
+            bootstrap_rf_menu()
 
 
         try:
