@@ -70,6 +70,11 @@ class RFPrimitives:
         if wait_for_change:
             screen_changed = WaitUtils.wait_for_screen_change(self.get_iframe, prev_hash)
 
+        # If we were waiting for a change but it never happened, treat it as an error.
+        if wait_for_change and not screen_changed:
+            rf_log("⚠️ Submit did not trigger a screen change; treating as failure.")
+            return True, "Screen did not change after submit"
+
         # Check for errors
         if check_errors and screen_changed:
             has_error, msg = self._check_for_errors()
@@ -440,14 +445,7 @@ class RFWorkflows:
         submit_label: str,
         wait_for_change: bool = True
     ) -> tuple[bool, Optional[str]]:
-        """
-        Fill multiple fields (without submitting) and press Enter once at the end.
-
-        Args:
-            scans: List of (selector, value, label) tuples to scan.
-            submit_label: Label used for screenshots/logging when submitting.
-            wait_for_change: Whether to wait for a screen change after pressing Enter.
-        """
+ 
         for selector, value, label in scans:
             has_error, msg = self.scan_barcode(selector, value, label)
             if has_error:
