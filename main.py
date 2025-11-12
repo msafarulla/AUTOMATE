@@ -64,11 +64,11 @@ def main():
             nav_mgr.change_warehouse(settings.app.change_warehouse)
 
         @guarded
-        def run_receive_cycle():
+        def receive(asn: str, item: str, quantity: int = 1):
             """Use the NEW refactored receive operation (much cleaner!)"""
             nav_mgr.open_menu_item("RF MENU", "RF Menu (Distribution)")
             receive_op = ReceiveOperation(page, page_mgr, screenshot_mgr, rf_menu)
-            receive_op.execute(asn='23907432', item='J105SXC200TR', quantity=1)
+            receive_op.execute(asn, item, quantity)
 
         @guarded
         def run_post_cycle():
@@ -83,20 +83,19 @@ def main():
                 app_log("⚠️ Post Message failed; continuing with the remaining flow.")
 
         @guarded
-        def run_loading_cycle():
+        def loading(shipment: str, dockDoor: str, BOL: str):
             """Use the NEW refactored receive operation (much cleaner!)"""
             nav_mgr.open_menu_item("RF MENU", "RF Menu (Distribution)")
             load_op = LoadingOperation(page, page_mgr, screenshot_mgr, rf_menu)
-            load_op.execute(shipment='23907432', dockDoor='J105SXC200TR', BOL='MOH')
+            load_op.execute(shipment, dockDoor, BOL)
 
         try:
             # Login and setup
             run_login()
             run_change_warehouse()
             while 1:
-                run_receive_cycle()
-                run_loading_cycle()
-
+                receive(asn='23907432', item='J105SXC200TR')
+                loading(shipment='23907432', dockDoor='J105SXC200TR', BOL='MOH')
             app_log("✅ Operation completed successfully!")
             input("Press Enter to exit...")
 
