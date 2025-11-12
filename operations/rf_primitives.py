@@ -382,6 +382,10 @@ class RFWorkflows:
             timeout=timeout
         )
 
+        if has_error:
+            # Exit the workflow step cleanly so higher-level callers can reset to home.
+            self.rf.press_key("Control+x", "rf_error_exit", "Exit option after error")
+
         if auto_accept_errors and msg and not self._is_invalid_test_data(msg):
             self.rf.accept_message()
 

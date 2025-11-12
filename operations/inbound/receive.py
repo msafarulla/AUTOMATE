@@ -22,13 +22,13 @@ class ReceiveOperation(BaseOperation):
             ("1", "RDC Recv ASN")
         ])
 
-        # Scan ASN (1 line instead of 8!)
+        # Scan ASN
         has_error, msg = workflows.scan_barcode_auto_enter("input#shipinpId", asn, "ASN")
         if has_error:
             rf_log(f"❌ ASN scan failed: {msg}")
             return False
 
-        # Scan item (1 line instead of 8!)
+        # Scan item
         has_error, msg = workflows.scan_barcode_auto_enter("input#verfiyItemBrcd", item, "Item")
         if has_error:
             rf_log(f"❌ Item scan failed: {msg}")
