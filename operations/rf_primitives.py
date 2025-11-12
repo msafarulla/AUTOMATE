@@ -14,6 +14,8 @@ from core.logger import rf_log
 
 class RFPrimitives:
 
+    INVALID_TEST_DATA_MSG = "Invalid test data"
+
     def __init__(
         self,
         page: Page,
@@ -64,15 +66,16 @@ class RFPrimitives:
         input_field.press("Enter")
 
         # Wait for screen change
+        screen_changed = True
         if wait_for_change:
-            WaitUtils.wait_for_screen_change(self.get_iframe, prev_hash)
+            screen_changed = WaitUtils.wait_for_screen_change(self.get_iframe, prev_hash)
 
         # Check for errors
-        if check_errors:
+        if check_errors and screen_changed:
             has_error, msg = self._check_for_errors()
             if has_error:
                 rf_log(f"❌ Operation failed with error: {msg[:150] if msg else 'Unknown error'}")
-            return has_error if has_error else check_errors, msg if msg else "Invalid test data"
+            return has_error, msg
 
         return False, None
 
@@ -345,19 +348,14 @@ class RFWorkflows:
         self.rf = primitives
         self._last_scanned_selector: Optional[str] = None
 
+    def _is_invalid_test_data(self, msg: Optional[str]) -> bool:
+        """Whether the message matches the invalid test data sentinel."""
+        if not msg:
+            return False
+        return msg.strip().casefold() == self.rf.INVALID_TEST_DATA_MSG.casefold()
+
     def navigate_to_screen(self, path: list[tuple[str, str]]):
-        """
-        Navigate through multiple menu levels.
 
-        Args:
-            path: List of (choice, label) tuples representing the navigation path
-
-        Example:
-            workflows.navigate_to_screen([
-                ("1", "Inbound"),
-                ("1", "RDC Recv ASN")
-            ])
-        """
         self.rf.go_home()
 
         for choice, label in path:
@@ -372,25 +370,7 @@ class RFWorkflows:
         label: str,
         timeout: int = 2000
     ) -> tuple[bool, Optional[str]]:
-        """
-        Fill a barcode field without pressing Enter.
 
-        Use this when the current screen requires multiple inputs before
-        submitting. Call scan_barcode_auto_enter if the value should be
-        entered and submitted immediately, or call press_enter
-        after filling all required fields.
-
-        Args:
-            selector: CSS selector for the input field
-            value: Barcode value to scan
-            label: Label for what's being scanned (e.g., "ASN", "Item")
-            timeout: How long to wait for the field
-
-        Returns:
-            (False, None) so it can be composed with press_enter. Also records the
-            selector of the most recently scanned field so press_enter knows
-            which input to submit.
-        """
         self.rf.fill_field(
             selector=selector,
             value=value,
@@ -422,7 +402,7 @@ class RFWorkflows:
             timeout=timeout
         )
 
-        if auto_accept_errors and msg and 'invalid test data' not in msg.lower():
+        if auto_accept_errors and msg and not self._is_invalid_test_data(msg):
             self.rf.accept_message()
 
         return has_error, msg
