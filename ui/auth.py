@@ -1,4 +1,4 @@
-from playwright.sync_api import Page
+from playwright.sync_api import Page, TimeoutError as PlaywrightTimeoutError
 from utils.eval_utils import safe_page_evaluate
 from core.screenshot import ScreenshotManager
 from core.logger import app_log
@@ -39,5 +39,52 @@ class AuthManager:
         self.page.click('#loginButton')
         self.page.wait_for_timeout(5000)
 
+        self._close_login_windows()
         self.screenshot_mgr.capture(self.page, "logged_in", "Logged In")
         app_log("✅ Logged in successfully")
+
+    def _close_login_windows(self):
+        """
+        Close any popup windows that appear immediately after sign-on so the
+        workspace is clean before navigation continues.
+        """
+        closed = 0
+        try:
+            try:
+                self.page.wait_for_selector("div.x-window:visible", timeout=4000)
+            except PlaywrightTimeoutError:
+                app_log("ℹ️ No post-login windows detected.")
+                return
+
+            for _ in range(5):
+                windows = self.page.locator("div.x-window:visible")
+                count = windows.count()
+                if count == 0:
+                    break
+
+                window_word = "windows" if count > 1 else "window"
+                app_log(f"⚠️ Detected {count} post-login {window_word}; attempting to close.")
+
+                try:
+                    close_btn = windows.first.locator(".x-tool-close").first
+                    if close_btn.is_visible():
+                        close_btn.click()
+                        closed += 1
+                        self.page.wait_for_timeout(200)
+                        continue
+                except Exception:
+                    pass
+
+                try:
+                    self.page.keyboard.press("Escape")
+                    closed += 1
+                    self.page.wait_for_timeout(200)
+                except Exception:
+                    break
+
+            if closed:
+                app_log(f"✅ Closed {closed} post-login {'windows' if closed > 1 else 'window'}.")
+            else:
+                app_log("ℹ️ No post-login windows required closing.")
+        except Exception as exc:
+            app_log(f"⚠️ Failed closing post-login windows: {exc}")
