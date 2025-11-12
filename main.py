@@ -12,6 +12,7 @@ from ui.auth import AuthManager
 from ui.navigation import NavigationManager
 from ui.post_message import PostMessageManager
 from core.logger import app_log
+from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
 
 def main():
@@ -53,10 +54,57 @@ def main():
 
             return wrapper
 
+        def close_post_login_windows():
+            """Close any popup windows that appear immediately after sign-on."""
+            closed = 0
+            try:
+                try:
+                    page.wait_for_selector("div.x-window:visible", timeout=4000)
+                except PlaywrightTimeoutError:
+                    app_log("ℹ️ No post-login windows detected.")
+                    return False
+
+                for _ in range(5):
+                    windows = page.locator("div.x-window:visible")
+                    count = windows.count()
+                    if count == 0:
+                        break
+
+                    window_word = "windows" if count > 1 else "window"
+                    app_log(f"⚠️ Detected {count} post-login {window_word}; attempting to close.")
+
+                    try:
+                        close_btn = windows.first.locator(".x-tool-close").first
+                        if close_btn.is_visible():
+                            close_btn.click()
+                            closed += 1
+                            page.wait_for_timeout(200)
+                            continue
+                    except Exception:
+                        pass
+
+                    try:
+                        page.keyboard.press("Escape")
+                        closed += 1
+                        page.wait_for_timeout(200)
+                    except Exception:
+                        break
+
+                if closed:
+                    app_log(f"✅ Closed {closed} post-login {'windows' if closed > 1 else 'window'}.")
+                else:
+                    app_log("ℹ️ No post-login windows required closing.")
+
+                return closed > 0
+            except Exception as exc:
+                app_log(f"⚠️ Failed closing post-login windows: {exc}")
+                return False
+
         @guarded
         def run_login():
             """Authenticate once per session inside the guard."""
             auth_mgr.login(username, password, settings.app.base_url)
+            close_post_login_windows()
 
         @guarded
         def run_change_warehouse():
