@@ -1,5 +1,5 @@
 from functools import wraps
-from operations.inbound.receive_refactored import ReceiveOperationRefactored
+from operations.inbound.receive import ReceiveOperation
 from operations.outbound.loading import LoadingOperation
 from ui.rf_menu import RFMenuManager
 from DB import DB
@@ -12,7 +12,6 @@ from ui.auth import AuthManager
 from ui.navigation import NavigationManager
 from ui.post_message import PostMessageManager
 from core.logger import app_log
-from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
 
 def main():
@@ -68,7 +67,7 @@ def main():
         def run_receive_cycle():
             """Use the NEW refactored receive operation (much cleaner!)"""
             nav_mgr.open_menu_item("RF MENU", "RF Menu (Distribution)")
-            receive_op = ReceiveOperationRefactored(page, page_mgr, screenshot_mgr, rf_menu)
+            receive_op = ReceiveOperation(page, page_mgr, screenshot_mgr, rf_menu)
             receive_op.execute(asn='23907432', item='J105SXC200TR', quantity=1)
 
         @guarded

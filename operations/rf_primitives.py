@@ -69,7 +69,7 @@ class RFPrimitives:
             rf_log("⚠️ Submit did not trigger a screen change; treating as failure.")
             self.screenshot_mgr.capture_rf_window(
                 self.page,
-                "submit_no_screen_change",
+                "Error_submit_no_screen_change",
                 "Submit failed to trigger a screen change"
             )
             return True, "Screen did not change after submit"

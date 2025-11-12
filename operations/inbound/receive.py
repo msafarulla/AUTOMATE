@@ -9,7 +9,7 @@ from operations.rf_primitives import RFMenuIntegration
 from core.logger import rf_log
 
 
-class ReceiveOperationRefactored(BaseOperation):
+class ReceiveOperation(BaseOperation):
     """
     Refactored receive operation using reusable primitives.
 
