@@ -107,7 +107,7 @@ class RFMenuManager:
 
         return self.check_for_response(rf_iframe)
 
-    def check_for_response(self, rf_iframe: Frame) -> tuple[bool, str]:
+    def check_for_response(self, rf_iframe: Frame) -> tuple[bool, str] | tuple[bool, None]:
         """Check if an error or info screen appeared"""
         try:
             self.page.wait_for_timeout(500)

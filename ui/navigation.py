@@ -49,11 +49,6 @@ class NavigationManager:
         app_log(f"✅ Changed warehouse to {warehouse}")
 
     def open_menu_item(self, search_term: str, match_text: str, max_attempt: int = 10) -> bool:
-        """
-        Opens a specific menu item by typing into the search box
-        and selecting the item whose text matches exactly (after normalization).
-        Also prints a side-by-side diff if no match is found.
-        """
         import re
         from difflib import ndiff
 

@@ -39,15 +39,12 @@ class AuthManager:
         self.page.click('#loginButton')
         self.page.wait_for_timeout(10000)
 
-        self._close_login_windows()
+        self._close_default_windows()
         self.screenshot_mgr.capture(self.page, "logged_in", "Logged In")
         app_log("✅ Logged in successfully")
 
-    def _close_login_windows(self):
-        """
-        Close any popup windows that appear immediately after sign-on so the
-        workspace is clean before navigation continues.
-        """
+    """Auto-Launch Menu can create default windows to open up, close them https://moshort.short.gy/gmHTsp"""
+    def _close_default_windows(self):
         closed = 0
         try:
             try:

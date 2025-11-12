@@ -84,7 +84,6 @@ def main():
 
         @guarded
         def loading(shipment: str, dockDoor: str, BOL: str):
-            """Use the NEW refactored receive operation (much cleaner!)"""
             nav_mgr.open_menu_item("RF MENU", "RF Menu (Distribution)")
             load_op = LoadingOperation(page, page_mgr, screenshot_mgr, rf_menu)
             load_op.execute(shipment, dockDoor, BOL)
