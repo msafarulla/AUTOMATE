@@ -13,10 +13,6 @@ from core.logger import rf_log
 
 
 class RFPrimitives:
-    """
-    Low-level reusable primitives for RF operations.
-    Think of these as Lego blocks - combine them to build any RF workflow.
-    """
 
     def __init__(
         self,
@@ -25,12 +21,7 @@ class RFPrimitives:
         screenshot_mgr: ScreenshotManager,
         reset_to_home: Optional[Callable[[], None]] = None
     ):
-        """
-        Args:
-            page: The Playwright page object
-            get_iframe_func: Function that returns the current RF iframe
-            screenshot_mgr: Screenshot manager for capturing screens
-        """
+
         self.page = page
         self.get_iframe = get_iframe_func
         self.screenshot_mgr = screenshot_mgr
@@ -81,7 +72,7 @@ class RFPrimitives:
             has_error, msg = self._check_for_errors()
             if has_error:
                 rf_log(f"❌ Operation failed with error: {msg[:150] if msg else 'Unknown error'}")
-            return has_error if has_error else check_errors, msg if msg else "Test data is wrong"
+            return has_error if has_error else check_errors, msg if msg else "Invalid test data"
 
         return False, None
 
@@ -431,8 +422,7 @@ class RFWorkflows:
             timeout=timeout
         )
 
-        # Auto-accept if requested
-        if auto_accept_errors and msg:
+        if auto_accept_errors and msg and 'invalid test data' not in msg.lower():
             self.rf.accept_message()
 
         return has_error, msg
