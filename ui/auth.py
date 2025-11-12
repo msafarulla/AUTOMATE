@@ -37,7 +37,7 @@ class AuthManager:
 
         app_log("Clicking login button...")
         self.page.click('#loginButton')
-        self.page.wait_for_timeout(5000)
+        self.page.wait_for_timeout(10000)
 
         self._close_login_windows()
         self.screenshot_mgr.capture(self.page, "logged_in", "Logged In")
@@ -51,7 +51,7 @@ class AuthManager:
         closed = 0
         try:
             try:
-                self.page.wait_for_selector("div.x-window:visible", timeout=4000)
+                self.page.wait_for_selector("div.x-window:visible", timeout=10000)
             except PlaywrightTimeoutError:
                 app_log("ℹ️ No post-login windows detected.")
                 return
