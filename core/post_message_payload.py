@@ -138,16 +138,30 @@ def _fetch_message_xml(db: DB, message_type: str, object_id: str) -> Optional[st
         )
     """
 
-    db.runSQL(xml_query)
+    db.runSQL(xml_query, whse_specific=False)
     row = db.fetchone()
     if not row:
         return None
+
     payload = row['COMPLETE_XML']
     if payload is None:
         return None
+
+    payload_text: Optional[str] = None
     try:
-        payload_text = payload.read() if hasattr(payload, "read") else str(payload)
-    except Exception:
+        if hasattr(payload, "read"):
+            payload_text = payload.read()
+        elif hasattr(payload, "getvalue"):
+            payload_text = payload.getvalue()
+        elif hasattr(payload, "string"):
+            payload_text = payload.string
+        elif hasattr(payload, "getSubString") and hasattr(payload, "length"):
+            payload_text = payload.getSubString(1, payload.length())
+    except Exception as exc:
+        app_log(f"⚠️ Failed to read CLOB payload via native handles: {exc}")
+
+    if payload_text is None:
         payload_text = str(payload)
+
     payload_text = payload_text.strip()
     return payload_text or None
