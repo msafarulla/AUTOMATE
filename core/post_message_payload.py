@@ -86,7 +86,7 @@ def _fetch_recent_object_id(
             from ASN
             where DESTINATION_FACILITY_ALIAS_ID = '{facility}'
               and CREATED_DTTM >= sysdate - interval '{lookback_days}' day
-            order by CREATED_DTTM desc
+            order by CREATED_DTTM desc fetch first 2 rows only
         """
     else:
         query = f"""
@@ -94,10 +94,10 @@ def _fetch_recent_object_id(
             from ORDERS
             where O_FACILITY_ALIAS_ID = '{facility}'
               and CREATED_DTTM >= sysdate - interval '{lookback_days}' day
-            order by CREATED_DTTM desc
+            order by CREATED_DTTM desc fetch first 2 rows only
         """
 
-    db.runSQL(query, whse_specific=False)
+    db.runSQL(query)
     rows, columns = db.fetchall()
     if not rows:
         return None
@@ -137,7 +137,7 @@ def _fetch_message_xml(db: DB, message_type: str, object_id: str) -> Optional[st
         )
     """
 
-    db.runSQL(xml_query, whse_specific=False)
+    db.runSQL(xml_query)
     row = db.fetchone()
     if not row:
         return None
