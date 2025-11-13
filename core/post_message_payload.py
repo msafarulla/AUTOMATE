@@ -142,4 +142,11 @@ def _fetch_message_xml(db: DB, message_type: str, object_id: str) -> Optional[st
     if not row:
         return None
     payload = row.get("COMPLETE_XML")
-    return payload.strip() if payload else None
+    if payload is None:
+        return None
+    try:
+        payload_text = payload.read() if hasattr(payload, "read") else str(payload)
+    except Exception:
+        payload_text = str(payload)
+    payload_text = payload_text.strip()
+    return payload_text or None
