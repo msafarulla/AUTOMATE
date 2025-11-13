@@ -30,6 +30,11 @@ class ReceiveOperation(BaseOperation):
         )
         if has_error:
             rf_log(f"❌ Menu search failed: {msg}")
+            rf.screenshot_mgr.capture_rf_window(
+                rf.page,
+                "menu_search_rdc_recv_failed",
+                f"{search_target} search failed"
+            )
             return False
 
         if tran_id:
@@ -40,6 +45,11 @@ class ReceiveOperation(BaseOperation):
             )
             if expected_tran not in menu_text:
                 rf_log(f"❌ Expected tran id {expected_tran} not found in menu results.")
+                rf.screenshot_mgr.capture_rf_window(
+                    rf.page,
+                    "menu_tran_mismatch_rdc_recv",
+                    f"Expected {expected_tran} in menu results"
+                )
                 return False
 
         has_error, msg = rf.fill_and_submit(
