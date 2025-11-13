@@ -16,11 +16,30 @@ class ReceiveOperation(BaseOperation):
         workflows = integration.get_workflows()
         rf = integration.get_primitives()
 
-        # Navigate to receive screen (2 lines instead of 6!)
-        workflows.navigate_to_screen([
-            ("1", "Inbound"),
-            ("1", "RDC Recv ASN")
-        ])
+        # Navigate to receive screen via Ctrl+F search
+        rf.go_home()
+        rf.press_key("Control+f", "rf_menu_search", "Opened menu search", wait_for_change=False)
+
+        has_error, msg = rf.fill_and_submit(
+            selector="input[type='text']:visible",
+            value="RDC: Recv",
+            screenshot_label="menu_search_rdc_recv",
+            screenshot_text="Searched for RDC: Recv",
+            wait_for_change=False
+        )
+        if has_error:
+            rf_log(f"❌ Menu search failed: {msg}")
+            return False
+
+        has_error, msg = rf.fill_and_submit(
+            selector="input[type='text']:visible",
+            value="1",
+            screenshot_label="menu_select_rdc_recv",
+            screenshot_text="Selected RDC: Recv option"
+        )
+        if has_error:
+            rf_log(f"❌ Selecting RDC: Recv option failed: {msg}")
+            return False
 
         # Scan ASN (1 line instead of 8!)
         has_error, msg = workflows.scan_barcode_auto_enter("input#shipinpId", asn, "ASN")
