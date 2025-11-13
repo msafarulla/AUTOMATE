@@ -21,7 +21,7 @@ class OperationResult:
 class AutomationOrchestrator:
     """Coordinates warehouse operations with retry logic and summary reporting."""
 
-    def __init__(self, settings: Settings, max_retries: int = 3):
+    def __init__(self, settings: Settings, max_retries: int = 1):
         self.settings = settings
         self.max_retries = max_retries
         self.results: list[OperationResult] = []
