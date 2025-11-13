@@ -87,9 +87,10 @@ class AppConfig:
     change_warehouse: str = "LPM"
     timeout_default: int = 5000
     check_interval: int = 200
-    post_message_text: str = """please holder"""
+    post_message_text: str = """place holder"""
     rf_verbose_logging: bool = True
     app_verbose_logging: bool = True
+    requires_prod_confirmation: bool = False
 
 
 class Settings:
@@ -108,4 +109,6 @@ class Settings:
         cls.app.rf_verbose_logging = _env_flag("RF_VERBOSE_LOGGING", cls.app.rf_verbose_logging)
         set_general_verbose(cls.app.app_verbose_logging)
         set_rf_verbose(cls.app.rf_verbose_logging)
+        base_url_lower = cls.app.base_url.lower()
+        cls.app.requires_prod_confirmation = any(marker in base_url_lower for marker in ("prod", "prd"))
         return cls

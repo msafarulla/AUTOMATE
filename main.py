@@ -79,6 +79,21 @@ def main():
             load_op = LoadingOperation(page, page_mgr, screenshot_mgr, rf_menu)
             return load_op.execute(shipment, dock_door, bol)
 
+        def _confirm_prod_post(db_env: str, workflow_index: int) -> bool:
+            if db_env.lower() != "prod" and not settings.app.requires_prod_confirmation:
+                return True
+            app_log(f"⚠️ Workflow {workflow_index}: about to send a PROD post message.")
+            first = input("Type PROD to continue: ").strip().upper()
+            if first != "PROD":
+                app_log("❌ First confirmation failed; aborting PROD post.")
+                return False
+            second = input("Re-type PROD to confirm: ").strip().upper()
+            if second != "PROD":
+                app_log("❌ Second confirmation failed; aborting PROD post.")
+                return False
+            app_log("✅ PROD confirmation received.")
+            return True
+
         @guarded
         def run_post_message(payload: str | None = None):
             nav_mgr.open_menu_item("POST", "Post Message (Integration)")
@@ -115,6 +130,9 @@ def main():
                         break
 
                     source = (post_cfg.get('source') or 'db').lower()
+                    db_env = post_cfg.get('db_env', 'qa')
+                    if not _confirm_prod_post(db_env, index):
+                        break
                     if source == 'db':
                         message_payload = build_post_message_payload(
                             post_cfg,
