@@ -1,6 +1,6 @@
 from operations.base_operation import BaseOperation
 from operations.rf_primitives import RFMenuIntegration
-from operations_config import OperationConfig
+from config.operations_config import OperationConfig
 from core.logger import rf_log
 
 
