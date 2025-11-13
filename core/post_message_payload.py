@@ -153,10 +153,16 @@ def _fetch_message_xml(db: DB, message_type: str, object_id: str) -> Optional[st
             payload_text = payload.read()
         elif hasattr(payload, "getvalue"):
             payload_text = payload.getvalue()
+        elif hasattr(payload, "stringValue"):
+            payload_text = payload.stringValue()
         elif hasattr(payload, "string"):
             payload_text = payload.string
         elif hasattr(payload, "getSubString") and hasattr(payload, "length"):
-            payload_text = payload.getSubString(1, payload.length())
+            try:
+                length = int(payload.length())
+            except Exception:
+                length = payload.length()
+            payload_text = payload.getSubString(1, length)
     except Exception as exc:
         app_log(f"⚠️ Failed to read CLOB payload via native handles: {exc}")
 
