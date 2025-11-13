@@ -20,11 +20,12 @@ class ReceiveOperation(BaseOperation):
         rf.go_home()
         rf.press_key("Control+f", "rf_menu_search", "Opened menu search", wait_for_change=False)
 
+        search_target = "RDC: Recv"
         has_error, msg = rf.fill_and_submit(
             selector="input[type='text']:visible",
-            value="RDC: Recv",
+            value=search_target,
             screenshot_label="menu_search_rdc_recv",
-            screenshot_text="Searched for RDC: Recv",
+            screenshot_text=f"Searched for {search_target}",
             wait_for_change=False
         )
         if has_error:
@@ -35,7 +36,7 @@ class ReceiveOperation(BaseOperation):
             selector="input[type='text']:visible",
             value="1",
             screenshot_label="menu_select_rdc_recv",
-            screenshot_text="Selected RDC: Recv option"
+            screenshot_text=f"Selected {search_target} option"
         )
         if has_error:
             rf_log(f"❌ Selecting RDC: Recv option failed: {msg}")
