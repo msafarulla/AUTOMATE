@@ -78,29 +78,24 @@ def _fetch_recent_object_id(
 ) -> Optional[str]:
     """
     Fetch the Nth most recent object id for the given message type and facility.
+    Uses the same SQL pattern provided by the operator for consistency/performance.
     """
     if message_type == "ASN":
-        table = "ASN"
-        id_column = "TC_ASN_ID"
-        facility_column = "DESTINATION_FACILITY_ALIAS_ID"
-        date_column = "CREATED_DTTM"
+        query = f"""
+            select TC_ASN_ID as OBJECT_ID, CREATED_DTTM
+            from ASN
+            where DESTINATION_FACILITY_ALIAS_ID = '{facility}'
+              and CREATED_DTTM >= sysdate - interval '{lookback_days}' day
+            order by CREATED_DTTM desc
+        """
     else:
-        table = "ORDERS"
-        id_column = "TC_ORDER_ID"
-        facility_column = "O_FACILITY_ALIAS_ID"
-        date_column = "CREATED_DTTM"
-
-    limit = record_index + 1
-    query = f"""
-        select object_id from (
-            select {id_column} as object_id
-            from {table}
-            where {facility_column} = '{facility}'
-              and {date_column} >= sysdate - interval '{lookback_days}' day
-            order by {date_column} desc
-        )
-        where rownum <= {limit}
-    """
+        query = f"""
+            select TC_ORDER_ID as OBJECT_ID, CREATED_DTTM
+            from ORDERS
+            where O_FACILITY_ALIAS_ID = '{facility}'
+              and CREATED_DTTM >= sysdate - interval '{lookback_days}' day
+            order by CREATED_DTTM desc
+        """
 
     db.runSQL(query, whse_specific=False)
     rows, columns = db.fetchall()
@@ -122,26 +117,23 @@ def _fetch_message_xml(db: DB, message_type: str, object_id: str) -> Optional[st
                 replace(
                     xmlserialize(
                         content xmlagg(
-                            xmlcdata(coalesce(msg_line_text, ''))
-                            order by msg_line_number
+                            xmlcdata(
+                                coalesce(MSG_LINE_TEXT, '')
+                            )
+                            order by MSG_LINE_NUMBER
                         ) as clob
                     ),
                     '<![CDATA[', ''
                 ),
                 ']]>', ''
-            ) as complete_xml
+            ) as COMPLETE_XML
         from TRAN_LOG_MESSAGE TLM
         where TLM.TRAN_LOG_ID in (
             select TL.TRAN_LOG_ID
-            from (
-                select TL.TRAN_LOG_ID
-                from TRAN_LOG TL
-                where TL.OBJECT_ID = '{object_id}'
-                  and TL.DIRECTION = 'I'
-                  and TL.MSG_TYPE = '{message_type}'
-                order by TL.TRAN_LOG_ID desc
-            )
-            where rownum = 1
+            from TRAN_LOG TL
+            where TL.OBJECT_ID = '{object_id}'
+              and TL.DIRECTION = 'I'
+              and TL.MSG_TYPE = '{message_type}'
         )
     """
 
