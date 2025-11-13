@@ -86,6 +86,12 @@ class OperationConfig:
         {
             'post': {
                 'enabled': True,
+                'source': 'db',
+                'type': 'ASN',
+                'message': None, #manually an xml can be put here
+                'lookback_days': 14,
+                'db_env': 'prod',
+                'record_index': 0,
             },
             'receive': {
                 'asn': '23907432',

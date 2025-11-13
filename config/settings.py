@@ -84,96 +84,10 @@ class BrowserConfig:
 @dataclass
 class AppConfig:
     base_url: str = "https://wmqa.subaru1.com/manh/index.html?i=102"
-    base_url: str = "https://wmprod.subaru1.com/manh/index.html?i=102"
     change_warehouse: str = "LPM"
     timeout_default: int = 5000
     check_interval: int = 200
-    post_message_text: str = """<?xml version="1.0"?>
-<tXML>
-  <Header>
-    <Source>STARS</Source>
-    <Action_Type>update</Action_Type>
-    <Message_Type>DistributionOrder</Message_Type>
-    <Company_ID>1</Company_ID>
-  </Header>
-  <Message>
-    <DistributionOrder>
-      <DistributionOrderType>Store Distributions</DistributionOrderType>
-      <DistributionOrderId>9188 336201</DistributionOrderId>
-      <OrderType>INTERNAL TRANSFER</OrderType>
-      <OrderedDttm>08/02/2025 15:03</OrderedDttm>
-      <OriginFacilityAliasId>L PM</OriginFacilityAliasId>
-      <OriginAddressLine1>5190 S STATE ROAD 267</OriginAddressLine1>
-      <OriginCity>LEBANON</OriginCity>
-      <OriginCountry>US</OriginCountry>
-      <OriginStateOrProvince>IN</OriginStateOrProvince>
-      <OriginPostalCode>46052</OriginPostalCode>
-      <DestinationAddressLine1>945 MONUMENT DRIVE, SUITE A</DestinationAddressLine1>
-      <DestinationCity>LEBANON</DestinationCity>
-      <DestinationCounty>BOONE</DestinationCounty>
-      <DestinationCountry>US</DestinationCountry>
-      <DestinationStateOrProvince>IN</DestinationStateOrProvince>
-      <DestinationPostalCode>46052</DestinationPostalCode>
-      <PickupStartDttm>08/13/2025 23:59</PickupStartDttm>
-      <PickupEndDttm>08/13/2025 23:59</PickupEndDttm>
-      <DeliveryStartDttm>08/13/2025 23:59</DeliveryStartDttm>
-      <DeliveryEndDttm>08/13/2025 23:59</DeliveryEndDttm>
-      <LpnCubingIndicator>51</LpnCubingIndicator>
-      <MajorOrderGroupAttribute>001900-334202</MajorOrderGroupAttribute>
-      <DsgShipVia>GRDH</DsgShipVia>
-      <FederatedStoreNbr>001900</FederatedStoreNbr>
-      <SalesOrderNbr>9499914</SalesOrderNbr>
-      <DistroNumber>91883362</DistroNumber>
-      <DestinationContactName>334202</DestinationContactName>
-      <BillToName>001900-134739</BillToName>
-      <DestinationFacilityAliasId>001900-334202</DestinationFacilityAliasId>
-      <ReferenceField6>LPM</ReferenceField6>
-      <ReferenceNumberField1>1</ReferenceNumberField1>
-      <RefShipmentNbr>001900334202</RefShipmentNbr>
-      <RefShipmentStopSeqNbr>1</RefShipmentStopSeqNbr>
-      <ReferenceField1>LEB</ReferenceField1>
-      <ContentLabelType>001</ContentLabelType>
-      <NbrOfContentLabelsToPrint>1</NbrOfContentLabelsToPrint>
-      <FullProfileName>DFT ORD PROFILE</FullProfileName>
-      <ReferenceField3>LPMSHIP</ReferenceField3>
-      <CustomFieldList>
-        <CustomField>
-          <Name>OrderCreationDate</Name>
-          <Value>08/01/2025 17:19</Value>
-        </CustomField>
-        <CustomField>
-          <Name>NumberOfLines</Name>
-          <Value>1</Value>
-        </CustomField>
-        <CustomField>
-          <Name>OrderingSource</Name>
-          <Value>Internal</Value>
-        </CustomField>
-      </CustomFieldList>
-      <LineItem>
-        <DoLineNbr>196499960</DoLineNbr>
-        <ItemName>64661AN06AVH</ItemName>
-        <Description>BELT ASSY R OUT  UWR</Description>
-        <Length>12.5</Length>
-        <Width>8.7</Width>
-        <Height>5</Height>
-        <TotalMonetaryValue>43.4</TotalMonetaryValue>
-        <MonetaryValueCurrencyCode>USD</MonetaryValueCurrencyCode>
-        <PurchaseOrderNbr>9499914</PurchaseOrderNbr>
-        <PurchaseOrderLineNbr>196499960</PurchaseOrderLineNbr>
-        <ExternalSystemPurchaseOrderNbr>9499914</ExternalSystemPurchaseOrderNbr>
-        <ExternalSystemPoLineNbr>1.1</ExternalSystemPoLineNbr>
-        <ReferenceField1>005</ReferenceField1>
-        <ReferenceField2>002</ReferenceField2>
-        <CustomFieldList/>
-        <Quantity>
-          <OrderQty>7</OrderQty>
-          <QtyUOM>Unit</QtyUOM>
-        </Quantity>
-      </LineItem>
-    </DistributionOrder>
-  </Message>
-</tXML>"""
+    post_message_text: str = """please holder"""
     rf_verbose_logging: bool = True
     app_verbose_logging: bool = True
 

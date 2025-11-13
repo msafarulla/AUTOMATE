@@ -19,6 +19,7 @@ from ui.navigation import NavigationManager
 from ui.post_message import PostMessageManager
 from core.logger import app_log
 from core.orchestrator import AutomationOrchestrator
+from core.post_message_payload import build_post_message_payload
 
 
 def main():
@@ -79,14 +80,18 @@ def main():
             return load_op.execute(shipment, dock_door, bol)
 
         @guarded
-        def run_post_message():
+        def run_post_message(payload: str | None = None):
             nav_mgr.open_menu_item("POST", "Post Message (Integration)")
-            success, response_info = post_message_mgr.send_message(settings.app.post_message_text)
+            message = payload or settings.app.post_message_text
+            if not message:
+                app_log("⚠️ No post message payload supplied.")
+                return False
+            success, response_info = post_message_mgr.send_message(message)
             app_log(f"Response summary: {response_info['summary']}")
             if response_info.get("payload"):
                 app_log(f"Response payload: {response_info['payload']}")
             if not success:
-                app_log("⚠️ Post Message failed; continuing with remaining flow.")
+                app_log("⚠️ Post Message failed.")
             return success
 
         try:
@@ -104,13 +109,32 @@ def main():
                 post_cfg = workflow.get('post', {})
                 post_result = None
                 if post_cfg.get('enabled'):
+                    post_type = post_cfg.get('type')
+                    if not post_type:
+                        app_log(f"❌ Post workflow {index} missing 'type'; halting.")
+                        break
+
+                    source = (post_cfg.get('source') or 'db').lower()
+                    if source == 'db':
+                        message_payload = build_post_message_payload(
+                            post_cfg,
+                            post_type,
+                            settings.app.change_warehouse
+                        )
+                    else:
+                        message_payload = post_cfg.get('message') or settings.app.post_message_text
+
+                    if not message_payload:
+                        app_log(f"❌ Unable to resolve post message payload for workflow {index}; halting.")
+                        break
+
                     post_result = orchestrator.run_with_retry(
-                        run_post_message,
+                        lambda payload=message_payload: run_post_message(payload),
                         f"Post Message (Workflow {index})"
                     )
                     if not post_result.success:
                         app_log(f"⏹️ Halting workflow {index} due to post message failure")
-                        continue
+                        break
 
                 receive_cfg = workflow.get('receive')
                 receive_result = None
