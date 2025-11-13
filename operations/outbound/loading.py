@@ -18,8 +18,7 @@ class LoadingOperation(BaseOperation):
         rf = integration.get_primitives()
 
         # Navigate to Load Trailer via Ctrl+F search
-        search_target = "Load Trailer"
-        tran_id = None  # Set to e.g. "#1012334" to enable tran id verification
+        search_target, tran_id = "Load Trailer", "1012334"
 
         rf.go_home()
         rf.press_key("Control+f", "rf_menu_search", "Opened menu search", wait_for_change=False)

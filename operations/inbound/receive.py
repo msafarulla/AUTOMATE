@@ -20,8 +20,7 @@ class ReceiveOperation(BaseOperation):
         rf.go_home()
         rf.press_key("Control+f", "rf_menu_search", "Opened menu search", wait_for_change=False)
 
-        search_target = "RDC: Recv"
-        tran_id = None  # Set to e.g. "#1012334" to verify tran id in search results
+        search_target, tran_id = "RDC: Recv", "1012408"
         has_error, msg = rf.fill_and_submit(
             selector="input[type='text']:visible",
             value=search_target,
