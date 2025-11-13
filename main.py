@@ -9,6 +9,7 @@ from operations.outbound.loading import LoadingOperation
 from ui.rf_menu import RFMenuManager
 from DB import DB
 from config.settings import Settings
+from config.operations_config import OperationConfig
 from core.browser import BrowserManager
 from core.page_manager import PageManager
 from core.screenshot import ScreenshotManager
@@ -78,7 +79,7 @@ def main():
             return load_op.execute(shipment, dock_door, bol)
 
         @guarded
-        def run_post_cycle():
+        def run_post_message():
             nav_mgr.open_menu_item("POST", "Post Message (Integration)")
             success, response_info = post_message_mgr.send_message(settings.app.post_message_text)
             app_log(f"Response summary: {response_info['summary']}")
@@ -93,39 +94,41 @@ def main():
             run_login()
             run_change_warehouse()
 
-            workflows = [
-                {
-                    'asn': '23907432',
-                    'item': 'J105SXC200TR',
-                    'quantity': 1,
-                    'shipment': '23907432',
-                    'dock_door': 'J105SXC200TR',
-                    'bol': 'MOH'
-                },
-            ]
+            workflows = OperationConfig.DEFAULT_WORKFLOWS
 
             for index, workflow in enumerate(workflows, 1):
                 app_log("\n" + "=" * 60)
                 app_log(f"📦 WORKFLOW {index}/{len(workflows)}")
                 app_log("=" * 60)
 
-                receive_result = orchestrator.run_with_retry(
-                    receive,
-                    f"Receive (Workflow {index})",
-                    asn=workflow['asn'],
-                    item=workflow['item'],
-                    quantity=workflow['quantity']
-                )
+                post_cfg = workflow.get('post', {})
+                if post_cfg.get('enabled'):
+                    orchestrator.run_with_retry(
+                        run_post_message,
+                        f"Post Message (Workflow {index})"
+                    )
 
-                if receive_result.success:
+                receive_cfg = workflow.get('receive')
+                receive_result = None
+                if receive_cfg:
+                    receive_result = orchestrator.run_with_retry(
+                        receive,
+                        f"Receive (Workflow {index})",
+                        asn=receive_cfg['asn'],
+                        item=receive_cfg['item'],
+                        quantity=receive_cfg.get('quantity', 1)
+                    )
+
+                loading_cfg = workflow.get('loading')
+                if loading_cfg and (receive_result is None or receive_result.success):
                     orchestrator.run_with_retry(
                         loading,
                         f"Loading (Workflow {index})",
-                        shipment=workflow['shipment'],
-                        dock_door=workflow['dock_door'],
-                        bol=workflow['bol']
+                        shipment=loading_cfg['shipment'],
+                        dock_door=loading_cfg['dock_door'],
+                        bol=loading_cfg['bol']
                     )
-                else:
+                elif loading_cfg:
                     app_log(f"⏭️ Skipping loading for workflow {index} due to receive failure")
 
             orchestrator.print_summary()

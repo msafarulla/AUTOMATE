@@ -82,6 +82,24 @@ class OperationConfig:
         'location': r'^[A-Z0-9-]{4,}$',
     }
 
+    DEFAULT_WORKFLOWS = [
+        {
+            'post': {
+                'enabled': True,
+            },
+            'receive': {
+                'asn': '23907432',
+                'item': 'J105SXC200TR',
+                'quantity': 1,
+            },
+            'loading': {
+                'shipment': '23907432',
+                'dock_door': 'J105SXC200TR',
+                'bol': 'MOH',
+            }
+        }
+    ]
+
 
 RECEIVE = OperationConfig.RECEIVE_MENU
 LOADING = OperationConfig.LOADING_MENU
