@@ -21,6 +21,7 @@ class ReceiveOperation(BaseOperation):
         rf.press_key("Control+f", "rf_menu_search", "Opened menu search", wait_for_change=False)
 
         search_target = "RDC: Recv"
+        tran_id = None  # Set to e.g. "#1012334" to verify tran id in search results
         has_error, msg = rf.fill_and_submit(
             selector="input[type='text']:visible",
             value=search_target,
@@ -31,6 +32,16 @@ class ReceiveOperation(BaseOperation):
         if has_error:
             rf_log(f"❌ Menu search failed: {msg}")
             return False
+
+        if tran_id:
+            expected_tran = tran_id if tran_id.startswith("#") else f"#{tran_id}"
+            menu_text = rf.read_field(
+                "body",
+                transform=lambda text: " ".join(text.split())
+            )
+            if expected_tran not in menu_text:
+                rf_log(f"❌ Expected tran id {expected_tran} not found in menu results.")
+                return False
 
         has_error, msg = rf.fill_and_submit(
             selector="input[type='text']:visible",

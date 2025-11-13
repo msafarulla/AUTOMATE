@@ -19,6 +19,7 @@ class LoadingOperation(BaseOperation):
 
         # Navigate to Load Trailer via Ctrl+F search
         search_target = "Load Trailer"
+        tran_id = None  # Set to e.g. "#1012334" to enable tran id verification
 
         rf.go_home()
         rf.press_key("Control+f", "rf_menu_search", "Opened menu search", wait_for_change=False)
@@ -33,6 +34,16 @@ class LoadingOperation(BaseOperation):
         if has_error:
             rf_log(f"❌ Menu search failed: {msg}")
             return False
+
+        if tran_id:
+            expected_tran = tran_id if tran_id.startswith("#") else f"#{tran_id}"
+            menu_text = rf.read_field(
+                "body",
+                transform=lambda text: " ".join(text.split())
+            )
+            if expected_tran not in menu_text:
+                rf_log(f"❌ Expected tran id {expected_tran} not found in menu results.")
+                return False
 
         has_error, msg = rf.fill_and_submit(
             selector="input[type='text']:visible",
