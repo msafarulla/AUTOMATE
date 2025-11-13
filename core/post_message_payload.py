@@ -86,6 +86,7 @@ def _fetch_recent_object_id(
             from ASN
             where DESTINATION_FACILITY_ALIAS_ID = '{facility}'
               and CREATED_DTTM >= sysdate - interval '{lookback_days}' day
+              and TC_ASN_ID in (select OBJECT_ID from TRAN_LOG where MSG_TYPE  = 'ASN')
             order by CREATED_DTTM desc fetch first 2 rows only
         """
     else:
