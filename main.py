@@ -48,7 +48,7 @@ def main():
             verbose_logging=settings.app.rf_verbose_logging,
         )
         conn_guard = ConnectionResetGuard(page, screenshot_mgr)
-        orchestrator = AutomationOrchestrator(settings, max_retries=3)
+        orchestrator = AutomationOrchestrator(settings)
 
         def guarded(func: Callable):
             """Decorator to run helpers inside the connection guard."""
@@ -102,11 +102,15 @@ def main():
                 app_log("=" * 60)
 
                 post_cfg = workflow.get('post', {})
+                post_result = None
                 if post_cfg.get('enabled'):
-                    orchestrator.run_with_retry(
+                    post_result = orchestrator.run_with_retry(
                         run_post_message,
                         f"Post Message (Workflow {index})"
                     )
+                    if not post_result.success:
+                        app_log(f"⏹️ Halting workflow {index} due to post message failure")
+                        continue
 
                 receive_cfg = workflow.get('receive')
                 receive_result = None
