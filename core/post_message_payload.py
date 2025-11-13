@@ -141,7 +141,7 @@ def _fetch_message_xml(db: DB, message_type: str, object_id: str) -> Optional[st
     row = db.fetchone()
     if not row:
         return None
-    payload = row.get("COMPLETE_XML")
+    payload = row['COMPLETE_XML']
     if payload is None:
         return None
     try:
