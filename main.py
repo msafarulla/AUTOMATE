@@ -79,8 +79,8 @@ def main():
             load_op = LoadingOperation(page, page_mgr, screenshot_mgr, rf_menu)
             return load_op.execute(shipment, dock_door, bol)
 
-        def _confirm_prod_post(db_env: str, workflow_index: int) -> bool:
-            if db_env.lower() != "prod" and not settings.app.requires_prod_confirmation:
+        def _confirm_prod_post(workflow_index: int) -> bool:
+            if not settings.app.requires_prod_confirmation:
                 return True
             app_log(f"⚠️ Workflow {workflow_index}: about to send a PROD post message.")
             first = input("Type PROD to continue: ").strip().upper()
@@ -130,14 +130,15 @@ def main():
                         break
 
                     source = (post_cfg.get('source') or 'db').lower()
-                    db_env = post_cfg.get('db_env', 'qa')
-                    if not _confirm_prod_post(db_env, index):
+                    db_env = post_cfg.get('db_env')
+                    if not _confirm_prod_post(index):
                         break
                     if source == 'db':
                         message_payload = build_post_message_payload(
                             post_cfg,
                             post_type,
-                            settings.app.change_warehouse
+                            settings.app.change_warehouse,
+                            db_env
                         )
                     else:
                         message_payload = post_cfg.get('message') or settings.app.post_message_text

@@ -9,7 +9,12 @@ from DB import DB
 from core.logger import app_log
 
 
-def build_post_message_payload(post_cfg: dict, message_type: str, facility: Optional[str]) -> Optional[str]:
+def build_post_message_payload(
+    post_cfg: dict,
+    message_type: str,
+    facility: Optional[str],
+    db_env: Optional[str] = None
+) -> Optional[str]:
     """
     Build a Post Message XML payload based on workflow config.
 
@@ -33,13 +38,15 @@ def build_post_message_payload(post_cfg: dict, message_type: str, facility: Opti
     object_id = post_cfg.get("object_id")
     lookback_days = int(post_cfg.get("lookback_days", 14))
     record_index = max(0, int(post_cfg.get("record_index", 0)))
-    db_env = post_cfg.get("db_env", "qa")
+    resolved_db_env = db_env or post_cfg.get("db_env")
 
     if not object_id and not facility:
         app_log("⚠️ Post message payload requires facility or explicit object_id.")
         return None
 
-    with DB(db_env) as db:
+    db_target = resolved_db_env or "qa"
+
+    with DB(db_target) as db:
         if not object_id:
             object_id = _fetch_recent_object_id(
                 db,
