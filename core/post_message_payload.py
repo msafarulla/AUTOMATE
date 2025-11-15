@@ -1,6 +1,3 @@
-"""
-Utilities to build Post Message payloads from the database using canned queries.
-"""
 from __future__ import annotations
 
 from typing import Optional
@@ -15,17 +12,7 @@ def build_post_message_payload(
     facility: Optional[str],
     db_env: Optional[str] = None
 ) -> Optional[str]:
-    """
-    Build a Post Message XML payload based on workflow config.
 
-    Supported config keys:
-        - source: "db" (default) or "static"
-        - facility: Facility alias to filter recent records
-        - lookback_days: How far back to search (default 14)
-        - record_index: Zero-based index into recent results (default 0)
-        - object_id: Explicit object id to use instead of querying
-        - db_env: DB environment/alias for the DB() helper (default "qa")
-    """
     source = (post_cfg.get("source") or "db").lower()
     if source != "db":
         return post_cfg.get("message")
@@ -83,10 +70,7 @@ def _fetch_recent_object_id(
     lookback_days: int,
     record_index: int,
 ) -> Optional[str]:
-    """
-    Fetch the Nth most recent object id for the given message type and facility.
-    Uses the same SQL pattern provided by the operator for consistency/performance.
-    """
+
     if message_type == "ASN":
         query = f"""
             select TC_ASN_ID as OBJECT_ID, CREATED_DTTM
@@ -116,9 +100,6 @@ def _fetch_recent_object_id(
 
 
 def _fetch_message_xml(db: DB, message_type: str, object_id: str) -> Optional[str]:
-    """
-    Build the XML payload by stitching TRAN_LOG_MESSAGE rows for the given object.
-    """
     xml_query = f"""
         select
             replace(
