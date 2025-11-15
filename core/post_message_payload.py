@@ -208,8 +208,10 @@ def customize_asn_payload(payload: str, items: Sequence[Mapping[str, Any]]) -> t
     if template_detail is None:
         template_detail = ET.Element("ASNDetail")
 
+    base_children = _clone_template_children(template_detail)
+
     for index, item in enumerate(items):
-        detail = deepcopy(template_detail)
+        detail = _build_detail_from_template(base_children)
         _apply_item_values(detail, item, seq_prefix, index)
         asn_elem.append(detail)
 
@@ -232,12 +234,12 @@ def _apply_item_values(
         if seq_override is not None
         else f"{seq_prefix}{index + 1:02d}"
     )
-    for existing_sequence in detail.findall("SequenceNumber"):
-        detail.remove(existing_sequence)
-    _set_child_text(detail, "SequenceNumber", sequence_text)
+    seq_node = _set_child_text(detail, "SequenceNumber", sequence_text)
+    if seq_node is not None and seq_node in detail:
+        detail.remove(seq_node)
+        detail.insert(0, seq_node)
 
     quantity_node = _get_or_create_child(detail, "Quantity")
-    _clear_children(quantity_node)
     _apply_quantity_defaults(quantity_node)
 
     for key, raw_value in values.items():
@@ -274,13 +276,14 @@ def _apply_quantity_overrides(quantity_node: ET.Element, overrides: Mapping[str,
         _set_child_text(quantity_node, key, value)
 
 
-def _set_child_text(parent: ET.Element, tag: str, value: Any | None):
+def _set_child_text(parent: ET.Element, tag: str, value: Any | None) -> Optional[ET.Element]:
     if value is None:
         return
 
     target_tag = _resolve_tag_case(parent, tag)
     node = target_tag or ET.SubElement(parent, tag)
     node.text = str(value)
+    return node
 
 
 def _resolve_tag_case(parent: ET.Element, tag: str) -> Optional[ET.Element]:
@@ -325,6 +328,17 @@ def _coerce_numeric(value: str) -> str:
         return str(value)
 
 
-def _clear_children(element: ET.Element):
-    for child in list(element):
-        element.remove(child)
+def _clone_template_children(template_detail: ET.Element) -> list[ET.Element]:
+    clones: list[ET.Element] = []
+    for child in template_detail:
+        if child.tag.lower() in {"sequencenumber", "quantity"}:
+            continue
+        clones.append(deepcopy(child))
+    return clones
+
+
+def _build_detail_from_template(base_children: list[ET.Element]) -> ET.Element:
+    detail = ET.Element("ASNDetail")
+    for child in base_children:
+        detail.append(deepcopy(child))
+    return detail
