@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from copy import deepcopy
 from datetime import datetime
 import xml.etree.ElementTree as ET
 from typing import Any, Mapping, Optional, Sequence
@@ -209,80 +208,91 @@ def customize_asn_payload(payload: str, items: Sequence[Mapping[str, Any]]) -> t
         template_detail = ET.Element("ASNDetail")
 
     for index, item in enumerate(items):
-        detail = deepcopy(template_detail)
-        _apply_item_values(detail, item, seq_prefix, index)
+        detail = _build_detail_from_template(template_detail, item, seq_prefix, index)
         asn_elem.append(detail)
 
     serialized = ET.tostring(root, encoding="utf-8", xml_declaration=True).decode("utf-8")
     return serialized, metadata
 
 
-def _apply_item_values(
-    detail: ET.Element,
+def _build_detail_from_template(
+    template_detail: ET.Element,
     values: Mapping[str, Any],
     seq_prefix: str,
     index: int,
-):
-    if detail is None or values is None:
-        return
+) -> ET.Element:
+    detail = ET.Element("ASNDetail")
+    tags_emitted: set[str] = set()
 
-    seq_override = _value_case_insensitive(values, "SequenceNumber")
-    sequence_text = (
-        str(seq_override)
-        if seq_override is not None
-        else f"{seq_prefix}{index + 1:02d}"
-    )
-    _set_child_text(detail, "SequenceNumber", sequence_text)
+    for child in template_detail:
+        tag = child.tag
+        lower_tag = tag.lower()
+        tags_emitted.add(lower_tag)
 
-    quantity_node = _get_or_create_child(detail, "Quantity")
-    _clear_children(quantity_node)
-    _apply_quantity_defaults(quantity_node)
+        if lower_tag == "sequencenumber":
+            seq_override = _value_case_insensitive(values, "SequenceNumber")
+            sequence_text = (
+                str(seq_override) if seq_override is not None else f"{seq_prefix}{index + 1:02d}"
+            )
+            node = ET.Element("SequenceNumber")
+            node.text = sequence_text
+        elif lower_tag == "quantity":
+            node = _build_quantity_element(child, values)
+        elif lower_tag == "purchaseorderlineitemid":
+            po_line = _value_case_insensitive(values, "PurchaseOrderLineItemID") or str(index + 1)
+            node = ET.Element(tag)
+            node.text = po_line
+        else:
+            override = _value_case_insensitive(values, tag)
+            node = ET.Element(tag)
+            node.text = str(override) if override is not None else child.text or ""
+
+        detail.append(node)
 
     for key, raw_value in values.items():
-        normalized = key.lower()
-        if normalized == "sequencenumber":
+        lower_key = key.lower()
+        if lower_key in tags_emitted or lower_key in {"quantity", "sequencenumber"}:
             continue
-        if normalized == "quantity" and isinstance(raw_value, Mapping):
-            _apply_quantity_overrides(quantity_node, raw_value)
-            continue
-        if normalized == "quantity":
-            _set_child_text(quantity_node, "ShippedQty", raw_value)
-            continue
-        _set_child_text(detail, key, raw_value)
+        extra = ET.Element(key)
+        extra.text = str(raw_value)
+        detail.append(extra)
 
-    po_line_override = _value_case_insensitive(values, "PurchaseOrderLineItemID")
-    if po_line_override is None:
-        _set_child_text(detail, "PurchaseOrderLineItemID", str(index + 1))
+    return detail
 
 
-def _apply_quantity_defaults(quantity_node: ET.Element):
-    existing = quantity_node.findtext("ShippedQty")
-    if existing:
-        _set_child_text(quantity_node, "ShippedQty", _coerce_numeric(existing))
-    else:
-        _set_child_text(quantity_node, "ShippedQty", "2000")
-    if not quantity_node.findtext("ReceivedQty"):
-        _set_child_text(quantity_node, "ReceivedQty", "0")
-    if not quantity_node.findtext("QtyUOM"):
-        _set_child_text(quantity_node, "QtyUOM", "Unit")
+def _build_quantity_element(template_qty: ET.Element, values: Mapping[str, Any]) -> ET.Element:
+    overrides = _extract_quantity_overrides(values)
+    quantity = ET.Element("Quantity")
 
+    for child in template_qty:
+        tag = child.tag
+        lower_tag = tag.lower()
+        if lower_tag in overrides:
+            text = str(overrides.pop(lower_tag))
+        else:
+            text = child.text
+        if text is None:
+            text = _default_quantity_value(lower_tag)
+        node = ET.Element(tag)
+        node.text = str(text)
+        quantity.append(node)
 
-def _apply_quantity_overrides(quantity_node: ET.Element, overrides: Mapping[str, Any]):
-    for key, value in overrides.items():
-        _set_child_text(quantity_node, key, value)
+    for default_tag, default_value in (
+        ("ShippedQty", "2000"),
+        ("ReceivedQty", "0"),
+        ("QtyUOM", "Unit"),
+    ):
+        if quantity.find(default_tag) is None:
+            node = ET.Element(default_tag)
+            node.text = default_value
+            quantity.append(node)
 
+    for tag, value in overrides.items():
+        extra = ET.Element(tag)
+        extra.text = str(value)
+        quantity.append(extra)
 
-def _set_child_text(parent: ET.Element, tag: str, value: Any | None, *, insert_index: Optional[int] = None) -> Optional[ET.Element]:
-    if value is None:
-        return
-
-    target_tag = _resolve_tag_case(parent, tag)
-    node = target_tag or ET.SubElement(parent, tag)
-    node.text = str(value)
-    if insert_index is not None and target_tag is None:
-        parent.remove(node)
-        parent.insert(insert_index, node)
-    return node
+    return quantity
 
 
 def _resolve_tag_case(parent: ET.Element, tag: str) -> Optional[ET.Element]:
@@ -291,13 +301,6 @@ def _resolve_tag_case(parent: ET.Element, tag: str) -> Optional[ET.Element]:
         if child.tag.lower() == lower_tag:
             return child
     return None
-
-
-def _get_or_create_child(parent: ET.Element, tag: str) -> ET.Element:
-    existing = _resolve_tag_case(parent, tag)
-    if existing is not None:
-        return existing
-    return ET.SubElement(parent, tag)
 
 
 def _extract_asn_id(payload: str) -> Optional[str]:
@@ -327,7 +330,32 @@ def _coerce_numeric(value: str) -> str:
         return str(value)
 
 
+def _set_child_text(parent: ET.Element, tag: str, value: Any | None, *, insert_index: Optional[int] = None) -> Optional[ET.Element]:
+    if value is None:
+        return
 
-def _clear_children(element: ET.Element):
-    for child in list(element):
-        element.remove(child)
+    target_tag = _resolve_tag_case(parent, tag)
+    node = target_tag or ET.SubElement(parent, tag)
+    node.text = str(value)
+    if insert_index is not None and target_tag is None:
+        parent.remove(node)
+        parent.insert(insert_index, node)
+    return node
+
+
+def _extract_quantity_overrides(values: Mapping[str, Any]) -> dict[str, Any]:
+    qty = values.get("Quantity") or values.get("quantity")
+    if isinstance(qty, Mapping):
+        return {key.lower(): val for key, val in qty.items()}
+    return {}
+
+
+def _default_quantity_value(lower_tag: str) -> str:
+    if lower_tag == "shippedqty":
+        return "2000"
+    if lower_tag == "receivedqty":
+        return "0"
+    if lower_tag == "qtyuom":
+        return "Unit"
+    return ""
+
