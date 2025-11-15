@@ -193,7 +193,7 @@ def customize_asn_payload(payload: str, items: Sequence[Mapping[str, Any]]) -> t
 
     template_detail = asn_elem.find("ASNDetail")
     timestamp = datetime.utcnow()
-    asn_id = timestamp.strftime("%m%y%m%d%H%M%S")
+    asn_id = timestamp.strftime("%y%m%d%H%M%S")
     seq_prefix = timestamp.strftime("%y%m%d%H%M%S")
     for existing_asn_id in asn_elem.findall("ASNID"):
         asn_elem.remove(existing_asn_id)
@@ -226,7 +226,7 @@ def customize_asn_payload(payload: str, items: Sequence[Mapping[str, Any]]) -> t
 
 
 def _build_detail_from_template(
-    template_detail: ET.Element,
+    template_detail: ET.Element | None,
     values: Mapping[str, Any],
     seq_prefix: str,
     index: int,
@@ -234,8 +234,11 @@ def _build_detail_from_template(
 ) -> ET.Element:
     detail = ET.Element("ASNDetail")
     tags_emitted: set[str] = set()
+    quantity_template = _resolve_tag_case(template_detail, "Quantity") if template_detail is not None else None
+    quantity_added = False
 
-    for child in template_detail:
+    children = list(template_detail) if template_detail is not None else []
+    for child in children:
         tag = child.tag
         lower_tag = tag.lower()
         tags_emitted.add(lower_tag)
@@ -249,6 +252,7 @@ def _build_detail_from_template(
             node.text = sequence_text
         elif lower_tag == "quantity":
             node = _build_quantity_element(child, values)
+            quantity_added = True
         elif lower_tag == "purchaseorderlineitemid":
             po_line = _value_case_insensitive(values, "PurchaseOrderLineItemID") or str(index + 1)
             node = ET.Element(tag)
@@ -270,6 +274,11 @@ def _build_detail_from_template(
         extra = ET.Element(key)
         extra.text = str(raw_value)
         detail.append(extra)
+
+    if not quantity_added and _values_have_quantity(values):
+        qty_template = quantity_template or ET.Element("Quantity")
+        quantity_node = _build_quantity_element(qty_template, values)
+        detail.append(quantity_node)
 
     return detail
 
@@ -334,6 +343,10 @@ def _value_case_insensitive(values: Mapping[str, Any], target: str) -> Any | Non
         if raw_key.lower() == lower_target:
             return raw_value
     return None
+
+
+def _values_have_quantity(values: Mapping[str, Any]) -> bool:
+    return any(raw_key.lower() == "quantity" for raw_key in values)
 
 
 def _coerce_numeric(value: str) -> str:
