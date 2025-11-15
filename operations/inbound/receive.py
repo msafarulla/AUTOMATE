@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 
 from operations.base_operation import BaseOperation
@@ -151,7 +151,7 @@ class ReceiveOperation(BaseOperation):
         return True
 
     def _handle_ib_rule_exception_blind_ilpn(self, rf) -> bool:
-        timestamp = datetime.utcnow().strftime("%y%m%d%H%M%S")
+        timestamp = _current_lpn_timestamp()
         selectors = (
             OperationConfig.RECEIVE_DEVIATION_SELECTORS.lpn_input,
             OperationConfig.RECEIVE_DEVIATION_SELECTORS.lpn_input_name,
@@ -173,3 +173,11 @@ class ReceiveOperation(BaseOperation):
             return True
         rf_log("⚠️ Searched selectors did not locate the IB rule blind ILPN input.")
         return False
+
+
+def _current_lpn_timestamp() -> str:
+    """Use the local wall clock to generate the YYMMDDHHMMSS string for LPN prompts."""
+    try:
+        return datetime.now(timezone.utc).astimezone().strftime("%y%m%d%H%M%S")
+    except Exception:
+        return datetime.now().strftime("%y%m%d%H%M%S")

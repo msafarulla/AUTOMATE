@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 import xml.etree.ElementTree as ET
 from typing import Any, Iterable, Mapping, Optional, Sequence
 
@@ -175,6 +175,14 @@ def _fetch_message_xml(db: DB, message_type: str, object_id: str) -> Optional[st
     return payload_text or None
 
 
+def _current_timestamp() -> datetime:
+    """Return the current local timestamp (avoids drifting UTC offsets)."""
+    try:
+        return datetime.now(timezone.utc).astimezone()
+    except Exception:
+        return datetime.now()
+
+
 def customize_asn_payload(payload: str, items: Sequence[Mapping[str, Any]]) -> tuple[str, dict[str, Any]]:
     try:
         root = ET.fromstring(payload)
@@ -188,7 +196,7 @@ def customize_asn_payload(payload: str, items: Sequence[Mapping[str, Any]]) -> t
         return payload, {}
 
     template_detail = asn_elem.find("ASNDetail")
-    timestamp = datetime.utcnow()
+    timestamp = _current_timestamp()
     asn_id = timestamp.strftime("%y%m%d%H%M%S")
     seq_prefix = timestamp.strftime("%y%m%d%H%M%S")
     for existing_asn_id in asn_elem.findall("ASNID"):
