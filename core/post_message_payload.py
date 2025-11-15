@@ -135,7 +135,7 @@ def _fetch_message_xml(db: DB, message_type: str, object_id: str) -> Optional[st
             where TL.OBJECT_ID = '{object_id}'
               and TL.DIRECTION = 'I'
               and TL.MSG_TYPE = '{message_type}'
-        )
+        ) fetch first 1 row only
     """
 
     db.runSQL(xml_query, whse_specific=False)
@@ -174,12 +174,6 @@ def _fetch_message_xml(db: DB, message_type: str, object_id: str) -> Optional[st
 
 
 def customize_asn_payload(payload: str, items: Sequence[Mapping[str, Any]]) -> tuple[str, dict[str, Any]]:
-    """
-    Rewrite the ASNDetail section for each supplied item/quantity row.
-    Each dictionary should provide tag names such as "ItemName", "PurchaseOrderID",
-    and an optional "Quantity" sub-mapping; unspecified quantities default to 2000 units.
-    Returns the rewritten XML plus metadata (currently just ``asn_id``).
-    """
     try:
         root = ET.fromstring(payload)
     except ET.ParseError as exc:
