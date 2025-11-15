@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Any
 
 from operations.base_operation import BaseOperation
@@ -47,6 +48,7 @@ class ReceiveOperation(BaseOperation):
             rf_log("❌ Quantity entry failed")
             return False
 
+        handled = True
         if success:
             screen_state = self.inspect_receive_screen_after_qty(rf)
             detected_flow = screen_state.get("flow")
@@ -56,13 +58,12 @@ class ReceiveOperation(BaseOperation):
             mismatch = not self._assert_receive_screen_happy_path(screen_state)
             if mismatch:
                 rf_log("⚠️ Receive screen mismatch detected after quantity entry.")
-                self._handle_alternate_flow_after_qty(
+                handled = self._handle_alternate_flow_after_qty(
                     rf,
-                    selectors,
                     screen_state,
                     auto_handle
                 )
-                if not auto_handle:
+                if not auto_handle or not handled:
                     return False
             dest_loc = rf.read_field(
                 selectors.suggested_location,
@@ -76,7 +77,6 @@ class ReceiveOperation(BaseOperation):
 
     def inspect_receive_screen_after_qty(self, rf) -> dict[str, Any]:
         screen_text = ""
-        suggested_text = ""
         try:
             screen_text = rf.read_field("body")
         except Exception as exc:  # pragma: no cover
@@ -98,7 +98,6 @@ class ReceiveOperation(BaseOperation):
     def _handle_alternate_flow_after_qty(
         self,
         rf,
-        selectors,
         screen_state: dict[str, Any],
         auto_handle: bool,
     ) -> bool:
@@ -114,7 +113,6 @@ class ReceiveOperation(BaseOperation):
         deviation_snippet = screen_state.get("screen", "").strip().replace("\n", " ")[:80]
         screenshot_label = f"receive_flow_{detected_flow.lower()}"
         screenshot_text = f"Flow {detected_flow} (auto_handle={auto_handle}): {deviation_snippet}"
-        overlay_text = f"{detected_flow} deviation"
         self.screenshot_mgr.capture_rf_window(
             self.page,
             screenshot_label,
@@ -123,9 +121,12 @@ class ReceiveOperation(BaseOperation):
         if not auto_handle:
             rf_log("⚠️ Flow policy signals abort; stopping receive.")
             return False
-        rf_log("ℹ️ Auto-handling flow per policy (still returns False until handler is implemented).")
-        # TODO: call specific handlers for each flow by name
-        return False
+        handler_result = False
+        if detected_flow == "IB_RULE_EXCEPTION_BLIND_ILPN":
+            handler_result = self._handle_ib_rule_exception_blind_ilpn(rf)
+        else:
+            rf_log("⚠️ Auto-handler not implemented for this flow.")
+        return handler_result
 
     def _flow_metadata(self, flow_name: str) -> dict[str, Any]:
         flows = OperationConfig.RECEIVE_FLOW_METADATA
@@ -148,3 +149,27 @@ class ReceiveOperation(BaseOperation):
             if not any(keyword in lower_screen for keyword in keywords):
                 return False
         return True
+
+    def _handle_ib_rule_exception_blind_ilpn(self, rf) -> bool:
+        timestamp = datetime.utcnow().strftime("%y%m%d%H%M%S")
+        selectors = (
+            OperationConfig.RECEIVE_DEVIATION_SELECTORS.lpn_input,
+            OperationConfig.RECEIVE_DEVIATION_SELECTORS.lpn_input_name,
+        )
+        for selector in selectors:
+            try:
+                has_error, msg = rf.fill_and_submit(
+                    selector,
+                    timestamp,
+                    "receive_ib_rule_lpn",
+                    "Entered generated LPN for IB rule exception",
+                )
+            except Exception as exc:
+                rf_log(f"⚠️ Unable to interact with LPN input '{selector}': {exc}")
+                continue
+            if has_error:
+                rf_log(f"❌ IB rule blind ILPN handler failed for '{selector}': {msg or 'unknown error'}")
+                return False
+            return True
+        rf_log("⚠️ Searched selectors did not locate the IB rule blind ILPN input.")
+        return False

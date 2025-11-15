@@ -45,6 +45,11 @@ class OperationConfig:
         'suggested_location': "span#dataForm\\:SBRUdtltxt1_b1",
     })
 
+    RECEIVE_DEVIATION_SELECTORS = ScreenSelectors({
+        'lpn_input': "input#lpninput",
+        'lpn_input_name': "input[name='lpninput']",
+    })
+
     # Metadata for receive flows that may branch off the happy path.
     RECEIVE_FLOW_METADATA = {
         'HAPPY_PATH': {
