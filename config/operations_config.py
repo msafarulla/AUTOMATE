@@ -53,8 +53,8 @@ class OperationConfig:
             'requires_suggested': True,
         },
         'IB_RULE_EXCEPTION_BLIND_ILPN': {
-            'description': 'IB Rule triggered a warning',
-            'keywords': ['Blind iLPN','iLPN#'],
+            'description': 'IB rule exception where iLPN prompt appears instead of suggested location',
+            'keywords': ['blind ilpn', 'ilpn#'],
         },
         'QUANTITY_ADJUST': {
             'description': 'Quantity adjustment flow, typically recoverable',

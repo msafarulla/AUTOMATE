@@ -143,7 +143,7 @@ class ReceiveOperation(BaseOperation):
     def _matches_flow_meta(self, meta: dict[str, Any], lower_screen: str, lower_suggested: str) -> bool:
         keywords = meta.get("keywords")
         if keywords:
-            if not all(keyword in lower_screen for keyword in keywords):
+            if not any(keyword in lower_screen for keyword in keywords):
                 return False
         if meta.get("requires_suggested"):
             if not lower_suggested.strip():
