@@ -135,6 +135,8 @@ def _fetch_message_xml(db: DB, message_type: str, object_id: str) -> Optional[st
             where TL.OBJECT_ID = '{object_id}'
               and TL.DIRECTION = 'I'
               and TL.MSG_TYPE = '{message_type}'
+              order by TL.TRAN_LOG_ID desc
+              fetch first 1 row only
         )
     """
 
