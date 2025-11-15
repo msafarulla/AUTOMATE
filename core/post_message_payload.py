@@ -1,6 +1,9 @@
 from __future__ import annotations
 
-from typing import Optional
+from copy import deepcopy
+from datetime import datetime
+import xml.etree.ElementTree as ET
+from typing import Any, Mapping, Optional, Sequence
 
 from DB import DB
 from core.logger import app_log
@@ -11,16 +14,16 @@ def build_post_message_payload(
     message_type: str,
     facility: Optional[str],
     db_env: Optional[str] = None
-) -> Optional[str]:
+) -> tuple[Optional[str], dict[str, Any]]:
 
     source = (post_cfg.get("source") or "db").lower()
     if source != "db":
-        return post_cfg.get("message")
+        return post_cfg.get("message"), {}
 
     normalized_type = _normalize_msg_type(message_type)
     if not normalized_type:
         app_log("⚠️ Post message config missing/invalid message type.")
-        return None
+        return None, {}
 
     object_id = post_cfg.get("object_id")
     lookback_days = int(post_cfg.get("lookback_days", 14))
@@ -29,7 +32,7 @@ def build_post_message_payload(
 
     if not object_id and not facility:
         app_log("⚠️ Post message payload requires facility or explicit object_id.")
-        return None
+        return None, {}
 
     db_target = resolved_db_env or "qa"
 
@@ -44,12 +47,22 @@ def build_post_message_payload(
             )
         if not object_id:
             app_log("⚠️ No matching object id found for post message payload.")
-            return None
+            return None, {}
 
         payload = _fetch_message_xml(db, normalized_type, object_id)
+        metadata: dict[str, Any] = {}
         if not payload:
             app_log(f"⚠️ No XML payload located for {message_type} object {object_id}.")
-        return payload
+            return None, metadata
+
+        if normalized_type == "ASN":
+            metadata["asn_id"] = _extract_asn_id(payload)
+            items = post_cfg.get("asn_items")
+            if isinstance(items, Sequence) and not isinstance(items, (str, bytes)) and items:
+                payload, custom_meta = customize_asn_payload(payload, items)
+                metadata.update(custom_meta)
+
+        return payload, metadata
 
 
 def _normalize_msg_type(msg_type: Optional[str]) -> Optional[str]:
@@ -159,3 +172,149 @@ def _fetch_message_xml(db: DB, message_type: str, object_id: str) -> Optional[st
 
     payload_text = payload_text.strip()
     return payload_text or None
+
+
+def customize_asn_payload(payload: str, items: Sequence[Mapping[str, Any]]) -> tuple[str, dict[str, Any]]:
+    """
+    Rewrite the ASNDetail section for each supplied item/quantity row.
+    Each dictionary should provide tag names such as "ItemName", "PurchaseOrderID",
+    and an optional "Quantity" sub-mapping; unspecified quantities default to 2000 units.
+    Returns the rewritten XML plus metadata (currently just ``asn_id``).
+    """
+    try:
+        root = ET.fromstring(payload)
+    except ET.ParseError as exc:
+        app_log(f"⚠️ Unable to parse ASN payload for customization: {exc}")
+        return payload, {}
+
+    asn_elem = root.find(".//ASN")
+    if asn_elem is None:
+        app_log("⚠️ ASN payload customization skipped: <ASN> element not found.")
+        return payload, {}
+
+    template_detail = asn_elem.find("ASNDetail")
+    timestamp = datetime.utcnow()
+    asn_id = timestamp.strftime("%m%y%m%d%H%M%S")
+    seq_prefix = timestamp.strftime("%y%m%d%H%M%S")
+    _set_child_text(asn_elem, "ASNID", asn_id)
+
+    metadata: dict[str, Any] = {"asn_id": asn_id}
+
+    for existing in list(asn_elem.findall("ASNDetail")):
+        asn_elem.remove(existing)
+
+    if template_detail is None:
+        template_detail = ET.Element("ASNDetail")
+
+    for index, item in enumerate(items):
+        detail = deepcopy(template_detail)
+        _apply_item_values(detail, item, seq_prefix, index)
+        asn_elem.append(detail)
+
+    serialized = ET.tostring(root, encoding="utf-8", xml_declaration=True).decode("utf-8")
+    return serialized, metadata
+
+
+def _apply_item_values(
+    detail: ET.Element,
+    values: Mapping[str, Any],
+    seq_prefix: str,
+    index: int,
+):
+    if detail is None or values is None:
+        return
+
+    seq_override = _value_case_insensitive(values, "SequenceNumber")
+    sequence_text = (
+        str(seq_override)
+        if seq_override is not None
+        else f"{seq_prefix}{index + 1:02d}"
+    )
+    _set_child_text(detail, "SequenceNumber", sequence_text)
+
+    quantity_node = _get_or_create_child(detail, "Quantity")
+    _apply_quantity_defaults(quantity_node)
+
+    for key, raw_value in values.items():
+        normalized = key.lower()
+        if normalized == "sequencenumber":
+            continue
+        if normalized == "quantity" and isinstance(raw_value, Mapping):
+            _apply_quantity_overrides(quantity_node, raw_value)
+            continue
+        if normalized == "quantity":
+            _set_child_text(quantity_node, "ShippedQty", raw_value)
+            continue
+        _set_child_text(detail, key, raw_value)
+
+    po_line_override = _value_case_insensitive(values, "PurchaseOrderLineItemID")
+    if po_line_override is None:
+        _set_child_text(detail, "PurchaseOrderLineItemID", str(index + 1))
+
+
+def _apply_quantity_defaults(quantity_node: ET.Element):
+    existing = quantity_node.findtext("ShippedQty")
+    if existing:
+        _set_child_text(quantity_node, "ShippedQty", _coerce_numeric(existing))
+    else:
+        _set_child_text(quantity_node, "ShippedQty", "2000")
+    if not quantity_node.findtext("ReceivedQty"):
+        _set_child_text(quantity_node, "ReceivedQty", "0")
+    if not quantity_node.findtext("QtyUOM"):
+        _set_child_text(quantity_node, "QtyUOM", "Unit")
+
+
+def _apply_quantity_overrides(quantity_node: ET.Element, overrides: Mapping[str, Any]):
+    for key, value in overrides.items():
+        _set_child_text(quantity_node, key, value)
+
+
+def _set_child_text(parent: ET.Element, tag: str, value: Any | None):
+    if value is None:
+        return
+
+    target_tag = _resolve_tag_case(parent, tag)
+    node = target_tag or ET.SubElement(parent, tag)
+    node.text = str(value)
+
+
+def _resolve_tag_case(parent: ET.Element, tag: str) -> Optional[ET.Element]:
+    lower_tag = tag.lower()
+    for child in parent:
+        if child.tag.lower() == lower_tag:
+            return child
+    return None
+
+
+def _get_or_create_child(parent: ET.Element, tag: str) -> ET.Element:
+    existing = _resolve_tag_case(parent, tag)
+    if existing is not None:
+        return existing
+    return ET.SubElement(parent, tag)
+
+
+def _extract_asn_id(payload: str) -> Optional[str]:
+    try:
+        root = ET.fromstring(payload)
+    except ET.ParseError:
+        return None
+    asn_elem = root.find(".//ASN")
+    if asn_elem is None:
+        return None
+    return asn_elem.findtext("ASNID")
+
+
+def _value_case_insensitive(values: Mapping[str, Any], target: str) -> Any | None:
+    lower_target = target.lower()
+    for raw_key, raw_value in values.items():
+        if raw_key.lower() == lower_target:
+            return raw_value
+    return None
+
+
+def _coerce_numeric(value: str) -> str:
+    try:
+        num = int(value)
+        return str(num)
+    except (ValueError, TypeError):
+        return str(value)

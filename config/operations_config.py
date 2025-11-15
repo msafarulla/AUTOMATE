@@ -91,17 +91,23 @@ class OperationConfig:
                 'message': None, #manually an xml can be put here
                 'lookback_days': 14,
                 'db_env': 'prod',
-                'record_index': 0,
+                 'asn_items': [
+                     {
+                         'ItemName': '81402XC01C',
+                         'PurchaseOrderID': 'M28R217',  # optional unless you need to override
+                         'Quantity': {'ShippedQty': 2000},
+                     },
+                 ],
             },
             'receive': {
-                'asn': '23907432',
-                'item': 'J105SXC200TR',
-                'quantity': 1,
+                'asn': '',
+                'item': '',
+                'quantity': 0,
             },
             'loading': {
-                'shipment': '23907432',
-                'dock_door': 'J105SXC200TR',
-                'bol': 'MOH',
+                'shipment': '',
+                'dock_door': '',
+                'bol': '',
             }
         }
     ]

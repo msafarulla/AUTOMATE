@@ -122,8 +122,11 @@ def main():
                 app_log("=" * 60)
 
                 post_cfg = workflow.get('post', {})
+                payload_metadata: dict[str, Any] = {}
                 post_result = None
-                if post_cfg.get('enabled'):
+                receive_cfg = workflow.get('receive')
+                should_post = bool(post_cfg.get('enabled')) and not (receive_cfg and receive_cfg.get('asn'))
+                if should_post:
                     post_type = post_cfg.get('type')
                     if not post_type:
                         app_log(f"❌ Post workflow {index} missing 'type'; halting.")
@@ -133,8 +136,9 @@ def main():
                     db_env = post_cfg.get('db_env')
                     if not _confirm_prod_post(index):
                         break
+                    message_payload = None
                     if source == 'db':
-                        message_payload = build_post_message_payload(
+                        message_payload, payload_metadata = build_post_message_payload(
                             post_cfg,
                             post_type,
                             settings.app.change_warehouse,
@@ -154,14 +158,17 @@ def main():
                     if not post_result.success:
                         app_log(f"⏹️ Halting workflow {index} due to post message failure")
                         break
+                elif post_cfg.get('enabled'):
+                    app_log(f"ℹ️ Skipping Post Message for workflow {index}; receive config supplied ASN.")
 
-                receive_cfg = workflow.get('receive')
                 receive_result = None
                 if receive_cfg:
+                    override_asn = payload_metadata.get('asn_id')
+                    receive_asn = override_asn if override_asn else receive_cfg.get('asn')
                     receive_result = orchestrator.run_with_retry(
                         receive,
                         f"Receive (Workflow {index})",
-                        asn=receive_cfg['asn'],
+                        asn=receive_asn,
                         item=receive_cfg['item'],
                         quantity=receive_cfg.get('quantity', 1)
                     )
