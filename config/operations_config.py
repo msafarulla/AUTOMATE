@@ -45,6 +45,30 @@ class OperationConfig:
         'suggested_location': "span#dataForm\\:SBRUdtltxt1_b1",
     })
 
+    # Metadata for receive flows that may branch off the happy path.
+    RECEIVE_FLOW_METADATA = {
+        'HAPPY_PATH': {
+            'auto_handle': True,
+            'description': 'Standard location confirmation screen after quantity entry',
+            'body_keywords': ['aloc'],
+            'requires_suggested': True,
+        },
+        'HOLD_REASON': {
+            'auto_handle': False,
+            'description': 'Hold reason prompt that requires manual judgment',
+            'body_keywords': ['hold reason'],
+        },
+        'QUANTITY_ADJUST': {
+            'auto_handle': True,
+            'description': 'Quantity adjustment flow, typically recoverable',
+            'body_keywords': ['qty adjust', 'quantity adjust'],
+        },
+        'UNKNOWN': {
+            'auto_handle': False,
+            'description': 'Unknown/uncategorized screen – treat as deviation',
+        },
+    }
+
     LOADING_MENU = MenuConfig(
         name="Load Trailer",
         tran_id="1012334"
@@ -54,12 +78,6 @@ class OperationConfig:
         'shipment': "input#barcode20",
         'dock_door': "input#barcode13",
         'bol': "input#barcode32",
-    })
-
-    COMMON_SELECTORS = ScreenSelectors({
-        'input_visible': "input[type='text']:visible",
-        'focused_input': ":focus",
-        'body': "body",
     })
 
     KEYS = {

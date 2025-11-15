@@ -176,20 +176,6 @@ class RFPrimitives:
         label: str,
         timeout: int = 1000
     ) -> tuple[bool, Optional[str]]:
-        """
-        Select a menu option by number (like pressing "1" for Inbound).
-
-        Args:
-            choice: The number to enter
-            label: Label for screenshot
-            timeout: How long to wait for input field
-
-        Returns:
-            (has_error, error_message)
-
-        Example:
-            primitives.select_menu_option("1", "Inbound")
-        """
         return self.fill_and_submit(
             selector="input[type='text']:visible",
             value=choice,
@@ -209,18 +195,7 @@ class RFPrimitives:
         screenshot_text: Optional[str] = None,
         wait_for_change: bool = True
     ):
-        """
-        Press a keyboard shortcut (Ctrl+B, Ctrl+A, etc.).
 
-        Args:
-            key: Playwright key string (e.g., "Control+b")
-            screenshot_label: Label for screenshot
-            screenshot_text: Text overlay (defaults to f"Pressed {key}")
-            wait_for_change: Whether to wait for screen change
-
-        Example:
-            primitives.press_key("Control+b", "RF_HOME", "Navigated to Home")
-        """
         rf_iframe = self.get_iframe()
 
         prev_hash = HashUtils.get_frame_hash(rf_iframe) if wait_for_change else None
@@ -254,10 +229,7 @@ class RFPrimitives:
         self.press_key("Control+a", "accepted_message", "Accepted/Proceeded")
 
     def handle_error_and_continue(self) -> bool:
-        """
-        Check for error/info, take screenshot, accept it, and continue.
-        Returns True if there was an error, False otherwise.
-        """
+
         has_error, msg = self._check_for_errors()
         if msg:  # If there's any message (error or info)
             rf_log(f"{'❌ Error' if has_error else 'ℹ️ Info'}: {msg[:100]}")
@@ -315,10 +287,6 @@ class RFPrimitives:
 # ============================================================================
 
 class RFWorkflows:
-    """
-    High-level workflows built by combining primitives.
-    These are common patterns that appear across multiple operations.
-    """
 
     def __init__(self, primitives: RFPrimitives):
         """
@@ -349,9 +317,6 @@ class RFWorkflows:
         expected_tran_id: Optional[str] = None,
         option_number: str = "1"
     ) -> bool:
-        """
-        Navigate to an RF menu option using Ctrl+F search with optional tran id verification.
-        """
         rf = self.rf
 
         import re
@@ -562,9 +527,7 @@ class RFMenuIntegration:
         self.workflows = RFWorkflows(self.primitives)
 
     def get_primitives(self) -> RFPrimitives:
-        """Get the primitives instance."""
         return self.primitives
 
     def get_workflows(self) -> RFWorkflows:
-        """Get the workflows instance."""
         return self.workflows
