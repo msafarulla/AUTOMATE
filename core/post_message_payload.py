@@ -196,6 +196,8 @@ def customize_asn_payload(payload: str, items: Sequence[Mapping[str, Any]]) -> t
     timestamp = datetime.utcnow()
     asn_id = timestamp.strftime("%m%y%m%d%H%M%S")
     seq_prefix = timestamp.strftime("%y%m%d%H%M%S")
+    for existing_asn_id in asn_elem.findall("ASNID"):
+        asn_elem.remove(existing_asn_id)
     _set_child_text(asn_elem, "ASNID", asn_id)
 
     metadata: dict[str, Any] = {"asn_id": asn_id}
@@ -230,9 +232,12 @@ def _apply_item_values(
         if seq_override is not None
         else f"{seq_prefix}{index + 1:02d}"
     )
+    for existing_sequence in detail.findall("SequenceNumber"):
+        detail.remove(existing_sequence)
     _set_child_text(detail, "SequenceNumber", sequence_text)
 
     quantity_node = _get_or_create_child(detail, "Quantity")
+    _clear_children(quantity_node)
     _apply_quantity_defaults(quantity_node)
 
     for key, raw_value in values.items():
@@ -318,3 +323,8 @@ def _coerce_numeric(value: str) -> str:
         return str(num)
     except (ValueError, TypeError):
         return str(value)
+
+
+def _clear_children(element: ET.Element):
+    for child in list(element):
+        element.remove(child)
