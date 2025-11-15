@@ -115,12 +115,13 @@ class ReceiveOperation(BaseOperation):
         meta = self._flow_metadata(detected_flow)
         rf_log(f"Flow policy: {meta.get('description')}")
         deviation_snippet = screen_state.get("screen", "").strip().replace("\n", " ")[:80]
-        screenshot_label = f"receive_flow_{flow_name.lower()}"
-        screenshot_text = f"Flow {flow_name} (auto_handle={auto_handle}): {deviation_snippet}"
+        screenshot_label = f"receive_flow_{detected_flow.lower()}"
+        screenshot_text = f"Flow {detected_flow} (auto_handle={auto_handle}): {deviation_snippet}"
+        overlay_text = f"{detected_flow} deviation"
         self.screenshot_mgr.capture_rf_window(
             self.page,
             screenshot_label,
-            screenshot_text
+            screenshot_text,
         )
         if not auto_handle:
             rf_log("⚠️ Flow policy signals abort; stopping receive.")
