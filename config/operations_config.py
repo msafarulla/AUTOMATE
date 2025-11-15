@@ -33,7 +33,7 @@ class OperationConfig:
     """Centralized configuration for warehouse operations."""
 
     RECEIVE_MENU = MenuConfig(
-        name="RDC: Recv",
+        name="RDC: Recv - ASN",
         tran_id="1012408"
     )
 
@@ -50,7 +50,6 @@ class OperationConfig:
         'HAPPY_PATH': {
             'description': 'Standard location confirmation screen after quantity entry',
             'keywords': ['aloc'],
-            'requires_suggested': True,
         },
         'IB_RULE_EXCEPTION_BLIND_ILPN': {
             'description': 'IB rule exception where iLPN prompt appears instead of suggested location',
