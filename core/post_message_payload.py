@@ -199,11 +199,19 @@ def customize_asn_payload(payload: str, items: Sequence[Mapping[str, Any]]) -> t
     timestamp = _current_timestamp()
     asn_id = timestamp.strftime("%y%m%d%H%M%S")
     seq_prefix = timestamp.strftime("%y%m%d%H%M%S")
+    original_asn_id = asn_elem.findtext("ASNID")
     for existing_asn_id in asn_elem.findall("ASNID"):
         asn_elem.remove(existing_asn_id)
+    for existing_created in asn_elem.findall("CreatedFrom"):
+        asn_elem.remove(existing_created)
+    _set_child_text(asn_elem, "BillOfLadingNumber", asn_id)
     _set_child_text(asn_elem, "ASNID", asn_id, insert_index=0)
+    if original_asn_id:
+        _set_child_text(asn_elem, "CreatedFrom", original_asn_id, insert_index=1)
 
     metadata: dict[str, Any] = {"asn_id": asn_id}
+    if original_asn_id:
+        metadata["created_from"] = original_asn_id
 
     for existing in list(asn_elem.findall("ASNDetail")):
         asn_elem.remove(existing)
