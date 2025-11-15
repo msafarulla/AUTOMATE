@@ -8,7 +8,15 @@ from core.logger import rf_log
 
 class ReceiveOperation(BaseOperation):
     
-    def execute(self, asn: str, item: str, quantity: int, *, flow_hint: str | None = None):
+    def execute(
+        self,
+        asn: str,
+        item: str,
+        quantity: int,
+        *,
+        flow_hint: str | None = None,
+        auto_handle: bool = False,
+    ):
         menu_cfg = OperationConfig.RECEIVE_MENU
         selectors = OperationConfig.RECEIVE_SELECTORS
 
@@ -46,7 +54,12 @@ class ReceiveOperation(BaseOperation):
             screen_state["flow"] = target_flow
             if not self._assert_receive_screen_happy_path(screen_state):
                 rf_log("⚠️ Receive screen mismatch detected after quantity entry.")
-                return self._handle_alternate_flow_after_qty(rf, selectors, screen_state)
+                return self._handle_alternate_flow_after_qty(
+                    rf,
+                    selectors,
+                    screen_state,
+                    auto_handle
+                )
             dest_loc = rf.read_field(
                 selectors.suggested_location,
                 transform=lambda x: x.replace('-', '')
@@ -82,7 +95,8 @@ class ReceiveOperation(BaseOperation):
         self,
         rf,
         selectors,
-        screen_state: dict[str, Any]
+        screen_state: dict[str, Any],
+        auto_handle: bool,
     ) -> bool:
         rf_log("⚠️ Receive screen guard triggered alternate flow helper.")
         rf_log(f"Flow detected: {screen_state.get('flow')}")
@@ -90,7 +104,7 @@ class ReceiveOperation(BaseOperation):
         rf_log(f"Suggested location text: {screen_state.get('suggested')}")
         meta = self._flow_metadata(screen_state.get("flow"))
         rf_log(f"Flow policy: {meta.get('description')}")
-        if not meta.get("auto_handle"):
+        if not auto_handle:
             rf_log("⚠️ Flow policy signals abort; stopping receive.")
             return False
         rf_log("ℹ️ Auto-handling flow per policy (still returns False until handler is implemented).")
@@ -114,7 +128,7 @@ class ReceiveOperation(BaseOperation):
         return "UNKNOWN"
 
     def _matches_flow_meta(self, meta: dict[str, Any], lower_screen: str, lower_suggested: str) -> bool:
-        keywords = meta.get("body_keywords")
+        keywords = meta.get("keywords")
         if keywords:
             if not all(keyword in lower_screen for keyword in keywords):
                 return False

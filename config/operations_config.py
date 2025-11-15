@@ -48,23 +48,19 @@ class OperationConfig:
     # Metadata for receive flows that may branch off the happy path.
     RECEIVE_FLOW_METADATA = {
         'HAPPY_PATH': {
-            'auto_handle': True,
             'description': 'Standard location confirmation screen after quantity entry',
-            'body_keywords': ['aloc'],
+            'keywords': ['aloc'],
             'requires_suggested': True,
         },
-        'HOLD_REASON': {
-            'auto_handle': False,
-            'description': 'Hold reason prompt that requires manual judgment',
-            'body_keywords': ['hold reason'],
+        'IB_RULE_EXCEPTION_BLIND_ILPN': {
+            'description': 'IB Rule triggered a warning',
+            'keywords': ['Blind iLPN','iLPN#'],
         },
         'QUANTITY_ADJUST': {
-            'auto_handle': True,
             'description': 'Quantity adjustment flow, typically recoverable',
-            'body_keywords': ['qty adjust', 'quantity adjust'],
+            'keywords': ['qty adjust', 'quantity adjust'],
         },
         'UNKNOWN': {
-            'auto_handle': False,
             'description': 'Unknown/uncategorized screen – treat as deviation',
         },
     }
@@ -122,6 +118,7 @@ class OperationConfig:
                 'item': '',
                 'quantity': 0,
                 'flow': 'HAPPY_PATH',
+                'auto_handle_deviation': False,
             },
             'loading': {
                 'shipment': '',

@@ -68,10 +68,22 @@ def main():
             nav_mgr.change_warehouse(settings.app.change_warehouse)
 
         @guarded
-        def receive(asn: str, item: str, quantity: int = 1, flow_hint: str | None = None) -> bool:
+        def receive(
+            asn: str,
+            item: str,
+            quantity: int = 1,
+            flow_hint: str | None = None,
+            auto_handle: bool = False,
+        ) -> bool:
             nav_mgr.open_menu_item("RF MENU", "RF Menu (Distribution)")
             receive_op = ReceiveOperation(page, page_mgr, screenshot_mgr, rf_menu)
-            return receive_op.execute(asn, item, quantity, flow_hint=flow_hint)
+            return receive_op.execute(
+                asn,
+                item,
+                quantity,
+                flow_hint=flow_hint,
+                auto_handle=auto_handle,
+            )
 
         @guarded
         def loading(shipment: str, dock_door: str, bol: str) -> bool:
@@ -178,7 +190,8 @@ def main():
                         asn=receive_asn,
                         item=receive_item,
                         quantity=receive_quantity,
-                        flow_hint=receive_cfg.get('flow')
+                        flow_hint=receive_cfg.get('flow'),
+                        auto_handle=receive_cfg.get('auto_handle_deviation', False),
                     )
 
                 loading_cfg = workflow.get('loading')
