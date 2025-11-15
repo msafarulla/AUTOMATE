@@ -48,14 +48,13 @@ class ReceiveOperation(BaseOperation):
             rf_log("❌ Quantity entry failed")
             return False
 
-        handled = True
         if success:
             screen_state = self.inspect_receive_screen_after_qty(rf)
             detected_flow = screen_state.get("flow")
             target_flow = flow_hint
             screen_state["detected_flow"] = detected_flow
             screen_state["expected_flow"] = target_flow
-            mismatch = not self._assert_receive_screen_happy_path(screen_state)
+            mismatch = not self._assert_receive_screen_flow_hint(screen_state)
             if mismatch:
                 rf_log("⚠️ Receive screen mismatch detected after quantity entry.")
                 handled = self._handle_alternate_flow_after_qty(
@@ -65,6 +64,7 @@ class ReceiveOperation(BaseOperation):
                 )
                 if not auto_handle or not handled:
                     return False
+                return True
             dest_loc = rf.read_field(
                 selectors.suggested_location,
                 transform=lambda x: x.replace('-', '')
@@ -88,7 +88,7 @@ class ReceiveOperation(BaseOperation):
             "flow": flow_name
         }
 
-    def _assert_receive_screen_happy_path(self, screen_state: dict[str, Any]) -> bool:
+    def _assert_receive_screen_flow_hint(self, screen_state: dict[str, Any]) -> bool:
         detected_flow = screen_state.get("detected_flow")
         expected_flow = screen_state.get("expected_flow")
         assert detected_flow is not None
@@ -170,6 +170,11 @@ class ReceiveOperation(BaseOperation):
             if has_error:
                 rf_log(f"❌ IB rule blind ILPN handler failed for '{selector}': {msg or 'unknown error'}")
                 return False
+            self.screenshot_mgr.capture_rf_window(
+                self.page,
+                "receive_ib_rule_lpn_success",
+                "Entered generated LPN for IB rule exception"
+            )
             return True
         rf_log("⚠️ Searched selectors did not locate the IB rule blind ILPN input.")
         return False
