@@ -8,7 +8,7 @@ from core.logger import rf_log
 
 class ReceiveOperation(BaseOperation):
     
-    def execute(self, asn: str, item: str, quantity: int):
+    def execute(self, asn: str, item: str, quantity: int, *, flow_hint: str | None = None):
         menu_cfg = OperationConfig.RECEIVE_MENU
         selectors = OperationConfig.RECEIVE_SELECTORS
 
@@ -41,6 +41,9 @@ class ReceiveOperation(BaseOperation):
 
         if success:
             screen_state = self.inspect_receive_screen_after_qty(rf, selectors)
+            detected_flow = screen_state.get("flow")
+            target_flow = flow_hint or detected_flow
+            screen_state["flow"] = target_flow
             if not self._assert_receive_screen_happy_path(screen_state):
                 rf_log("⚠️ Receive screen mismatch detected after quantity entry.")
                 return self._handle_alternate_flow_after_qty(rf, selectors, screen_state)

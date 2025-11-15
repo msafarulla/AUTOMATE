@@ -177,7 +177,8 @@ def main():
                         f"Receive (Workflow {index})",
                         asn=receive_asn,
                         item=receive_item,
-                        quantity=receive_quantity
+                        quantity=receive_quantity,
+                        flow_hint=receive_cfg.get('flow')
                     )
 
                 loading_cfg = workflow.get('loading')

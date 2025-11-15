@@ -121,6 +121,7 @@ class OperationConfig:
                 'asn': '',
                 'item': '',
                 'quantity': 0,
+                'flow': 'HAPPY_PATH',
             },
             'loading': {
                 'shipment': '',
