@@ -440,7 +440,7 @@ class RFWorkflows:
         value: str,
         label: str,
         timeout: int = 2000,
-        auto_accept_errors: bool = False
+        auto_accept_errors: bool = True
     ) -> tuple[bool, Optional[str]]:
         # Auto-enter flows shouldn't leave stale selectors
         self._last_scanned_selector = None
