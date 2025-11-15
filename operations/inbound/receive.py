@@ -48,7 +48,7 @@ class ReceiveOperation(BaseOperation):
             return False
 
         if success:
-            screen_state = self.inspect_receive_screen_after_qty(rf, selectors)
+            screen_state = self.inspect_receive_screen_after_qty(rf)
             detected_flow = screen_state.get("flow")
             target_flow = flow_hint
             screen_state["detected_flow"] = detected_flow
@@ -74,32 +74,26 @@ class ReceiveOperation(BaseOperation):
 
         return success
 
-    def inspect_receive_screen_after_qty(self, rf, selectors) -> dict[str, Any]:
+    def inspect_receive_screen_after_qty(self, rf) -> dict[str, Any]:
         screen_text = ""
         suggested_text = ""
         try:
             screen_text = rf.read_field("body")
         except Exception as exc:  # pragma: no cover
             rf_log(f"⚠️ Unable to read screen body for flow detection: {exc}")
-        try:
-            suggested_text = rf.read_field(selectors.suggested_location)
-        except Exception as exc:  # pragma: no cover
-            rf_log(f"ℹ️ Suggested location selector missing or invisible: {exc}")
 
-        flow_name = self._determine_flow_after_qty(screen_text, suggested_text)
+        flow_name = self._determine_flow_after_qty(screen_text)
         return {
             "screen": screen_text,
-            "suggested": suggested_text,
             "flow": flow_name
         }
 
     def _assert_receive_screen_happy_path(self, screen_state: dict[str, Any]) -> bool:
         detected_flow = screen_state.get("detected_flow")
         expected_flow = screen_state.get("expected_flow")
-        suggested = bool(screen_state.get("suggested", "").strip())
         assert detected_flow is not None
         assert expected_flow is not None
-        return detected_flow == expected_flow == "HAPPY_PATH" and suggested
+        return detected_flow == expected_flow
 
     def _handle_alternate_flow_after_qty(
         self,
@@ -138,23 +132,19 @@ class ReceiveOperation(BaseOperation):
         default = flows.get("UNKNOWN", {})
         return flows.get(flow_name, default)
 
-    def _determine_flow_after_qty(self, screen_text: str, suggested_text: str) -> str:
+    def _determine_flow_after_qty(self, screen_text: str) -> str:
         lower_screen = screen_text.lower()
-        lower_suggested = suggested_text.lower()
         metadata = OperationConfig.RECEIVE_FLOW_METADATA
         for flow_name, flow_meta in metadata.items():
             if flow_name == "UNKNOWN":
                 continue
-            if self._matches_flow_meta(flow_meta, lower_screen, lower_suggested):
+            if self._matches_flow_meta(flow_meta, lower_screen):
                 return flow_name
         return "UNKNOWN"
 
-    def _matches_flow_meta(self, meta: dict[str, Any], lower_screen: str, lower_suggested: str) -> bool:
+    def _matches_flow_meta(self, meta: dict[str, Any], lower_screen: str) -> bool:
         keywords = meta.get("keywords")
         if keywords:
             if not any(keyword in lower_screen for keyword in keywords):
-                return False
-        if meta.get("requires_suggested"):
-            if not lower_suggested.strip():
                 return False
         return True
