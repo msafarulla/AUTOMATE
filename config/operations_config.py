@@ -121,7 +121,7 @@ class OperationConfig:
                 'item': '',
                 'quantity': 0,
                 'flow': 'HAPPY_PATH',
-                'auto_handle_deviation': False,
+                'auto_handle_deviation': True,
             },
             'loading': {
                 'shipment': '',
