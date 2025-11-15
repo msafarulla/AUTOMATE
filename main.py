@@ -165,12 +165,19 @@ def main():
                 if receive_cfg:
                     override_asn = payload_metadata.get('asn_id')
                     receive_asn = override_asn if override_asn else receive_cfg.get('asn')
+                    receive_items = payload_metadata.get('receive_items') or []
+                    receive_default = receive_items[0] if receive_items else {}
+                    receive_item = receive_cfg.get('item') or receive_default.get('item')
+                    quantity_cfg = receive_cfg.get('quantity', 0)
+                    receive_quantity = quantity_cfg if quantity_cfg else receive_default.get('quantity')
+                    if receive_quantity is None:
+                        receive_quantity = 1
                     receive_result = orchestrator.run_with_retry(
                         receive,
                         f"Receive (Workflow {index})",
                         asn=receive_asn,
-                        item=receive_cfg['item'],
-                        quantity=receive_cfg.get('quantity', 1)
+                        item=receive_item,
+                        quantity=receive_quantity
                     )
 
                 loading_cfg = workflow.get('loading')

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 import xml.etree.ElementTree as ET
-from typing import Any, Mapping, Optional, Sequence
+from typing import Any, Iterable, Mapping, Optional, Sequence
 
 from DB import DB
 from core.logger import app_log
@@ -212,6 +212,9 @@ def customize_asn_payload(payload: str, items: Sequence[Mapping[str, Any]]) -> t
         asn_elem.append(detail)
 
     serialized = ET.tostring(root, encoding="utf-8", xml_declaration=True).decode("utf-8")
+    receive_items = _build_receive_items(items)
+    if receive_items:
+        metadata["receive_items"] = receive_items
     return serialized, metadata
 
 
@@ -359,3 +362,35 @@ def _default_quantity_value(lower_tag: str) -> str:
         return "Unit"
     return ""
 
+
+def _build_receive_items(items: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
+    receive_items: list[dict[str, Any]] = []
+    for item in items:
+        if not item:
+            continue
+        code = _value_case_insensitive(item, "ItemName") or _value_case_insensitive(item, "item")
+        if not code:
+            continue
+        quantity = _derive_quantity_for_receive(item)
+        receive_items.append({"item": code, "quantity": quantity})
+    return receive_items
+
+
+def _derive_quantity_for_receive(item: Mapping[str, Any]) -> int:
+    qty_map = item.get("Quantity") or item.get("quantity")
+    if isinstance(qty_map, Mapping):
+        shipped = qty_map.get("ShippedQty") or qty_map.get("shippedqty")
+        if shipped is not None:
+            try:
+                return int(shipped)
+            except ValueError:
+                pass
+    direct_qty = item.get("quantity") or item.get("Quantity")
+    if isinstance(direct_qty, int):
+        return direct_qty
+    if isinstance(direct_qty, str):
+        try:
+            return int(direct_qty)
+        except ValueError:
+            pass
+    return 2000
