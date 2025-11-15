@@ -108,7 +108,6 @@ class OperationConfig:
                  'asn_items': [
                      {
                          'ItemName': '81402XC01C',
-                         'PurchaseOrderID': 'M28R217',  # optional unless you need to override
                          'Quantity': {'ShippedQty': 2000},
                      },
                  ],

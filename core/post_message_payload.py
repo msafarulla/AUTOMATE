@@ -207,8 +207,15 @@ def customize_asn_payload(payload: str, items: Sequence[Mapping[str, Any]]) -> t
     if template_detail is None:
         template_detail = ET.Element("ASNDetail")
 
+    po_override = timestamp.strftime("%y%m%d%H%M%S")
     for index, item in enumerate(items):
-        detail = _build_detail_from_template(template_detail, item, seq_prefix, index)
+        detail = _build_detail_from_template(
+            template_detail,
+            item,
+            seq_prefix,
+            index,
+            po_override,
+        )
         asn_elem.append(detail)
 
     serialized = ET.tostring(root, encoding="utf-8", xml_declaration=True).decode("utf-8")
@@ -223,6 +230,7 @@ def _build_detail_from_template(
     values: Mapping[str, Any],
     seq_prefix: str,
     index: int,
+    po_override: str,
 ) -> ET.Element:
     detail = ET.Element("ASNDetail")
     tags_emitted: set[str] = set()
@@ -245,6 +253,9 @@ def _build_detail_from_template(
             po_line = _value_case_insensitive(values, "PurchaseOrderLineItemID") or str(index + 1)
             node = ET.Element(tag)
             node.text = po_line
+        elif lower_tag == "purchaseorderid":
+            node = ET.Element(tag)
+            node.text = po_override
         else:
             override = _value_case_insensitive(values, tag)
             node = ET.Element(tag)
