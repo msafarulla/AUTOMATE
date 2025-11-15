@@ -51,7 +51,8 @@ class ReceiveOperation(BaseOperation):
             screen_state = self.inspect_receive_screen_after_qty(rf, selectors)
             detected_flow = screen_state.get("flow")
             target_flow = flow_hint or detected_flow
-            screen_state["flow"] = target_flow
+            screen_state["detected_flow"] = detected_flow
+            screen_state["expected_flow"] = target_flow
             if not self._assert_receive_screen_happy_path(screen_state):
                 rf_log("⚠️ Receive screen mismatch detected after quantity entry.")
                 return self._handle_alternate_flow_after_qty(
@@ -90,10 +91,12 @@ class ReceiveOperation(BaseOperation):
         }
 
     def _assert_receive_screen_happy_path(self, screen_state: dict[str, Any]) -> bool:
-        flow = screen_state.get("flow")
-        meta = self._flow_metadata(flow)
+        detected_flow = screen_state.get("detected_flow")
+        expected_flow = screen_state.get("expected_flow")
         suggested = bool(screen_state.get("suggested", "").strip())
-        return flow == "HAPPY_PATH" and suggested
+        assert detected_flow is not None
+        assert expected_flow is not None
+        return detected_flow == expected_flow == "HAPPY_PATH" and suggested
 
     def _handle_alternate_flow_after_qty(
         self,
@@ -103,11 +106,13 @@ class ReceiveOperation(BaseOperation):
         auto_handle: bool,
     ) -> bool:
         rf_log("⚠️ Receive screen guard triggered alternate flow helper.")
-        flow_name = screen_state.get("flow")
-        rf_log(f"Flow detected: {flow_name}")
+        detected_flow = screen_state.get("detected_flow") or screen_state.get("flow")
+        expected_flow = screen_state.get("expected_flow") or detected_flow
+        rf_log(f"Detected flow: {detected_flow}")
+        rf_log(f"Expected flow: {expected_flow}")
         rf_log(f"Screen snapshot: {screen_state.get('screen', '')[:120]}")
         rf_log(f"Suggested location text: {screen_state.get('suggested')}")
-        meta = self._flow_metadata(screen_state.get("flow"))
+        meta = self._flow_metadata(detected_flow)
         rf_log(f"Flow policy: {meta.get('description')}")
         deviation_snippet = screen_state.get("screen", "").strip().replace("\n", " ")[:80]
         screenshot_label = f"receive_flow_{flow_name.lower()}"
