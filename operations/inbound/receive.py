@@ -50,17 +50,20 @@ class ReceiveOperation(BaseOperation):
         if success:
             screen_state = self.inspect_receive_screen_after_qty(rf, selectors)
             detected_flow = screen_state.get("flow")
-            target_flow = flow_hint or detected_flow
+            target_flow = flow_hint
             screen_state["detected_flow"] = detected_flow
             screen_state["expected_flow"] = target_flow
-            if not self._assert_receive_screen_happy_path(screen_state):
+            mismatch = not self._assert_receive_screen_happy_path(screen_state)
+            if mismatch:
                 rf_log("⚠️ Receive screen mismatch detected after quantity entry.")
-                return self._handle_alternate_flow_after_qty(
+                self._handle_alternate_flow_after_qty(
                     rf,
                     selectors,
                     screen_state,
                     auto_handle
                 )
+                if not auto_handle:
+                    return False
             dest_loc = rf.read_field(
                 selectors.suggested_location,
                 transform=lambda x: x.replace('-', '')
