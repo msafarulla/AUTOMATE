@@ -71,12 +71,16 @@ class ReceiveOperation(BaseOperation):
         return success
 
     def inspect_receive_screen_after_qty(self, rf, selectors) -> dict[str, Any]:
+        screen_text = ""
+        suggested_text = ""
         try:
             screen_text = rf.read_field("body")
+        except Exception as exc:  # pragma: no cover
+            rf_log(f"⚠️ Unable to read screen body for flow detection: {exc}")
+        try:
             suggested_text = rf.read_field(selectors.suggested_location)
         except Exception as exc:  # pragma: no cover
-            rf_log(f"⚠️ Unable to inspect screen for Aloc check: {exc}")
-            return {"screen": "", "suggested": "", "flow": "UNKNOWN"}
+            rf_log(f"ℹ️ Suggested location selector missing or invisible: {exc}")
 
         flow_name = self._determine_flow_after_qty(screen_text, suggested_text)
         return {
