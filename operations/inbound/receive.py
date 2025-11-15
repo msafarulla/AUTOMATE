@@ -99,11 +99,20 @@ class ReceiveOperation(BaseOperation):
         auto_handle: bool,
     ) -> bool:
         rf_log("⚠️ Receive screen guard triggered alternate flow helper.")
-        rf_log(f"Flow detected: {screen_state.get('flow')}")
+        flow_name = screen_state.get("flow")
+        rf_log(f"Flow detected: {flow_name}")
         rf_log(f"Screen snapshot: {screen_state.get('screen', '')[:120]}")
         rf_log(f"Suggested location text: {screen_state.get('suggested')}")
         meta = self._flow_metadata(screen_state.get("flow"))
         rf_log(f"Flow policy: {meta.get('description')}")
+        deviation_snippet = screen_state.get("screen", "").strip().replace("\n", " ")[:80]
+        screenshot_label = f"receive_flow_{flow_name.lower()}"
+        screenshot_text = f"Flow {flow_name} (auto_handle={auto_handle}): {deviation_snippet}"
+        self.screenshot_mgr.capture_rf_window(
+            self.page,
+            screenshot_label,
+            screenshot_text
+        )
         if not auto_handle:
             rf_log("⚠️ Flow policy signals abort; stopping receive.")
             return False
