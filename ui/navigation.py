@@ -293,9 +293,32 @@ class NavigationManager:
             () => {
                 const win = Ext.ComponentQuery.query('window[title~="RF"]')[0];
                 if (!win) return false;
-                win.setHeight(window.innerHeight * 0.9);
-                win.center();
-                win.updateLayout();
+                const topPadding = Math.max(window.innerHeight * 0.05, 15);
+                const leftPadding = Math.max(window.innerWidth * 0.01, 12);
+                const el = win.el?.dom;
+                if (!el) return false;
+
+                const reposition = () => {
+                    el.style.position = "absolute";
+                    el.style.top = `${topPadding}px`;
+                    el.style.left = `${leftPadding}px`;
+                    el.style.transform = "none";
+                    el.style.margin = "0";
+                    el.style.transition = "none";
+                    el.style.setProperty("left", `${leftPadding}px`, "important");
+                    el.style.setProperty("top", `${topPadding}px`, "important");
+                    win.updateLayout?.();
+                };
+
+                reposition();
+                win.toFront?.();
+
+                if (!win.__rf_left_aligned) {
+                    win.__rf_left_aligned = true;
+                    win.on?.("afterlayout", reposition);
+                    win.on?.("show", reposition);
+                    win.on?.("resize", reposition);
+                }
                 return true;
             }
                 """,
