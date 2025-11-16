@@ -42,7 +42,7 @@ class PostMessageManager:
                 return True, response_info
 
             app_log(f"⚠️ Post Message attempt {attempt} failed: {response_info['summary']}")
-            self._reset_form(frame)
+            # self._reset_form(frame)
 
         return False, last_response
 

@@ -112,8 +112,6 @@ def main():
                 app_log("⚠️ No post message payload supplied.")
                 return False
             success, response_info = post_message_mgr.send_message(message)
-            if success:
-                rf_menu.go_home()
             app_log(f"Response summary: {response_info['summary']}")
             if response_info.get("payload"):
                 app_log(f"Response payload: {response_info['payload']}")
