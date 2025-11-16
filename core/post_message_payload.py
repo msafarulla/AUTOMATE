@@ -204,16 +204,14 @@ def customize_asn_payload(payload: str, items: Sequence[Mapping[str, Any]] | Non
     original_asn_id = asn_elem.findtext("ASNID")
     for existing_asn_id in asn_elem.findall("ASNID"):
         asn_elem.remove(existing_asn_id)
-    for existing_created in asn_elem.findall("CreatedFrom"):
-        asn_elem.remove(existing_created)
+    for existing_bol in asn_elem.findall("BillOfLadingNumber"):
+        asn_elem.remove(existing_bol)
     _set_child_text(asn_elem, "BillOfLadingNumber", asn_id)
     _set_child_text(asn_elem, "ASNID", asn_id, insert_index=0)
-    if original_asn_id:
-        _set_child_text(asn_elem, "CreatedFrom", original_asn_id, insert_index=1)
+    _set_child_text(asn_elem, "CreatedFrom", original_asn_id, insert_index=1)
 
     metadata: dict[str, Any] = {"asn_id": asn_id}
-    if original_asn_id:
-        metadata["created_from"] = original_asn_id
+    metadata["created_from"] = original_asn_id
 
     if items:
         for existing in list(asn_elem.findall("ASNDetail")):
@@ -374,6 +372,8 @@ def _coerce_numeric(value: str) -> str:
 
 
 def _set_child_text(parent: ET.Element, tag: str, value: Any | None, *, insert_index: Optional[int] = None) -> Optional[ET.Element]:
+    if value is None:
+        return None
     target_tag = _resolve_tag_case(parent, tag)
     node = target_tag or ET.SubElement(parent, tag)
     node.text = str(value)
