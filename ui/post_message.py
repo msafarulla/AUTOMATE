@@ -27,29 +27,17 @@ class PostMessageManager:
     def send_message(self, message: str) -> Tuple[bool, Dict[str, Any]]:
 
         frame = self._resolve_frame()
-        reset_block = self._ensure_reset_before_post(frame, message)
-        if reset_block is not None:
-            return False, reset_block
-        last_response = {
-            "summary": "No response captured",
-            "raw": "",
-            "is_error": True,
-            "payload": {},
-        }
 
-        for attempt in range(1, 2):
-            self._fill_message(frame, message, attempt)
-            response_info = self._submit_and_capture(frame)
-            last_response = response_info
+        self._fill_message(frame, message, attempt)
+        response_info = self._submit_and_capture(frame)
+        last_response = response_info
 
-            if not response_info["is_error"]:
-                self._release_post_message_focus(frame)
-                self._mark_reset_required(message)
-                return True, response_info
+        if not response_info["is_error"]:
+            self._release_post_message_focus(frame)
+            self._mark_reset_required(message)
+            return True, response_info
 
-            app_log(f"⚠️ Post Message attempt {attempt} failed: {response_info['summary']}")
-            # self._reset_form(frame)
-
+        app_log(f"⚠️ Post Message attempt failed: {response_info['summary']}")
         return False, last_response
 
     def _resolve_frame(self, timeout_ms: int = 8000, poll_interval_ms: int = 200) -> Frame:
@@ -73,7 +61,7 @@ class PostMessageManager:
         except Exception:
             return False
 
-    def _fill_message(self, frame: Frame, message: str, attempt: int):
+    def _fill_message(self, frame: Frame, message: str):
         textarea = self._locate_textarea(frame)
         textarea.click()
         textarea.fill(message)
@@ -81,8 +69,8 @@ class PostMessageManager:
         truncated = (message[:40] + "...") if len(message) > 40 else message
         self.screenshot_mgr.capture(
             self.page,
-            f"post_message_ready_{attempt}",
-            f"Attempt {attempt}: {truncated}",
+            f"post_message_ready",
+            f"Attempt : {truncated}",
         )
 
     def _submit_and_capture(self, frame: Frame) -> Dict[str, Any]:
