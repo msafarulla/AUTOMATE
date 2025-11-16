@@ -33,8 +33,8 @@ class PostMessageManager:
         last_response = response_info
 
         if not response_info["is_error"]:
-            self._release_post_message_focus(frame)
-            self._mark_reset_required(message)
+            # self._release_post_message_focus(frame)
+            # self._mark_reset_required(message)
             return True, response_info
 
         app_log(f"⚠️ Post Message attempt failed: {response_info['summary']}")
