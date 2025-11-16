@@ -38,7 +38,6 @@ class PostMessageManager:
             last_response = response_info
 
             if not response_info["is_error"]:
-                self._release_post_message_focus(frame)
                 return True, response_info
 
             app_log(f"⚠️ Post Message attempt {attempt} failed: {response_info['summary']}")
@@ -94,21 +93,6 @@ class PostMessageManager:
             f"{label}: {info['summary'][:60]}",
         )
         return info
-
-    def _release_post_message_focus(self, frame: Frame):
-        """Blur/hide the Post Message form so no future scanner input leaks into it."""
-        try:
-            frame.locator("textarea[name*='message' i]").wait_for(state="hidden", timeout=1200)
-        except Exception:
-            pass
-        try:
-            self.page.keyboard.press("Escape")
-        except Exception:
-            pass
-        try:
-            self.page.wait_for_timeout(150)
-        except Exception:
-            pass
 
     def _reset_form(self, frame: Frame):
         reset_button = self._locate_reset_button(frame)
