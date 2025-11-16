@@ -193,18 +193,6 @@ def main():
                         auto_handle=receive_cfg.get('auto_handle_deviation', False),
                     )
 
-                loading_cfg = workflow.get('loading')
-                if loading_cfg and (receive_result is None or receive_result.success):
-                    orchestrator.run_with_retry(
-                        loading,
-                        f"Loading (Workflow {index})",
-                        shipment=loading_cfg['shipment'],
-                        dock_door=loading_cfg['dock_door'],
-                        bol=loading_cfg['bol']
-                    )
-                elif loading_cfg:
-                    app_log(f"⏭️ Skipping loading for workflow {index} due to receive failure")
-
             orchestrator.print_summary()
             app_log("✅ Automation completed!")
             input("Press Enter to exit...")

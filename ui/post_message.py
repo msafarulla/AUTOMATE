@@ -21,10 +21,15 @@ class PostMessageManager:
     def __init__(self, page: Page, screenshot_mgr: ScreenshotManager):
         self.page = page
         self.screenshot_mgr = screenshot_mgr
+        self._reset_required = False
+        self._last_sent_snapshot: str | None = None
 
     def send_message(self, message: str) -> Tuple[bool, Dict[str, Any]]:
 
         frame = self._resolve_frame()
+        reset_block = self._ensure_reset_before_post(frame, message)
+        if reset_block is not None:
+            return False, reset_block
         last_response = {
             "summary": "No response captured",
             "raw": "",
@@ -39,6 +44,7 @@ class PostMessageManager:
 
             if not response_info["is_error"]:
                 self._release_post_message_focus(frame)
+                self._mark_reset_required(message)
                 return True, response_info
 
             app_log(f"⚠️ Post Message attempt {attempt} failed: {response_info['summary']}")
@@ -105,6 +111,31 @@ class PostMessageManager:
             "post_message_reset",
             "Reset form after error",
         )
+
+    def _mark_reset_required(self, message: str):
+        self._reset_required = True
+        self._last_sent_snapshot = message.strip()
+
+    def _ensure_reset_before_post(self, frame: Frame, message: str) -> dict[str, Any] | None:
+        if not self._reset_required:
+            return None
+
+        textarea = self._locate_textarea(frame)
+        current_value = textarea.input_value().strip()
+        prev_snapshot = self._last_sent_snapshot or ""
+        if current_value and current_value == prev_snapshot:
+            summary = "Post Message already sent; reset the form before reposting."
+            app_log(f"⚠️ {summary}")
+            return {
+                "raw": "",
+                "summary": summary,
+                "payload": {},
+                "is_error": True,
+            }
+
+        self._reset_required = False
+        self._last_sent_snapshot = None
+        return None
 
     def _locate_textarea(self, frame: Frame) -> Locator:
         selectors = [
