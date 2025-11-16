@@ -28,7 +28,7 @@ class PostMessageManager:
 
         frame = self._resolve_frame()
 
-        self._fill_message(frame, message, attempt)
+        self._fill_message(frame, message)
         response_info = self._submit_and_capture(frame)
         last_response = response_info
 
