@@ -84,7 +84,7 @@ class BrowserConfig:
 @dataclass
 class AppConfig:
     base_url: str = "https://wmqa.subaru1.com/manh/index.html?i=102"
-    change_warehouse: str = "LPM"
+    change_warehouse: str = "ONT"
     timeout_default: int = 5000
     check_interval: int = 200
     post_message_text: str = """place holder"""
