@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
+from zoneinfo import ZoneInfo
 import xml.etree.ElementTree as ET
 from typing import Any, Iterable, Mapping, Optional, Sequence
 
@@ -188,7 +189,7 @@ def customize_asn_payload(payload: str, items: Sequence[Mapping[str, Any]]) -> t
         return payload, {}
 
     template_detail = asn_elem.find("ASNDetail")
-    timestamp = datetime.utcnow()
+    timestamp = _current_eastern_timestamp()
     asn_id = timestamp.strftime("%y%m%d%H%M%S")
     seq_prefix = timestamp.strftime("%y%m%d%H%M%S")
     for existing_asn_id in asn_elem.findall("ASNID"):
@@ -219,6 +220,14 @@ def customize_asn_payload(payload: str, items: Sequence[Mapping[str, Any]]) -> t
     if receive_items:
         metadata["receive_items"] = receive_items
     return serialized, metadata
+
+
+def _current_eastern_timestamp() -> datetime:
+    try:
+        return datetime.now(ZoneInfo("America/New_York"))
+    except Exception:
+        est_offset = timedelta(hours=-5)
+        return datetime.now(timezone.utc).astimezone(timezone(est_offset))
 
 
 def _build_detail_from_template(
