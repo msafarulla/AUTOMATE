@@ -78,7 +78,7 @@ class PostMessageManager:
         prev_snapshot = HashUtils.get_frame_snapshot(frame)
         response_text = None
         try:
-            with frame.expect_response(self._is_post_message_response, timeout=20000) as response_ctx:
+            with frame.page.expect_response(self._is_post_message_response, timeout=20000) as response_ctx:
                 send_button.click()
             response_text = self._extract_response_text(response_ctx.value)
         except TimeoutError:
