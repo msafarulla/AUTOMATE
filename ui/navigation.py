@@ -11,7 +11,7 @@ class NavigationManager:
     def __init__(self, page: Page, screenshot_mgr: ScreenshotManager):
         self.page = page
         self.screenshot_mgr = screenshot_mgr
-        self._menu_overlay_closed_after_sign_on = False
+        self._ensure_menu_overlay_closed_after_sign_on = True
 
     def change_warehouse(self, warehouse: str):
         """Select facility and warehouse only if different"""
@@ -270,10 +270,10 @@ class NavigationManager:
             page.wait_for_timeout(500)
 
     def close_menu_overlay_after_sign_on(self):
-        if self._menu_overlay_closed_after_sign_on:
+        if not self._ensure_menu_overlay_closed_after_sign_on:
             return
         self._ensure_menu_closed()
-        self._menu_overlay_closed_after_sign_on = True
+        self._ensure_menu_overlay_closed_after_sign_on = False
 
     def _maybe_maximize_rf_window(self, normalized_match: str):
         """Maximize RF window immediately after launching RF menu."""
