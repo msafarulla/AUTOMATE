@@ -11,7 +11,7 @@ class NavigationManager:
     def __init__(self, page: Page, screenshot_mgr: ScreenshotManager):
         self.page = page
         self.screenshot_mgr = screenshot_mgr
-        self._ensure_menu_overlay_closed_after_sign_on = True
+        self._ensure_menu_overlay_closed_after_sign_on = False
 
     def change_warehouse(self, warehouse: str):
         """Select facility and warehouse only if different"""
