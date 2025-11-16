@@ -49,7 +49,7 @@ class NavigationManager:
                                     f"Changed to {warehouse}")
         app_log(f"✅ Changed warehouse to {warehouse}")
 
-    def open_menu_item(self, search_term: str, match_text: str, max_attempt: int = 10) -> bool:
+    def open_menu_item(self, search_term: str, match_text: str, max_attempt: int = 1) -> bool:
         import re
         from difflib import ndiff
 

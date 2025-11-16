@@ -22,12 +22,8 @@ class PostMessageManager:
         self.page = page
         self.screenshot_mgr = screenshot_mgr
 
-    def send_message(self, message: str, max_attempts: int = 1) -> Tuple[bool, Dict[str, Any]]:
-        """
-        Fill the textarea, click Send, then inspect the response.
-        Automatically clicks Reset and retries when an error response is detected.
-        Returns (success, response_info) where the info dict includes summary/raw/payload data.
-        """
+    def send_message(self, message: str) -> Tuple[bool, Dict[str, Any]]:
+
         frame = self._resolve_frame()
         last_response = {
             "summary": "No response captured",
@@ -36,7 +32,7 @@ class PostMessageManager:
             "payload": {},
         }
 
-        for attempt in range(1, max_attempts + 1):
+        for attempt in range(1, 2):
             self._fill_message(frame, message, attempt)
             response_info = self._submit_and_capture(frame)
             last_response = response_info
@@ -46,8 +42,6 @@ class PostMessageManager:
 
             app_log(f"⚠️ Post Message attempt {attempt} failed: {response_info['summary']}")
             self._reset_form(frame)
-            if attempt >= max_attempts:
-                break
 
         return False, last_response
 
