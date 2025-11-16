@@ -39,9 +39,9 @@ class NavigationManager:
         page.locator(f"ul.x-list-plain li:has-text('{warehouse}')").click()
 
         # Wait for the screen to reload
-        prev_hash = HashUtils.get_page_hash(page)
+        prev_snapshot = HashUtils.get_frame_snapshot(page.main_frame)
         page.get_by_text("Apply", exact=True).click()
-        WaitUtils.wait_for_screen_change(lambda: page.main_frame, prev_hash)
+        WaitUtils.wait_for_screen_change(lambda: page.main_frame, prev_snapshot)
 
         # Capture screenshot and confirm
         self.screenshot_mgr.capture(page, f"warehouse_{warehouse}",

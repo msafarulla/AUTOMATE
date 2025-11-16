@@ -106,8 +106,7 @@ class ReceiveOperation(BaseOperation):
         expected_flow = screen_state.get("expected_flow") or detected_flow
         rf_log(f"Detected flow: {detected_flow}")
         rf_log(f"Expected flow: {expected_flow}")
-        rf_log(f"Screen snapshot: {screen_state.get('screen', '')[:120]}")
-        rf_log(f"Suggested location text: {screen_state.get('suggested')}")
+        # rf_log(f"Screen snapshot: {screen_state.get('screen', '')[:120]}")
         meta = self._flow_metadata(detected_flow)
         rf_log(f"Flow policy: {meta.get('description')}")
         deviation_snippet = screen_state.get("screen", "").strip().replace("\n", " ")[:80]

@@ -13,10 +13,11 @@ class WaitUtils:
     @staticmethod
     def wait_for_screen_change(
             frame_or_provider: Union[Frame, FrameProvider],
-            prev_hash: str,
+            prev_snapshot: str,
             timeout_ms: int = 25000,
             check_interval_ms: int = 200,
             warn_on_timeout: bool = True,
+            snapshot_length: int | None = None,
     ) -> bool:
 
         try:
@@ -32,19 +33,21 @@ class WaitUtils:
             frame = _get_frame()
             page = frame.page
             start_time = safe_page_evaluate(page, "Date.now()", description="WaitUtils.timer")
+            normalized_prev = prev_snapshot or ""
+            target_length = snapshot_length or len(normalized_prev) or HashUtils.FRAME_SNAPSHOT_CHARS
 
             while True:
                 page.wait_for_timeout(check_interval_ms)
                 try:
                     frame = _get_frame()
-                    current_hash = HashUtils.get_frame_hash(frame)
+                    current_snapshot = HashUtils.get_frame_snapshot(frame, target_length)
                 except Exception as exc:
                     if WaitUtils._is_frame_context_error(exc):
                         app_log("ℹ️ RF frame navigation detected while waiting; treating as screen change.")
                         return True
                     raise
 
-                if current_hash != prev_hash:
+                if current_snapshot != normalized_prev:
                     app_log("✅ Screen content changed")
                     return True
 

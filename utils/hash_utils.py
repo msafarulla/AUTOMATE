@@ -1,22 +1,14 @@
-import hashlib
 from playwright.sync_api import Page, Frame
 from utils.eval_utils import safe_page_evaluate, safe_locator_evaluate
 
 
 class HashUtils:
-    # Extra delay to let RF iframe finish swapping contexts before we hash its body.
+    # Extra delay to let RF iframe finish swapping contexts before we read its body.
     FRAME_HASH_SETTLE_MS = 350
+    FRAME_SNAPSHOT_CHARS = 75
 
     @staticmethod
-    def get_page_hash(page: Page) -> str:
-        """Compute SHA256 hash of full page content"""
-        content = safe_page_evaluate(page, "() => document.documentElement.outerHTML",
-                                     description="HashUtils.get_page_hash")
-        return hashlib.sha256(content.encode("utf-8")).hexdigest()
-
-    @staticmethod
-    def get_frame_hash(frame: Frame) -> str:
-        """Compute SHA256 hash of frame content"""
+    def _get_frame_body_text(frame: Frame) -> str:
         settle = HashUtils.FRAME_HASH_SETTLE_MS
         if settle:
             try:
@@ -24,10 +16,19 @@ class HashUtils:
             except Exception:
                 pass
 
-        content = safe_locator_evaluate(
+        return safe_locator_evaluate(
             frame.locator("body"),
             "el => el.innerText",
-            description="HashUtils.get_frame_hash",
+            description="HashUtils._get_frame_body_text",
             suppress_transient_log=True,
         )
-        return hashlib.sha256(content.encode("utf-8")).hexdigest()
+
+    @staticmethod
+    def get_frame_snapshot(frame: Frame, length: int | None = None) -> str:
+        """Return the first `length` characters of the frame body text."""
+        content = HashUtils._get_frame_body_text(frame)
+        if length is None:
+            length = HashUtils.FRAME_SNAPSHOT_CHARS
+        if length <= 0:
+            return ""
+        return content[:length]

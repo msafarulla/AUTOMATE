@@ -46,18 +46,18 @@ class RFMenuManager:
         except Exception:
             pass
 
-        prev_hash = HashUtils.get_frame_hash(rf_iframe)
+        prev_snapshot = HashUtils.get_frame_snapshot(rf_iframe)
         self.page.keyboard.press("Control+b")
         WaitUtils.wait_for_screen_change(
             self.get_iframe,
-            prev_hash,
+            prev_snapshot,
             warn_on_timeout=False,
         )
         if not self._tran_marker_verified:
             if not self._home_menu_has_hash(rf_iframe):
-                tran_prev_hash = HashUtils.get_frame_hash(rf_iframe)
+                tran_prev_snapshot = HashUtils.get_frame_snapshot(rf_iframe)
                 self.page.keyboard.press("Control+p")
-                WaitUtils.wait_for_screen_change(rf_iframe, tran_prev_hash)
+                WaitUtils.wait_for_screen_change(rf_iframe, tran_prev_snapshot)
                 if not self._home_menu_has_hash(rf_iframe):
                     self._log("⚠️ RF home menu never showed # marker after Control+P.")
                     self._tran_marker_verified = False
@@ -101,9 +101,9 @@ class RFMenuManager:
         self.screenshot_mgr.capture_rf_window(self.page, f"choice_{ui_name}",
                                               f"Selected {ui_name}")
 
-        prev_hash = HashUtils.get_frame_hash(rf_iframe)
+        prev_snapshot = HashUtils.get_frame_snapshot(rf_iframe)
         choice_input.press("Enter")
-        WaitUtils.wait_for_screen_change(self.get_iframe, prev_hash)
+        WaitUtils.wait_for_screen_change(self.get_iframe, prev_snapshot)
 
         return self.check_for_response(rf_iframe)
 
@@ -137,9 +137,9 @@ class RFMenuManager:
         if rf_iframe.locator("div.error").count() == 0:
             return False
 
-        prev_hash = HashUtils.get_frame_hash(rf_iframe)
+        prev_snapshot = HashUtils.get_frame_snapshot(rf_iframe)
         self.page.keyboard.press("Control+a")
-        WaitUtils.wait_for_screen_change(self.get_iframe, prev_hash)
+        WaitUtils.wait_for_screen_change(self.get_iframe, prev_snapshot)
 
         self.screenshot_mgr.capture_rf_window(self.page, "after_accept","Accepted/Proceeded")
         return True
@@ -153,11 +153,11 @@ class RFMenuManager:
     def _display_tran_id_via_ctrl_p(self, rf_iframe: Frame, max_attempts: int = 1):
         """Send Control+P until the RF home list shows the tran_id hash marker."""
         for attempt in range(1, max_attempts + 1):
-            prev_hash = HashUtils.get_frame_hash(rf_iframe)
+            prev_snapshot = HashUtils.get_frame_snapshot(rf_iframe)
             self.page.keyboard.press("Control+p")
             WaitUtils.wait_for_screen_change(
                 self.get_iframe,
-                prev_hash
+                prev_snapshot
             )
             if self._home_menu_has_hash(rf_iframe):
                 if attempt > 1:
@@ -204,10 +204,11 @@ class RFMenuManager:
         except Exception:
             return False
 
+        prev_snapshot = None
         try:
-            prev_hash = HashUtils.get_frame_hash(rf_iframe)
+            prev_snapshot = HashUtils.get_frame_snapshot(rf_iframe)
         except Exception:
-            prev_hash = None
+            prev_snapshot = None
 
         try:
             icon.click()
@@ -215,11 +216,11 @@ class RFMenuManager:
         except Exception:
             return False
 
-        if prev_hash:
+        if prev_snapshot is not None:
             try:
                 WaitUtils.wait_for_screen_change(
                     self.get_iframe,
-                    prev_hash,
+                    prev_snapshot,
                     warn_on_timeout=False,
                 )
             except Exception:
