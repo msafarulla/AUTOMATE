@@ -296,15 +296,16 @@ class NavigationManager:
                 if (!win) return false;
                 const topPadding = Math.max(window.innerHeight * 0.05, 15);
                 const leftPadding = Math.max(window.innerWidth * 0.01, 12);
-                if (win.setPosition) {
-                    win.setPosition(leftPadding, topPadding);
-                } else if (win.setXY) {
-                    win.setXY([leftPadding, topPadding]);
-                } else {
-                    win.setX?.(leftPadding);
-                    win.setY?.(topPadding);
-                }
-                win.updateLayout();
+                const el = win.el?.dom;
+                if (!el) return false;
+                el.style.position = "absolute";
+                el.style.top = `${topPadding}px`;
+                el.style.left = `${leftPadding}px`;
+                el.style.transform = "none";
+                el.style.margin = "0";
+                el.style.transition = "none";
+                win.updateLayout?.();
+                win.toFront?.();
                 return true;
             }
                 """,
