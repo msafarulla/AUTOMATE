@@ -38,6 +38,7 @@ class PostMessageManager:
             last_response = response_info
 
             if not response_info["is_error"]:
+                self._release_post_message_focus(frame)
                 return True, response_info
 
             app_log(f"⚠️ Post Message attempt {attempt} failed: {response_info['summary']}")
@@ -159,6 +160,22 @@ class PostMessageManager:
                 continue
 
         raise RuntimeError("Unable to locate the Reset button on Post Message screen")
+
+    def _release_post_message_focus(self, frame: Frame):
+        try:
+            frame.evaluate(
+                "() => { const textarea = document.querySelector(\"textarea[name*='message' i]\"); textarea?.blur(); }"
+            )
+        except Exception:
+            pass
+        try:
+            self.page.keyboard.press("Escape")
+        except Exception:
+            pass
+        try:
+            self.page.wait_for_timeout(300)
+        except Exception:
+            pass
 
     def _read_response(self, frame: Frame) -> str:
         selectors = [
