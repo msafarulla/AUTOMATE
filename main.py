@@ -23,9 +23,8 @@ from core.post_message_payload import build_post_message_payload
 
 
 def main():
-    """Main entry point with improved orchestration."""
     settings = Settings.from_env()
-
+    
     with DB('qa') as c1:
         username = c1.app_server_user
         password = c1.app_server_pass
@@ -52,7 +51,6 @@ def main():
         orchestrator = AutomationOrchestrator(settings)
 
         def guarded(func: Callable):
-            """Decorator to run helpers inside the connection guard."""
             @wraps(func)
             def wrapper(*args: Any, **kwargs: Any):
                 return conn_guard.guard(func, *args, **kwargs)
