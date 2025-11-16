@@ -4,7 +4,7 @@ import time
 import xml.etree.ElementTree as ET
 from typing import Any, Dict, Tuple
 
-from playwright.sync_api import Frame, Locator, Page
+from playwright.sync_api import Frame, Locator, Page, Response, TimeoutError
 
 from core.screenshot import ScreenshotManager
 from utils.hash_utils import HashUtils
@@ -76,11 +76,20 @@ class PostMessageManager:
     def _submit_and_capture(self, frame: Frame) -> Dict[str, Any]:
         send_button = self._locate_send_button(frame)
         prev_snapshot = HashUtils.get_frame_snapshot(frame)
-        send_button.click()
-        WaitUtils.wait_for_screen_change(frame, prev_snapshot)
+        response_text = None
+        try:
+            with self.page.expect_response(
+                self._is_post_message_response, timeout=20000
+            ) as response_ctx:
+                send_button.click()
+            response_text = self._extract_response_text(response_ctx.value)
+        except TimeoutError:
+            pass
 
-        response = self._read_response(frame)
-        info = self._interpret_response(response)
+        WaitUtils.wait_for_screen_change(frame, prev_snapshot)
+        if not response_text:
+            response_text = self._read_response(frame)
+        info = self._interpret_response(response_text)
         label = "Success" if not info["is_error"] else "Error"
         self.screenshot_mgr.capture(
             self.page,
@@ -244,6 +253,24 @@ class PostMessageManager:
             return re.sub(r"\s+", " ", unescaped.strip())
         except Exception:
             return ""
+
+    def _is_post_message_response(self, response: Response) -> bool:
+        try:
+            req = response.request
+            if (req.method or "").lower() != "post":
+                return False
+            post_data = (req.post_data or "").lower()
+            if "postmessagecmdid" in post_data:
+                return True
+            return "postmessage" in response.url.lower() or "post-message" in response.url.lower()
+        except Exception:
+            return False
+
+    def _extract_response_text(self, response: Response) -> str | None:
+        try:
+            return response.text()
+        except Exception:
+            return None
 
     def _interpret_response(self, response_text: str) -> Dict[str, Any]:
         info = {
