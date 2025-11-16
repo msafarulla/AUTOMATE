@@ -4,7 +4,7 @@ import time
 import xml.etree.ElementTree as ET
 from typing import Any, Dict, Tuple
 
-from playwright.sync_api import Frame, Locator, Page, Response, TimeoutError
+from playwright.sync_api import Frame, Locator, Page
 
 from core.screenshot import ScreenshotManager
 from utils.hash_utils import HashUtils
@@ -76,21 +76,11 @@ class PostMessageManager:
     def _submit_and_capture(self, frame: Frame) -> Dict[str, Any]:
         send_button = self._locate_send_button(frame)
         prev_snapshot = HashUtils.get_frame_snapshot(frame)
-        response_text = None
-        try:
-            with frame.expect_response(self._is_post_message_response, timeout=20000) as response_ctx:
-                send_button.click()
-            response_text = self._extract_response_text(response_ctx.value)
-        except TimeoutError:
-            # fallback to DOM reading if we don't detect the network response
-            pass
-
+        send_button.click()
         WaitUtils.wait_for_screen_change(frame, prev_snapshot)
-        if not response_text:
-            self._wait_for_response_text_stable(frame)
-            response_text = self._read_response(frame)
+        self._wait_for_response_text_stable(frame)
 
-        response = response_text or ""
+        response = self._read_response(frame)
         info = self._interpret_response(response)
         label = "Success" if not info["is_error"] else "Error"
         self.screenshot_mgr.capture(
@@ -241,22 +231,6 @@ class PostMessageManager:
                 return
 
             frame.page.wait_for_timeout(200)
-
-    def _is_post_message_response(self, response: Response) -> bool:
-        req = response.request
-        post_data = (req.post_data or "").lower()
-        if "postmessagecmdid" in post_data:
-            return True
-        url_lower = response.url.lower()
-        if "postmessage" in url_lower or "post-message" in url_lower:
-            return True
-        return False
-
-    def _extract_response_text(self, response: Response) -> str | None:
-        try:
-            return response.text()
-        except Exception:
-            return None
 
     def _read_response(self, frame: Frame) -> str:
         selectors = [
