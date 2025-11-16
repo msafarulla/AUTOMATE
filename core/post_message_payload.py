@@ -56,10 +56,12 @@ def build_post_message_payload(
 
         if normalized_type == "ASN":
             metadata["asn_id"] = _extract_asn_id(payload)
-            items = post_cfg.get("asn_items")
-            if isinstance(items, Sequence) and not isinstance(items, (str, bytes)) and items:
-                payload, custom_meta = customize_asn_payload(payload, items)
-                metadata.update(custom_meta)
+            items_cfg = post_cfg.get("asn_items")
+            items = None
+            if isinstance(items_cfg, Sequence) and not isinstance(items_cfg, (str, bytes)):
+                items = [item for item in items_cfg if item]
+            payload, custom_meta = customize_asn_payload(payload, items)
+            metadata.update(custom_meta)
 
         return payload, metadata
 
@@ -183,7 +185,7 @@ def _current_timestamp() -> datetime:
         return datetime.now()
 
 
-def customize_asn_payload(payload: str, items: Sequence[Mapping[str, Any]]) -> tuple[str, dict[str, Any]]:
+def customize_asn_payload(payload: str, items: Sequence[Mapping[str, Any]] | None = None) -> tuple[str, dict[str, Any]]:
     try:
         root = ET.fromstring(payload)
     except ET.ParseError as exc:
@@ -213,27 +215,29 @@ def customize_asn_payload(payload: str, items: Sequence[Mapping[str, Any]]) -> t
     if original_asn_id:
         metadata["created_from"] = original_asn_id
 
-    for existing in list(asn_elem.findall("ASNDetail")):
-        asn_elem.remove(existing)
+    if items:
+        for existing in list(asn_elem.findall("ASNDetail")):
+            asn_elem.remove(existing)
 
-    if template_detail is None:
-        template_detail = ET.Element("ASNDetail")
+        if template_detail is None:
+            template_detail = ET.Element("ASNDetail")
 
-    po_override = timestamp.strftime("%y%m%d%H%M%S")
-    for index, item in enumerate(items):
-        detail = _build_detail_from_template(
-            template_detail,
-            item,
-            seq_prefix,
-            index,
-            po_override,
-        )
-        asn_elem.append(detail)
+        po_override = timestamp.strftime("%y%m%d%H%M%S")
+        for index, item in enumerate(items):
+            detail = _build_detail_from_template(
+                template_detail,
+                item,
+                seq_prefix,
+                index,
+                po_override,
+            )
+            asn_elem.append(detail)
+
+        receive_items = _build_receive_items(items)
+        if receive_items:
+            metadata["receive_items"] = receive_items
 
     serialized = ET.tostring(root, encoding="utf-8", xml_declaration=True).decode("utf-8")
-    receive_items = _build_receive_items(items)
-    if receive_items:
-        metadata["receive_items"] = receive_items
     return serialized, metadata
 
 
@@ -370,9 +374,6 @@ def _coerce_numeric(value: str) -> str:
 
 
 def _set_child_text(parent: ET.Element, tag: str, value: Any | None, *, insert_index: Optional[int] = None) -> Optional[ET.Element]:
-    if value is None:
-        return
-
     target_tag = _resolve_tag_case(parent, tag)
     node = target_tag or ET.SubElement(parent, tag)
     node.text = str(value)
