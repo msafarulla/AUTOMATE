@@ -1,4 +1,3 @@
-from datetime import datetime, timezone
 from typing import Any
 
 from operations.base_operation import BaseOperation
@@ -54,17 +53,17 @@ class ReceiveOperation(BaseOperation):
             target_flow = flow_hint
             screen_state["detected_flow"] = detected_flow
             screen_state["expected_flow"] = target_flow
-            mismatch = not self._assert_receive_screen_flow_hint(screen_state)
+            mismatch = not self._assert_receive_screen_happy_path(screen_state)
             if mismatch:
                 rf_log("⚠️ Receive screen mismatch detected after quantity entry.")
-                handled = self._handle_alternate_flow_after_qty(
+                self._handle_alternate_flow_after_qty(
                     rf,
+                    selectors,
                     screen_state,
                     auto_handle
                 )
-                if not auto_handle or not handled:
+                if not auto_handle:
                     return False
-                return True
             dest_loc = rf.read_field(
                 selectors.suggested_location,
                 transform=lambda x: x.replace('-', '')
@@ -77,6 +76,7 @@ class ReceiveOperation(BaseOperation):
 
     def inspect_receive_screen_after_qty(self, rf) -> dict[str, Any]:
         screen_text = ""
+        suggested_text = ""
         try:
             screen_text = rf.read_field("body")
         except Exception as exc:  # pragma: no cover
@@ -88,7 +88,7 @@ class ReceiveOperation(BaseOperation):
             "flow": flow_name
         }
 
-    def _assert_receive_screen_flow_hint(self, screen_state: dict[str, Any]) -> bool:
+    def _assert_receive_screen_happy_path(self, screen_state: dict[str, Any]) -> bool:
         detected_flow = screen_state.get("detected_flow")
         expected_flow = screen_state.get("expected_flow")
         assert detected_flow is not None
@@ -98,6 +98,7 @@ class ReceiveOperation(BaseOperation):
     def _handle_alternate_flow_after_qty(
         self,
         rf,
+        selectors,
         screen_state: dict[str, Any],
         auto_handle: bool,
     ) -> bool:
@@ -106,11 +107,14 @@ class ReceiveOperation(BaseOperation):
         expected_flow = screen_state.get("expected_flow") or detected_flow
         rf_log(f"Detected flow: {detected_flow}")
         rf_log(f"Expected flow: {expected_flow}")
+        rf_log(f"Screen snapshot: {screen_state.get('screen', '')[:120]}")
+        rf_log(f"Suggested location text: {screen_state.get('suggested')}")
         meta = self._flow_metadata(detected_flow)
         rf_log(f"Flow policy: {meta.get('description')}")
         deviation_snippet = screen_state.get("screen", "").strip().replace("\n", " ")[:80]
         screenshot_label = f"receive_flow_{detected_flow.lower()}"
         screenshot_text = f"Flow {detected_flow} (auto_handle={auto_handle}): {deviation_snippet}"
+        overlay_text = f"{detected_flow} deviation"
         self.screenshot_mgr.capture_rf_window(
             self.page,
             screenshot_label,
@@ -119,12 +123,9 @@ class ReceiveOperation(BaseOperation):
         if not auto_handle:
             rf_log("⚠️ Flow policy signals abort; stopping receive.")
             return False
-        handler_result = False
-        if detected_flow == "IB_RULE_EXCEPTION_BLIND_ILPN":
-            handler_result = self._handle_ib_rule_exception_blind_ilpn(rf)
-        else:
-            rf_log("⚠️ Auto-handler not implemented for this flow.")
-        return handler_result
+        rf_log("ℹ️ Auto-handling flow per policy (still returns False until handler is implemented).")
+        # TODO: call specific handlers for each flow by name
+        return False
 
     def _flow_metadata(self, flow_name: str) -> dict[str, Any]:
         flows = OperationConfig.RECEIVE_FLOW_METADATA
@@ -147,40 +148,3 @@ class ReceiveOperation(BaseOperation):
             if not any(keyword in lower_screen for keyword in keywords):
                 return False
         return True
-
-    def _handle_ib_rule_exception_blind_ilpn(self, rf) -> bool:
-        timestamp = _current_lpn_timestamp()
-        selectors = (
-            OperationConfig.RECEIVE_DEVIATION_SELECTORS.lpn_input,
-            OperationConfig.RECEIVE_DEVIATION_SELECTORS.lpn_input_name,
-        )
-        for selector in selectors:
-            try:
-                has_error, msg = rf.fill_and_submit(
-                    selector,
-                    timestamp,
-                    "receive_ib_rule_lpn",
-                    "Entered generated LPN for IB rule exception",
-                )
-            except Exception as exc:
-                rf_log(f"⚠️ Unable to interact with LPN input '{selector}': {exc}")
-                continue
-            if has_error:
-                rf_log(f"❌ IB rule blind ILPN handler failed for '{selector}': {msg or 'unknown error'}")
-                return False
-            self.screenshot_mgr.capture_rf_window(
-                self.page,
-                "receive_ib_rule_lpn_success",
-                "Entered generated LPN for IB rule exception"
-            )
-            return True
-        rf_log("⚠️ Searched selectors did not locate the IB rule blind ILPN input.")
-        return False
-
-
-def _current_lpn_timestamp() -> str:
-    """Use the local wall clock to generate the YYMMDDHHMMSS string for LPN prompts."""
-    try:
-        return datetime.now(timezone.utc).astimezone().strftime("%y%m%d%H%M%S")
-    except Exception:
-        return datetime.now().strftime("%y%m%d%H%M%S")
