@@ -208,7 +208,7 @@ def customize_asn_payload(payload: str, items: Sequence[Mapping[str, Any]] | Non
         asn_elem.remove(existing_bol)
     _set_child_text(asn_elem, "BillOfLadingNumber", asn_id)
     _set_child_text(asn_elem, "ASNID", asn_id, insert_index=0)
-    _set_child_text(asn_elem, "CreatedFrom", original_asn_id, insert_index=1)
+    # _set_child_text(asn_elem, "CreatedFrom", original_asn_id, insert_index=1)
 
     metadata: dict[str, Any] = {"asn_id": asn_id}
     metadata["created_from"] = original_asn_id
