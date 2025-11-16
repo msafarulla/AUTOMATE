@@ -296,9 +296,14 @@ class NavigationManager:
                 if (!win) return false;
                 const topPadding = Math.max(window.innerHeight * 0.05, 15);
                 const leftPadding = Math.max(window.innerWidth * 0.01, 12);
-                win.setHeight(window.innerHeight * 0.9);
-                win.setX(leftPadding);
-                win.setY(topPadding);
+                if (win.setPosition) {
+                    win.setPosition(leftPadding, topPadding);
+                } else if (win.setXY) {
+                    win.setXY([leftPadding, topPadding]);
+                } else {
+                    win.setX?.(leftPadding);
+                    win.setY?.(topPadding);
+                }
                 win.updateLayout();
                 return true;
             }
