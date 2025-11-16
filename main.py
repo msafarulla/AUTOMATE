@@ -124,6 +124,7 @@ def main():
         try:
             app_log("🚀 Starting warehouse automation...")
             run_login()
+            nav_mgr.close_menu_overlay_after_sign_on()
             run_change_warehouse()
 
             workflows = OperationConfig.DEFAULT_WORKFLOWS

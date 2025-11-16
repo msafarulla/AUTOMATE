@@ -11,6 +11,7 @@ class NavigationManager:
     def __init__(self, page: Page, screenshot_mgr: ScreenshotManager):
         self.page = page
         self.screenshot_mgr = screenshot_mgr
+        self._menu_overlay_closed_after_sign_on = False
 
     def change_warehouse(self, warehouse: str):
         """Select facility and warehouse only if different"""
@@ -80,8 +81,7 @@ class NavigationManager:
             app_log(f"🔍 Found {count} items for '{search_term}' (attempt {attempt + 1})")
 
             if count == 0:
-                app_log("⚠️ Menu returned no items; retrying after closing panel.")
-                self._ensure_menu_closed()
+                app_log("⚠️ Menu returned no items; retrying.")
                 continue
 
             retry_due_to_click_failure = False
@@ -101,7 +101,6 @@ class NavigationManager:
                         retry_due_to_click_failure = True
                         break
 
-                    self._ensure_menu_closed()
                     self._maybe_maximize_rf_window(normalized_match)
                     self._maybe_center_post_message_window(normalized_match)
                     self._maybe_maximize_workspace_window(normalized_match)
@@ -112,14 +111,11 @@ class NavigationManager:
                     app_log(f"🟡 No match for Option {i + 1}. Diff:\n{diff}")
 
             if retry_due_to_click_failure:
-                self._ensure_menu_closed()
                 continue
 
-            app_log("⚠️ No exact match in this attempt; closing panel and retrying.")
-            self._ensure_menu_closed()
+            app_log("⚠️ No exact match in this attempt; retrying.")
 
         app_log(f"❌ No exact match found for: '{match_text}' after retries")
-        self._ensure_menu_closed()
         return False
 
     def _open_menu_panel(self):
@@ -258,7 +254,6 @@ class NavigationManager:
         except Exception:
             pass
 
-        # Attempt to close via the close tool or Esc as a fallback
         try:
             panel.locator(".x-tool-close").first.click()
         except Exception:
@@ -273,6 +268,12 @@ class NavigationManager:
             panel.first.wait_for(state="hidden", timeout=1000)
         except Exception:
             page.wait_for_timeout(500)
+
+    def close_menu_overlay_after_sign_on(self):
+        if self._menu_overlay_closed_after_sign_on:
+            return
+        self._ensure_menu_closed()
+        self._menu_overlay_closed_after_sign_on = True
 
     def _maybe_maximize_rf_window(self, normalized_match: str):
         """Maximize RF window immediately after launching RF menu."""
