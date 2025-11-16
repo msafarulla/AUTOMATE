@@ -295,9 +295,8 @@ class NavigationManager:
                 const win = Ext.ComponentQuery.query('window[title~="RF"]')[0];
                 if (!win) return false;
                 const topPadding = Math.max(window.innerHeight * 0.05, 15);
-                const leftPadding = Math.max(window.innerWidth * 0.02, 15);
+                const leftPadding = Math.max(window.innerWidth * 0.01, 12);
                 win.setHeight(window.innerHeight * 0.9);
-                win.setWidth(window.innerWidth * 0.48);
                 win.setX(leftPadding);
                 win.setY(topPadding);
                 win.updateLayout();
