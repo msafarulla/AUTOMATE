@@ -127,6 +127,12 @@ class PostMessageManager:
 
     def _locate_textarea(self, frame: Frame) -> Locator:
         selectors = [
+            "textarea[name='dataForm:xmlString']",
+            "textarea[id='dataForm:xmlString']",
+            "textarea[name*='xmlString' i]",
+            "textarea[id*='xmlString' i]",
+            "textarea[name*='xml' i]",
+            "textarea[id*='xml' i]",
             "textarea[name*='message' i]",
             "textarea[id*='message' i]",
             "textarea[data-ref*='message' i]",
@@ -146,6 +152,7 @@ class PostMessageManager:
 
     def _locate_send_button(self, frame: Frame) -> Locator:
         candidates = [
+            frame.locator("input#dataForm\\:postMessageCmdId"),
             frame.get_by_role("button", name=re.compile(r"send", re.IGNORECASE)),
             frame.locator("a.x-btn:has-text('Send')"),
             frame.locator("button:has-text('Send')"),
@@ -198,6 +205,8 @@ class PostMessageManager:
 
     def _read_response(self, frame: Frame) -> str:
         selectors = [
+            "textarea[name='dataForm:resultString']",
+            "textarea[id='dataForm:resultString']",
             "textarea[name='resultString']",
             "textarea#resultString",
             "textarea[id*='resultString' i]",
