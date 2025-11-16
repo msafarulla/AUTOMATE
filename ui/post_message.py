@@ -78,6 +78,7 @@ class PostMessageManager:
         prev_snapshot = HashUtils.get_frame_snapshot(frame)
         send_button.click()
         WaitUtils.wait_for_screen_change(frame, prev_snapshot)
+        self._wait_for_response_text_stable(frame)
 
         response = self._read_response(frame)
         info = self._interpret_response(response)
@@ -202,6 +203,34 @@ class PostMessageManager:
             self.page.wait_for_timeout(300)
         except Exception:
             pass
+
+    def _wait_for_response_text_stable(self, frame: Frame, timeout_ms: int = 20000, stable_ms: int = 700):
+        locator = frame.locator("textarea[name='dataForm:resultString']").first
+        try:
+            locator.wait_for(state="visible", timeout=timeout_ms)
+        except Exception:
+            return
+
+        try:
+            last_value = locator.input_value()
+        except Exception:
+            return
+
+        stable_deadline = time.monotonic() + stable_ms / 1000
+        end_time = time.monotonic() + timeout_ms / 1000
+        while time.monotonic() < end_time:
+            try:
+                current_value = locator.input_value()
+            except Exception:
+                return
+
+            if current_value != last_value:
+                last_value = current_value
+                stable_deadline = time.monotonic() + stable_ms / 1000
+            elif time.monotonic() >= stable_deadline:
+                return
+
+            frame.page.wait_for_timeout(200)
 
     def _read_response(self, frame: Frame) -> str:
         selectors = [
