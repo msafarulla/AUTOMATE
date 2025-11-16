@@ -53,7 +53,7 @@ class ReceiveOperation(BaseOperation):
             target_flow = flow_hint
             screen_state["detected_flow"] = detected_flow
             screen_state["expected_flow"] = target_flow
-            mismatch = not self._assert_receive_screen_happy_path(screen_state)
+            mismatch = not self._assert_receive_screen_flow_hint(screen_state)
             if mismatch:
                 rf_log("⚠️ Receive screen mismatch detected after quantity entry.")
                 self._handle_alternate_flow_after_qty(
@@ -88,7 +88,7 @@ class ReceiveOperation(BaseOperation):
             "flow": flow_name
         }
 
-    def _assert_receive_screen_happy_path(self, screen_state: dict[str, Any]) -> bool:
+    def _assert_receive_screen_flow_hint(self, screen_state: dict[str, Any]) -> bool:
         detected_flow = screen_state.get("detected_flow")
         expected_flow = screen_state.get("expected_flow")
         assert detected_flow is not None
