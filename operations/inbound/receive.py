@@ -49,7 +49,7 @@ class ReceiveOperation(BaseOperation):
             return False
 
         if success:
-            screen_state = self.inspect_receive_screen_after_qty(rf)
+            screen_state = self.inspect_receive_screen_after_qty(rf,flow_hint)
             detected_flow = screen_state.get("flow")
             target_flow = flow_hint
             screen_state["detected_flow"] = detected_flow
@@ -75,14 +75,14 @@ class ReceiveOperation(BaseOperation):
 
         return success
 
-    def inspect_receive_screen_after_qty(self, rf) -> dict[str, Any]:
+    def inspect_receive_screen_after_qty(self, rf, flow_hint: str) -> dict[str, Any]:
         screen_text = ""
         try:
             screen_text = rf.read_field("body")
         except Exception as exc:  # pragma: no cover
             rf_log(f"⚠️ Unable to read screen body for flow detection: {exc}")
 
-        flow_name = self._determine_flow_after_qty(screen_text)
+        flow_name = self._determine_flow_after_qty(screen_text, flow_hint)
         return {
             "screen": screen_text,
             "flow": flow_name
@@ -132,7 +132,7 @@ class ReceiveOperation(BaseOperation):
         default = flows.get("UNKNOWN", {})
         return flows.get(flow_name, default)
 
-    def _determine_flow_after_qty(self, screen_text: str) -> str:
+    def _determine_flow_after_qty(self, screen_text: str, flow_hint: str) -> str:
         lower_screen = screen_text.lower()
         metadata = OperationConfig.RECEIVE_FLOW_METADATA
         for flow_name, flow_meta in metadata.items():
@@ -140,7 +140,7 @@ class ReceiveOperation(BaseOperation):
                 continue
             if self._matches_flow_meta(flow_meta, lower_screen):
                 return flow_name
-        return "UNKNOWN"
+        return flow_hint
 
     def _matches_flow_meta(self, meta: dict[str, Any], lower_screen: str) -> bool:
         keywords = meta.get("keywords")
