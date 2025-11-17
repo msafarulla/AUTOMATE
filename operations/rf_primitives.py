@@ -475,7 +475,7 @@ class RFWorkflows:
         qty: int,
         item_name: str = "",
         timeout: int = 1000,
-        auto_accept_errors: bool = False
+        auto_accept_errors: bool = True
     ) -> bool:
         label = f"qty_{item_name}_{qty}" if item_name else f"qty_{qty}"
         unit = "Unit" if qty == 1 else "Units"
