@@ -92,7 +92,7 @@ class AppConfig:
     app_verbose_logging: bool = True
     requires_prod_confirmation: bool = False
     auto_accept_rf_messages: bool = True
-    auto_click_info_icon: bool = True
+    auto_click_info_icon: bool = False
 
 
 class Settings:
