@@ -101,8 +101,8 @@ class OperationConfig:
         'location': r'^[A-Z0-9-]{4,}$',
     }
 
-    DEFAULT_WORKFLOWS = [
-        {
+    DEFAULT_WORKFLOWS = {
+        'default_scenario': {
             'post': {
                 'enabled': True,
                 'source': 'db',
@@ -130,7 +130,7 @@ class OperationConfig:
                 'bol': '',
             }
         }
-    ]
+    }
 
 
 RECEIVE = OperationConfig.RECEIVE_MENU

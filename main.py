@@ -125,11 +125,14 @@ def main():
             nav_mgr.close_menu_overlay_after_sign_on()
             run_change_warehouse()
 
-            workflows = OperationConfig.DEFAULT_WORKFLOWS
+            workflow_map = OperationConfig.DEFAULT_WORKFLOWS
+            workflow_items = list(workflow_map.items())
+            total_workflows = len(workflow_items)
 
-            for index, workflow in enumerate(workflows, 1):
+            for index, (scenario_name, workflow) in enumerate(workflow_items, 1):
+                screenshot_mgr.set_scenario(scenario_name)
                 app_log("\n" + "=" * 60)
-                app_log(f"📦 WORKFLOW {index}/{len(workflows)}")
+                app_log(f"📦 WORKFLOW {index}/{total_workflows} ({scenario_name})")
                 app_log("=" * 60)
 
                 post_cfg = workflow.get('post', {})
@@ -208,6 +211,8 @@ def main():
             import traceback
             traceback.print_exc()
             orchestrator.print_summary()
+        finally:
+            screenshot_mgr.set_scenario(None)
 
 
 if __name__ == "__main__":

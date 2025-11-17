@@ -1,8 +1,7 @@
-import os
 from datetime import datetime
 from pathlib import Path
 from typing import Callable, Optional, Any
-from playwright.sync_api import Page, Frame
+from playwright.sync_api import Page
 from utils.eval_utils import safe_page_evaluate, safe_locator_evaluate, PageUnavailableError
 from core.logger import app_log
 
@@ -11,6 +10,7 @@ class ScreenshotManager:
     def __init__(self, output_dir: str = "screenshots", image_format: str = "png", image_quality: Optional[int] = None):
         self.output_dir = Path(output_dir)
         self.output_dir.mkdir(exist_ok=True)
+        self.current_output_dir = self.output_dir
         self.sequence = 0
         fmt = (image_format or "png").lower()
         if fmt == "jpg":
@@ -119,7 +119,7 @@ class ScreenshotManager:
 
     def _build_filename(self, label: str) -> Path:
         suffix = ".jpg" if self.image_format == "jpeg" else ".png"
-        return self.output_dir / f"{self.sequence:03d}_{label}{suffix}"
+        return self.current_output_dir / f"{self.sequence:03d}_{label}{suffix}"
 
     def _screenshot_kwargs(self, filename: Path) -> dict[str, Any]:
         kwargs: dict[str, Any] = {"path": str(filename), "type": self.image_format}
@@ -134,6 +134,15 @@ class ScreenshotManager:
             hook()
         except Exception as exc:
             app_log(f"⚠️ RF capture hook failed: {exc}")
+
+    def set_scenario(self, scenario_name: str | None):
+        """Switch the active screenshot folder to a scenario-specific subdirectory."""
+        target_dir = self.output_dir
+        if scenario_name:
+            folder_name = self._sanitize_scenario_name(scenario_name)
+            target_dir = self.output_dir / folder_name
+        target_dir.mkdir(parents=True, exist_ok=True)
+        self.current_output_dir = target_dir
 
     def _add_overlay(self, page: Page, text: str, top_offset: float = 40):
         safe_page_evaluate(
@@ -197,6 +206,19 @@ class ScreenshotManager:
             )
         except Exception:
             return {}
+
+    def _sanitize_scenario_name(self, scenario_name: str) -> str:
+        trimmed = scenario_name.strip()
+        if not trimmed:
+            return "unnamed"
+        allowed = []
+        for char in trimmed:
+            if char.isalnum() or char in {"-", "_"}:
+                allowed.append(char)
+            else:
+                allowed.append("_")
+        sanitized = "".join(allowed).strip("_")
+        return sanitized if sanitized else "unnamed"
 
     def _add_timestamp(self, page: Page, rect: dict | None = None):
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
