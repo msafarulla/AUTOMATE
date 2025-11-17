@@ -4,6 +4,7 @@ from core.screenshot import ScreenshotManager
 from utils.hash_utils import HashUtils
 from utils.wait_utils import WaitUtils
 from core.logger import rf_log
+from config.settings import Settings
 
 
 class RFPrimitives:
@@ -22,6 +23,10 @@ class RFPrimitives:
         self.get_iframe = get_iframe_func
         self.screenshot_mgr = screenshot_mgr
         self._reset_to_home = reset_to_home
+        self._auto_accept_errors = Settings.app.auto_accept_rf_errors
+
+    def _should_auto_accept(self, auto_accept_override: Optional[bool]) -> bool:
+        return self._auto_accept_errors if auto_accept_override is None else auto_accept_override
 
     # ========================================================================
     # PRIMITIVE 1: Fill input field and submit
@@ -405,7 +410,7 @@ class RFWorkflows:
         value: str,
         label: str,
         timeout: int = 2000,
-        auto_accept_errors: bool = True
+        auto_accept_errors: Optional[bool] = None
     ) -> tuple[bool, Optional[str]]:
         # Auto-enter flows shouldn't leave stale selectors
         self._last_scanned_selector = None
@@ -418,7 +423,7 @@ class RFWorkflows:
             timeout=timeout
         )
 
-        if auto_accept_errors and msg and not self._is_invalid_test_data(msg):
+        if self._should_auto_accept(auto_accept_errors) and msg and not self._is_invalid_test_data(msg):
             self.rf.accept_message()
 
         return has_error, msg
@@ -427,7 +432,7 @@ class RFWorkflows:
         self,
         label: str,
         wait_for_change: bool = True,
-        auto_accept_errors: bool = True,
+        auto_accept_errors: Optional[bool] = None,
         timeout: int = 2000
     ) -> tuple[bool, Optional[str]]:
 
@@ -445,7 +450,7 @@ class RFWorkflows:
 
         self._last_scanned_selector = None
 
-        if auto_accept_errors and msg:
+        if self._should_auto_accept(auto_accept_errors) and msg:
             self.rf.accept_message()
 
         return has_error, msg
@@ -475,7 +480,7 @@ class RFWorkflows:
         qty: int,
         item_name: str = "",
         timeout: int = 1000,
-        auto_accept_errors: bool = True
+        auto_accept_errors: Optional[bool] = None
     ) -> bool:
         label = f"qty_{item_name}_{qty}" if item_name else f"qty_{qty}"
         unit = "Unit" if qty == 1 else "Units"
@@ -488,7 +493,7 @@ class RFWorkflows:
             timeout=timeout
         )
 
-        if auto_accept_errors and msg:
+        if self._should_auto_accept(auto_accept_errors) and msg:
             self.rf.accept_message()
 
         return not has_error
