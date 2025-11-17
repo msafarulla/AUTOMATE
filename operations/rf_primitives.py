@@ -427,7 +427,7 @@ class RFWorkflows:
         self,
         label: str,
         wait_for_change: bool = True,
-        auto_accept_errors: bool = False,
+        auto_accept_errors: bool = True,
         timeout: int = 2000
     ) -> tuple[bool, Optional[str]]:
 
