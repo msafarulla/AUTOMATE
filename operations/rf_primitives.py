@@ -474,18 +474,22 @@ class RFWorkflows:
         selector: str,
         qty: int,
         item_name: str = "",
-        timeout: int = 1000
+        timeout: int = 1000,
+        auto_accept_errors: bool = False
     ) -> bool:
         label = f"qty_{item_name}_{qty}" if item_name else f"qty_{qty}"
         unit = "Unit" if qty == 1 else "Units"
 
-        has_error, _ = self.rf.fill_and_submit(
+        has_error, msg = self.rf.fill_and_submit(
             selector=selector,
             value=str(qty),
             screenshot_label=label,
             screenshot_text=f"Entered {qty} {unit}",
             timeout=timeout
         )
+
+        if auto_accept_errors and msg:
+            self.rf.accept_message()
 
         return not has_error
 
