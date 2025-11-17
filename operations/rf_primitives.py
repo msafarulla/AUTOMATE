@@ -23,7 +23,7 @@ class RFPrimitives:
         self.get_iframe = get_iframe_func
         self.screenshot_mgr = screenshot_mgr
         self._reset_to_home = reset_to_home
-        self._auto_accept_errors = Settings.app.auto_accept_rf_errors
+        self._auto_accept_errors = Settings.app.auto_accept_rf_messages
 
     def _should_auto_accept(self, auto_accept_override: Optional[bool]) -> bool:
         return self._auto_accept_errors if auto_accept_override is None else auto_accept_override

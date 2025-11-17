@@ -91,7 +91,7 @@ class AppConfig:
     rf_verbose_logging: bool = True
     app_verbose_logging: bool = True
     requires_prod_confirmation: bool = False
-    auto_accept_rf_errors: bool = True
+    auto_accept_rf_messages: bool = True
 
 
 class Settings:
@@ -108,8 +108,8 @@ class Settings:
         cls.app.post_message_text = os.getenv("POST_MESSAGE_TEXT", cls.app.post_message_text)
         cls.app.app_verbose_logging = _env_flag("APP_VERBOSE_LOGGING", cls.app.app_verbose_logging)
         cls.app.rf_verbose_logging = _env_flag("RF_VERBOSE_LOGGING", cls.app.rf_verbose_logging)
-        cls.app.auto_accept_rf_errors = _env_flag(
-            "RF_AUTO_ACCEPT_ERRORS", cls.app.auto_accept_rf_errors
+        cls.app.auto_accept_rf_messages = _env_flag(
+            "RF_AUTO_ACCEPT_MESSAGES", cls.app.auto_accept_rf_messages
         )
         set_general_verbose(cls.app.app_verbose_logging)
         set_rf_verbose(cls.app.rf_verbose_logging)
