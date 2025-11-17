@@ -65,10 +65,7 @@ class ReceiveOperation(BaseOperation):
                 if not auto_handle or not handled:
                     return False
                 return True
-            dest_loc = rf.read_field(
-                selectors.suggested_location,
-                transform=lambda x: x.replace('-', '')
-            )
+            dest_loc = self._read_suggested_location(rf, selectors)
 
             # Confirm location (1 line instead of 8!)
             workflows.confirm_location(selectors.location, dest_loc)
@@ -87,6 +84,37 @@ class ReceiveOperation(BaseOperation):
             "screen": screen_text,
             "flow": flow_name
         }
+
+    def _read_suggested_location(self, rf, selectors) -> str:
+        candidate_selectors = self._suggested_location_candidates(selectors)
+        if not candidate_selectors:
+            rf_log("⚠️ Suggested location selectors are not configured.")
+            return ""
+
+        for selector in candidate_selectors:
+            try:
+                raw = rf.read_field(selector)
+            except Exception:
+                continue
+            if raw:
+                cleaned = raw.replace("-", "").strip()
+                if cleaned:
+                    return cleaned
+
+        rf_log("⚠️ Unable to resolve suggested location from RF screen; none of the selectors produced a value.")
+        return ""
+
+    def _suggested_location_candidates(self, selectors) -> list[str]:
+        keys = (
+            "suggested_location_aloc",
+            "suggested_location_cloc",
+        )
+        candidates: list[str] = []
+        for key in keys:
+            selector = selectors.selectors.get(key)
+            if isinstance(selector, str):
+                candidates.append(selector)
+        return candidates
 
     def _assert_receive_screen_flow_hint(self, screen_state: dict[str, Any]) -> bool:
         detected_flow = screen_state.get("detected_flow")

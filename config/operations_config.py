@@ -42,7 +42,8 @@ class OperationConfig:
         'item': "input#verfiyItemBrcd",
         'quantity': "input#input1input2",
         'location': "input#dataForm\\:locn",
-        'suggested_location': "span#dataForm\\:SBRUdtltxt1_b1",
+        'suggested_location_aloc': "span#dataForm\\:SBRUdtltxt1_b1",
+        'suggested_location_cloc': "span#dataForm\\:SBRUdtltxt1_b2",
     })
 
     RECEIVE_DEVIATION_SELECTORS = ScreenSelectors({
