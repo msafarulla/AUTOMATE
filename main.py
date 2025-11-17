@@ -1,9 +1,5 @@
-"""
-Main entry point for warehouse automation with orchestration, retries, and summaries.
-"""
 from functools import wraps
 from typing import Callable, Any
-
 from operations.inbound.receive import ReceiveOperation
 from operations.outbound.loading import LoadingOperation
 from ui.rf_menu import RFMenuManager

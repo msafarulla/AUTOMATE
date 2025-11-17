@@ -36,9 +36,8 @@ def get_screen_size_safe():
 
 
 def get_scale_factor():
-    """Return OS DPI scaling where possible."""
     try:
-        if os.name == 'nt':
+        if os.name == 'nt': # Windows
             ctypes.windll.user32.SetProcessDPIAware()
             user32 = ctypes.windll.user32
             dc = user32.GetDC(0)
@@ -47,7 +46,6 @@ def get_scale_factor():
             return round(dpi / 96.0, 2)
         else:
             import tkinter as tk
-
             root = tk.Tk()
             root.withdraw()
             scaling = root.tk.call('tk', 'scaling')
@@ -66,7 +64,7 @@ def _env_flag(name: str, default: bool) -> bool:
     value = os.getenv(name)
     if value is None:
         return default
-    return value.strip().lower() in {"1", "true", "yes", "on"}
+    return value.strip().lower() in {"1", "true", "yes", "on",'y'}
 
 
 @dataclass
@@ -109,12 +107,8 @@ class Settings:
         cls.app.post_message_text = os.getenv("POST_MESSAGE_TEXT", cls.app.post_message_text)
         cls.app.app_verbose_logging = _env_flag("APP_VERBOSE_LOGGING", cls.app.app_verbose_logging)
         cls.app.rf_verbose_logging = _env_flag("RF_VERBOSE_LOGGING", cls.app.rf_verbose_logging)
-        cls.app.auto_accept_rf_messages = _env_flag(
-            "RF_AUTO_ACCEPT_MESSAGES", cls.app.auto_accept_rf_messages
-        )
-        cls.app.auto_click_info_icon = _env_flag(
-            "RF_AUTO_CLICK_INFO_ICON", cls.app.auto_click_info_icon
-        )
+        cls.app.auto_accept_rf_messages = _env_flag("RF_AUTO_ACCEPT_MESSAGES", cls.app.auto_accept_rf_messages)
+        cls.app.auto_click_info_icon = _env_flag("RF_AUTO_CLICK_INFO_ICON", cls.app.auto_click_info_icon)
         set_general_verbose(cls.app.app_verbose_logging)
         set_rf_verbose(cls.app.rf_verbose_logging)
         base_url_lower = cls.app.base_url.lower()
