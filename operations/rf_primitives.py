@@ -423,7 +423,7 @@ class RFWorkflows:
             timeout=timeout
         )
 
-        if self._should_auto_accept(auto_accept_errors) and msg and not self._is_invalid_test_data(msg):
+        if self.rf._should_auto_accept(auto_accept_errors) and msg and not self._is_invalid_test_data(msg):
             self.rf.accept_message()
 
         return has_error, msg
@@ -450,7 +450,7 @@ class RFWorkflows:
 
         self._last_scanned_selector = None
 
-        if self._should_auto_accept(auto_accept_errors) and msg:
+        if self.rf._should_auto_accept(auto_accept_errors) and msg:
             self.rf.accept_message()
 
         return has_error, msg
@@ -493,7 +493,7 @@ class RFWorkflows:
             timeout=timeout
         )
 
-        if self._should_auto_accept(auto_accept_errors) and msg:
+        if self.rf._should_auto_accept(auto_accept_errors) and msg:
             self.rf.accept_message()
 
         return not has_error
