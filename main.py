@@ -46,6 +46,7 @@ def main():
             page_mgr,
             screenshot_mgr,
             verbose_logging=settings.app.rf_verbose_logging,
+            auto_click_info_icon=settings.app.auto_click_info_icon,
         )
         conn_guard = ConnectionResetGuard(page, screenshot_mgr)
         orchestrator = AutomationOrchestrator(settings)

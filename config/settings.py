@@ -92,6 +92,7 @@ class AppConfig:
     app_verbose_logging: bool = True
     requires_prod_confirmation: bool = False
     auto_accept_rf_messages: bool = True
+    auto_click_info_icon: bool = True
 
 
 class Settings:
@@ -110,6 +111,9 @@ class Settings:
         cls.app.rf_verbose_logging = _env_flag("RF_VERBOSE_LOGGING", cls.app.rf_verbose_logging)
         cls.app.auto_accept_rf_messages = _env_flag(
             "RF_AUTO_ACCEPT_MESSAGES", cls.app.auto_accept_rf_messages
+        )
+        cls.app.auto_click_info_icon = _env_flag(
+            "RF_AUTO_CLICK_INFO_ICON", cls.app.auto_click_info_icon
         )
         set_general_verbose(cls.app.app_verbose_logging)
         set_rf_verbose(cls.app.rf_verbose_logging)

@@ -15,6 +15,7 @@ class RFMenuManager:
         page_mgr: PageManager,
         screenshot_mgr: ScreenshotManager,
         verbose_logging: bool = False,
+        auto_click_info_icon: bool = True,
     ):
         self.page = page
         self.page_mgr = page_mgr
@@ -23,6 +24,7 @@ class RFMenuManager:
         self._tran_marker_verified = False
         self._last_home_hash = None
         self.verbose_logging = verbose_logging
+        self._auto_click_info_icon = auto_click_info_icon
         self.screenshot_mgr.register_rf_capture_hooks(
             self._before_rf_snapshot,
             self._after_rf_snapshot,
@@ -228,10 +230,12 @@ class RFMenuManager:
         return True
 
     def _before_rf_snapshot(self):
-        self.click_info_icon()
+        if self._auto_click_info_icon:
+            self.click_info_icon()
 
     def _after_rf_snapshot(self):
-        self.click_info_icon()
+        if self._auto_click_info_icon:
+            self.click_info_icon()
 
     def _log(self, message: str):
         if self.verbose_logging:
