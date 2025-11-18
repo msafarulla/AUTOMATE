@@ -200,7 +200,7 @@ class NavigationManager:
 
     def close_active_windows(self, skip_titles=None):
         """Close any open workspace windows so new screens start fresh."""
-        skip = {title.strip().lower() for title in (skip_titles or [])}
+        skip = {title.strip().lower() for title in (skip_titles or []) if title}
         while True:
             window = self._find_workspace_window(skip)
             if window is None:
@@ -235,7 +235,10 @@ class NavigationManager:
         normalized = title.lower()
         if normalized == "menu":
             return True
-        return normalized in skip_titles
+        for skip_title in skip_titles:
+            if skip_title and skip_title in normalized:
+                return True
+        return False
 
     def _get_window_title(self, window: Locator) -> str:
         try:
