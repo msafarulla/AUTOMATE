@@ -27,6 +27,7 @@ class OperationServices:
     run_post_message: Callable[[str | None], bool]
     receive: Callable[..., bool]
     loading: Callable[..., bool]
+    run_tasks_ui: Callable[..., bool]
 
 
 class OperationRunner:
@@ -164,5 +165,6 @@ def create_operation_services(settings: Any) -> Generator[OperationServices, Non
             run_post_message=runner.run_post_message,
             receive=runner.receive,
             loading=runner.loading,
+            run_tasks_ui=runner.run_tasks_ui,
         )
         yield services
