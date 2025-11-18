@@ -102,34 +102,31 @@ class OperationConfig:
     }
 
     DEFAULT_WORKFLOWS = {
-        'default_scenario': {
-            'post': {
-                'enabled': True,
-                'source': 'db',
-                'type': 'ASN',
-                'message': None, #manually an xml can be put here
-                'lookback_days': 14,
-                'db_env': 'prod',
-                 'asn_items': [
-                     {
-                         'ItemName': '81402XC01C',
-                         'Quantity': {'ShippedQty': 20000},
-                     },
-                 ],
+        'inbound': {
+            'receive_HAPPY_PATH': {
+                'post': {
+                    'enabled': True,
+                    'source': 'db',
+                    'type': 'ASN',
+                    'message': None,  # manually an xml can be put here
+                    'lookback_days': 14,
+                    'db_env': 'prod',
+                    'asn_items': [
+                        {
+                            'ItemName': '81402XC01C',
+                            'Quantity': {'ShippedQty': 20000},
+                        },
+                    ],
+                },
+                'receive': {
+                    'asn': '',
+                    'item': '',
+                    'quantity': 0,
+                    'flow': 'HAPPY_PATH',
+                    'auto_handle_deviation': True,
+                },
             },
-            'receive': {
-                'asn': '',
-                'item': '',
-                'quantity': 0,
-                'flow': 'HAPPY_PATH',
-                'auto_handle_deviation': True,
-            },
-            'loading': {
-                'shipment': '',
-                'dock_door': '',
-                'bol': '',
-            }
-        }
+        },
     }
 
 

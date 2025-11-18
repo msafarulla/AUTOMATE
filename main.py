@@ -25,13 +25,16 @@ def main():
             ops.run_change_warehouse()
 
             workflow_map = OperationConfig.DEFAULT_WORKFLOWS
-            workflow_items = list(workflow_map.items())
+            workflow_items: list[tuple[str, dict[str, Any]]] = []
+            for bucket_name, bucket in workflow_map.items():
+                for scenario_name, workflow in bucket.items():
+                    workflow_items.append((f"{bucket_name}.{scenario_name}", workflow))
             total_workflows = len(workflow_items)
 
-            for index, (scenario_name, workflow) in enumerate(workflow_items, 1):
-                ops.screenshot_mgr.set_scenario(scenario_name)
+            for index, (scenario_label, workflow) in enumerate(workflow_items, 1):
+                ops.screenshot_mgr.set_scenario(scenario_label)
                 app_log("\n" + "=" * 60)
-                app_log(f"📦 WORKFLOW {index}/{total_workflows} ({scenario_name})")
+                app_log(f"📦 WORKFLOW {index}/{total_workflows} ({scenario_label})")
                 app_log("=" * 60)
 
                 workflow_metadata: dict[str, Any] = {}
