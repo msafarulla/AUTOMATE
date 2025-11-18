@@ -49,15 +49,26 @@ class NavigationManager:
                                     f"Changed to {warehouse}")
         app_log(f"✅ Changed warehouse to {warehouse}")
 
-    def open_tasks_ui(self, search_term: str = "tasks", match_text: str = "Tasks (Configuration)") -> bool:
+    def open_tasks_ui(
+        self,
+        search_term: str = "tasks",
+        match_text: str = "Tasks (Configuration)",
+        close_existing: bool = True,
+    ) -> bool:
         page = self.page
-        if self.open_menu_item(search_term, match_text):
+        if self.open_menu_item(search_term, match_text, close_existing=close_existing):
             self.screenshot_mgr.capture(page, "Tasks UI", "Tasks Navigation")
             return True
         app_log(f"❌ Failed to open Tasks UI via '{search_term}' search")
         return False
 
-    def open_menu_item(self, search_term: str, match_text: str, max_attempt: int = 1) -> bool:
+    def open_menu_item(
+        self,
+        search_term: str,
+        match_text: str,
+        max_attempt: int = 1,
+        close_existing: bool = True,
+    ) -> bool:
         import re
         from difflib import ndiff
 
@@ -68,9 +79,10 @@ class NavigationManager:
         page = self.page
         normalized_match = normalize_text(match_text)
 
-        for attempt in range(max_attempt):
-            self.close_active_windows()
-            page.wait_for_timeout(500)
+            for attempt in range(max_attempt):
+                if close_existing:
+                    self.close_active_windows()
+                page.wait_for_timeout(500)
 
             self._open_menu_panel()
             self._reset_menu_filter()

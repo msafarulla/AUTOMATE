@@ -138,6 +138,11 @@ class OperationConfig:
                     'flow': 'HAPPY_PATH',
                     'auto_handle_deviation': True,
                 },
+                'tasks': {
+                    'preserve_window': True,
+                    'search_term': 'tasks',
+                    'match_text': 'Tasks (Configuration)',
+                },
             },
         },
     }

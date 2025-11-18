@@ -130,7 +130,11 @@ class WorkflowStageExecutor:
             return metadata, True
         search_term = stage_cfg.get("search_term", "tasks")
         match_text = stage_cfg.get("match_text", "Tasks (Configuration)")
-        success = self.stage_actions.run_tasks_ui(search_term, match_text)
+        in_place = bool(stage_cfg.get("preserve_window") or stage_cfg.get("preserve"))
+        if in_place:
+            success = self.stage_actions.run_tasks_ui_in_place(search_term, match_text)
+        else:
+            success = self.stage_actions.run_tasks_ui(search_term, match_text)
         if not success:
             app_log(f"❌ Unable to open Tasks UI for workflow {workflow_idx}; halting.")
             return metadata, False
