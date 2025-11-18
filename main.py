@@ -3,7 +3,6 @@ from typing import Callable, Any
 from operations.inbound.receive import ReceiveOperation
 from operations.outbound.loading import LoadingOperation
 from ui.rf_menu import RFMenuManager
-from DB import DB
 from config.settings import Settings
 from config.operations_config import OperationConfig
 from core.browser import BrowserManager
@@ -21,10 +20,6 @@ from core.post_message_payload import build_post_message_payload
 def main():
     settings = Settings.from_env()
     
-    with DB('qa') as c1:
-        username = c1.app_server_user
-        password = c1.app_server_pass
-
     with BrowserManager(settings) as browser_mgr:
         page = browser_mgr.new_page()
 
@@ -56,7 +51,7 @@ def main():
 
         @guarded
         def run_login():
-            auth_mgr.login(username, password, settings.app.base_url)
+            auth_mgr.login(settings.app.app_server_user, settings.app.app_server_pass, settings.app.base_url)
 
         @guarded
         def run_change_warehouse():

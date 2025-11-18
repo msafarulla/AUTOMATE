@@ -24,17 +24,18 @@ class DB:
         finally:
             self.close()
 
-    def get_config_from_server(self):
+    @classmethod
+    def get_config_from_server(cls):
         # Default server values
         hostname = "soa430"
         username = "vxmsafar"
         config_file_path = "~/config.ini"
 
         # Detect if running on Mac
-        self.system_name = platform.system()
-        self.node_name = platform.node()  # e.g. "Mohameds-MacBook-Pro.local"
+        system_name = platform.system()
+        node_name = platform.node()  # e.g. "Mohameds-MacBook-Pro.local"
 
-        if self.system_name == "Darwin":  # macOS check
+        if system_name == "Darwin":  # macOS check
             hostname = "localhost"
             username = getpass.getuser()   # your Mac username automatically
             # optionally, point to your local config path
@@ -53,22 +54,47 @@ class DB:
         config_content = stdout.read().decode()
 
         client.close()
-        return config_content
+        return config_content, system_name, node_name
 
-    def __init__(self,where=None,whse=None):
+    @classmethod
+    def _load_config(cls, where=None, whse=None):
+        config = configparser.ConfigParser()
+        config_content, system_name, node_name = cls.get_config_from_server()
+        clean_content = re.sub(r'[^\x20-\x7E\n\r]', '', config_content)
+        config.read_string(clean_content)
+
+        selected_where = config["where"]["where"] if not where else where
+        if system_name == "Darwin":  # macOS check
+            selected_where = 'local'
+        config['where']['whse'] = whse if whse else config['where']['whse']
+
+        return {
+            "config": config,
+            "clean_content": clean_content,
+            "system_name": system_name,
+            "node_name": node_name,
+            "where": selected_where,
+        }
+
+    @classmethod
+    def get_credentials(cls, where=None, whse=None):
+        data = cls._load_config(where, whse)
+        section = data["config"][data["where"]]
+        return {
+            "app_server_user": section["app_server_user"],
+            "app_server_pass": section["app_server_pass"],
+        }
+
+    def __init__(self, where=None, whse=None):
         self.who = 'Mohamed'
         self.query = None
-        config = configparser.ConfigParser()
-        self.system_name = None # this will get updated from get_config_from_server
-        self.node_name = None # this will get updated from get_config_from_server
-        self.clean_content = re.sub(r'[^\x20-\x7E\n\r]', '', self.get_config_from_server())
-        config.read_string(self.clean_content)
-
-        self.where = config["where"]["where"] if not where else where
-        if self.system_name == "Darwin":  # macOS check
-            self.where = 'local'
+        config_data = self._load_config(where, whse)
+        config = config_data["config"]
+        self.clean_content = config_data["clean_content"]
+        self.system_name = config_data["system_name"]
+        self.node_name = config_data["node_name"]
+        self.where = config_data["where"]
         self.conn_str = config[self.where]['conn_str']
-        config['where']['whse'] = whse if whse else config['where']['whse']
         self.whse = config['where']['whse']
         self.close_pallet = config['where']['close_pallet']
         self.app_server_user = config[self.where]['app_server_user']

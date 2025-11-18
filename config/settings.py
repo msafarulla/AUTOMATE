@@ -2,6 +2,7 @@ import os
 from dataclasses import dataclass, field
 import ctypes
 
+from DB import DB
 from core.logger import app_log, set_general_verbose, set_rf_verbose
 
 # Sensible fallbacks when detection is unavailable (e.g. headless CI)
@@ -14,7 +15,7 @@ def get_screen_size_safe():
     width = height = None
 
     try:
-        if os.name == 'nt':
+        if os.name == "nt":
             user32 = ctypes.windll.user32
             user32.SetProcessDPIAware()
             width = user32.GetSystemMetrics(0)
@@ -37,7 +38,7 @@ def get_screen_size_safe():
 
 def get_scale_factor():
     try:
-        if os.name == 'nt': # Windows
+        if os.name == "nt":  # Windows
             ctypes.windll.user32.SetProcessDPIAware()
             user32 = ctypes.windll.user32
             dc = user32.GetDC(0)
@@ -46,15 +47,16 @@ def get_scale_factor():
             return round(dpi / 96.0, 2)
         else:
             import tkinter as tk
+
             root = tk.Tk()
             root.withdraw()
-            scaling = root.tk.call('tk', 'scaling')
+            scaling = root.tk.call("tk", "scaling")
             root.destroy()
             return round(float(scaling), 2)
     except Exception as exc:
         app_log(f"⚠️ DPI detection failed: {exc}")
         return 1.0
-    
+
 
 _SCREEN_WIDTH, _SCREEN_HEIGHT = get_screen_size_safe()
 
@@ -64,7 +66,7 @@ def _env_flag(name: str, default: bool) -> bool:
     value = os.getenv(name)
     if value is None:
         return default
-    return value.strip().lower() in {"1", "true", "yes", "on",'y'}
+    return value.strip().lower() in {"1", "true", "yes", "on", "y"}
 
 
 @dataclass
@@ -76,7 +78,6 @@ class BrowserConfig:
     screenshot_dir: str = "screenshots"
     screenshot_format: str = "jpeg"
     screenshot_quality: int = 70
-
 
 
 @dataclass
@@ -91,26 +92,57 @@ class AppConfig:
     requires_prod_confirmation: bool = False
     auto_accept_rf_messages: bool = True
     auto_click_info_icon: bool = False
+    app_server_user: str = ""
+    app_server_pass: str = ""
 
 
 class Settings:
     browser = BrowserConfig()
     app = AppConfig()
 
-    app_log(f"Detected screen: {browser.width}x{browser.height}, scale={browser.device_scale_factor}")
+    app_log(
+        f"Detected screen: {browser.width}x{browser.height}, scale={browser.device_scale_factor}"
+    )
 
     @classmethod
     def from_env(cls):
         """Load settings from environment variables"""
         cls.app.base_url = os.getenv("APP_URL", cls.app.base_url)
-        cls.app.change_warehouse = os.getenv("DEFAULT_WAREHOUSE", cls.app.change_warehouse)
-        cls.app.post_message_text = os.getenv("POST_MESSAGE_TEXT", cls.app.post_message_text)
-        cls.app.app_verbose_logging = _env_flag("APP_VERBOSE_LOGGING", cls.app.app_verbose_logging)
-        cls.app.rf_verbose_logging = _env_flag("RF_VERBOSE_LOGGING", cls.app.rf_verbose_logging)
-        cls.app.auto_accept_rf_messages = _env_flag("RF_AUTO_ACCEPT_MESSAGES", cls.app.auto_accept_rf_messages)
-        cls.app.auto_click_info_icon = _env_flag("RF_AUTO_CLICK_INFO_ICON", cls.app.auto_click_info_icon)
+        cls.app.change_warehouse = os.getenv(
+            "DEFAULT_WAREHOUSE", cls.app.change_warehouse
+        )
+        cls.app.post_message_text = os.getenv(
+            "POST_MESSAGE_TEXT", cls.app.post_message_text
+        )
+        cls.app.app_verbose_logging = _env_flag(
+            "APP_VERBOSE_LOGGING", cls.app.app_verbose_logging
+        )
+        cls.app.rf_verbose_logging = _env_flag(
+            "RF_VERBOSE_LOGGING", cls.app.rf_verbose_logging
+        )
+        cls.app.auto_accept_rf_messages = _env_flag(
+            "RF_AUTO_ACCEPT_MESSAGES", cls.app.auto_accept_rf_messages
+        )
+        cls.app.auto_click_info_icon = _env_flag(
+            "RF_AUTO_CLICK_INFO_ICON", cls.app.auto_click_info_icon
+        )
         set_general_verbose(cls.app.app_verbose_logging)
         set_rf_verbose(cls.app.rf_verbose_logging)
         base_url_lower = cls.app.base_url.lower()
-        cls.app.requires_prod_confirmation = any(marker in base_url_lower for marker in ("prod", "prd"))
+        cls.app.requires_prod_confirmation = any(
+            marker in base_url_lower for marker in ("prod", "prd")
+        )
+        try:
+            credentials = DB.get_credentials("dev")
+        except Exception as exc:
+            app_log(f"⚠️ Failed to load App logon credentials from config in dev: {exc}")
+            credentials = {}
+        cls.app.app_server_user = os.getenv(
+            "APP_SERVER_USER",
+            credentials.get("app_server_user", cls.app.app_server_user),
+        )
+        cls.app.app_server_pass = os.getenv(
+            "APP_SERVER_PASS",
+            credentials.get("app_server_pass", cls.app.app_server_pass),
+        )
         return cls
