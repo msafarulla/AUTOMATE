@@ -108,13 +108,6 @@ class OperationConfig:
     # }
 
     DEFAULT_WORKFLOWS = {
-        'UI_Navigation': {
-            'tasksUI': {
-                    'Tasks': {
-                    'enabled': True,
-                },
-        }
-        },
         'inbound': {
             'receive_HAPPY_PATH': {
                 'post': {

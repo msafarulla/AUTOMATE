@@ -28,7 +28,6 @@ class StageActions:
     run_tasks_ui: Callable[..., bool]
     run_tasks_ui_in_place: Callable[..., bool]
     run_focus_rf: Callable[..., bool]
-    run_rf_ui: Callable[..., bool]
 
 
 @dataclass
