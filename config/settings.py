@@ -92,6 +92,7 @@ class AppConfig:
     requires_prod_confirmation: bool = False
     auto_accept_rf_messages: bool = True
     auto_click_info_icon: bool = False
+    verify_tran_id_marker: bool = True
     app_server_user: str = ""
     app_server_pass: str = ""
 
@@ -125,6 +126,9 @@ class Settings:
         )
         cls.app.auto_click_info_icon = _env_flag(
             "RF_AUTO_CLICK_INFO_ICON", cls.app.auto_click_info_icon
+        )
+        cls.app.verify_tran_id_marker = _env_flag(
+            "RF_VERIFY_TRAN_ID_MARKER", cls.app.verify_tran_id_marker
         )
         set_general_verbose(cls.app.app_verbose_logging)
         set_rf_verbose(cls.app.rf_verbose_logging)

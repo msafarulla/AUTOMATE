@@ -21,7 +21,8 @@ class RFMenuManager:
         self.page_mgr = page_mgr
         self.screenshot_mgr = screenshot_mgr
         self._maximized = False
-        self._tran_marker_verified = False
+        self._verify_tran_marker = verify_tran_id_marker
+        self._tran_marker_verified = not verify_tran_id_marker
         self._last_home_hash = None
         self.verbose_logging = verbose_logging
         self._auto_click_info_icon = auto_click_info_icon
@@ -55,7 +56,7 @@ class RFMenuManager:
             prev_snapshot,
             warn_on_timeout=False,
         )
-        if not self._tran_marker_verified:
+        if self._verify_tran_marker and not self._tran_marker_verified:
             if not self._home_menu_has_hash(rf_iframe):
                 tran_prev_snapshot = HashUtils.get_frame_snapshot(rf_iframe)
                 self.page.keyboard.press("Control+p")
