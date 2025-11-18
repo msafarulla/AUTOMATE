@@ -88,7 +88,7 @@ class ScreenshotManager:
 
             try:
                 if overlay_text_val:
-                    top = 5
+                    top = 2
                     self._add_overlay_to_target(target, overlay_text_val, top_offset=top)
                     overlay_added = True
 
@@ -190,7 +190,7 @@ class ScreenshotManager:
                     top: ${params.top}px;
                     left: 50%;
                     transform: translateX(-50%);
-                    background: rgba(255,255,255,0.9);
+                    background: rgba(255,255,255,0.8);
                     color: rgba(10,10,10,0.95);
                     padding: 8px 20px;
                     font-size: 16px;
@@ -235,7 +235,7 @@ class ScreenshotManager:
                 overlay.style.top = params.top + 'px';
                 overlay.style.left = '50%';
                 overlay.style.transform = 'translateX(-50%)';
-                    overlay.style.background = 'rgba(250,250,250,0.75)';
+                overlay.style.background = 'rgba(250,250,250,0.5)';
                     overlay.style.color = 'rgba(20,20,20,0.85)';
                     overlay.style.padding = '6px 20px';
                     overlay.style.fontSize = '15px';
