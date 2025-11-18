@@ -88,7 +88,7 @@ class ScreenshotManager:
 
             try:
                 if overlay_text_val:
-                    top = self._calculate_overlay_top(rect)
+                    top = 10
                     self._add_overlay_to_target(target, overlay_text_val, top_offset=top)
                     overlay_added = True
 
