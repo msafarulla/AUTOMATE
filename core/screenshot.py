@@ -87,10 +87,10 @@ class ScreenshotManager:
             rect = self._get_element_rect(target)
 
             try:
-                if overlay_text_val:
-                    top = self._calculate_overlay_top(rect)
-                    self._add_overlay(page, overlay_text_val, top_offset=top)
-                    overlay_added = True
+                    if overlay_text_val:
+                        top = self._calculate_overlay_top(rect)
+                        self._add_overlay_to_target(target, overlay_text_val, top_offset=top)
+                        overlay_added = True
 
                 self._add_timestamp(page, rect)
                 timestamp_added = True
@@ -109,7 +109,7 @@ class ScreenshotManager:
         finally:
             if overlay_added:
                 try:
-                    self._remove_overlay(page)
+                    self._remove_overlay_from_target(target)
                 except PageUnavailableError:
                     pass
             if timestamp_added:
@@ -216,6 +216,48 @@ class ScreenshotManager:
                 if (overlay) overlay.remove();
             }
         """, description="ScreenshotManager._remove_overlay")
+
+    def _add_overlay_to_target(self, target, text: str, top_offset: float = 40):
+        target.evaluate(
+            """
+            (params) => {
+                const existing = document.getElementById('screenshot-overlay-text');
+                if (existing) existing.remove();
+                const overlay = document.createElement('div');
+                overlay.id = 'screenshot-overlay-text';
+                overlay.textContent = params.text;
+                overlay.style.position = 'absolute';
+                overlay.style.top = params.top + 'px';
+                overlay.style.left = '50%';
+                overlay.style.transform = 'translateX(-50%)';
+                overlay.style.background = 'linear-gradient(135deg, rgba(58,123,213,0.85), rgba(0,210,255,0.75))';
+                overlay.style.color = 'white';
+                overlay.style.padding = '8px 20px';
+                overlay.style.fontSize = '18px';
+                overlay.style.fontWeight = '500';
+                overlay.style.fontFamily = 'Fira Code, monospace';
+                overlay.style.borderRadius = '8px';
+                overlay.style.boxShadow = '0 3px 10px rgba(0,0,0,0.2)';
+                overlay.style.zIndex = '99999999';
+                overlay.style.pointerEvents = 'none';
+                overlay.style.whiteSpace = 'nowrap';
+                overlay.style.width = 'auto';
+                overlay.style.maxWidth = '90%';
+                target.appendChild(overlay);
+            }
+            """,
+            {"text": text, "top": top_offset},
+        )
+
+    def _remove_overlay_from_target(self, target):
+        target.evaluate(
+            """
+            () => {
+                const overlay = document.getElementById('screenshot-overlay-text');
+                if (overlay) overlay.remove();
+            }
+            """
+        )
 
     def _calculate_overlay_top(self, rect: dict) -> float:
         if not rect:
