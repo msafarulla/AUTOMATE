@@ -22,6 +22,7 @@ class WorkflowStageExecutor:
             "receive": self.handle_receive_stage,
             "loading": self.handle_loading_stage,
             "tasks": self.handle_tasks_stage,
+            "rf_return": self.handle_rf_return_stage,
         }
 
     def _confirm_prod_post(self, workflow_index: int) -> bool:
@@ -137,6 +138,17 @@ class WorkflowStageExecutor:
             success = self.stage_actions.run_tasks_ui(search_term, match_text)
         if not success:
             app_log(f"❌ Unable to open Tasks UI for workflow {workflow_idx}; halting.")
+            return metadata, False
+        return metadata, True
+
+    def handle_rf_return_stage(
+        self, stage_cfg: dict[str, Any], metadata: dict[str, Any], workflow_idx: int
+    ):
+        search_term = stage_cfg.get("search_term", "RF MENU")
+        match_text = stage_cfg.get("match_text", "RF Menu (Distribution)")
+        success = self.stage_actions.run_rf_ui(search_term, match_text)
+        if not success:
+            app_log(f"❌ Unable to resume RF UI for workflow {workflow_idx}; halting.")
             return metadata, False
         return metadata, True
 

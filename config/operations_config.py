@@ -143,6 +143,10 @@ class OperationConfig:
                     'search_term': 'tasks',
                     'match_text': 'Tasks (Configuration)',
                 },
+                'rf_return': {
+                    'search_term': 'RF MENU',
+                    'match_text': 'RF Menu (Distribution)',
+                },
             },
         },
     }
