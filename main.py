@@ -13,10 +13,7 @@ def main():
         stage_executor = WorkflowStageExecutor(
             settings,
             ops.orchestrator,
-            ops.run_post_message,
-            ops.receive,
-            ops.loading,
-            ops.run_tasks_ui,
+            ops.stage_actions,
         )
 
         try:

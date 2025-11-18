@@ -1,25 +1,22 @@
-from typing import Any, Callable, Tuple
+from typing import Any, Tuple
 
 from core.logger import app_log
 from core.orchestrator import AutomationOrchestrator
 from core.post_message_payload import build_post_message_payload
 from config.settings import Settings
+from operations.runner import StageActions
+
+
 class WorkflowStageExecutor:
     def __init__(
         self,
         settings: Settings,
         orchestrator: AutomationOrchestrator,
-        run_post_message: Callable[[str | None], bool],
-        receive_fn: Callable[..., bool],
-        loading_fn: Callable[..., bool],
-        run_tasks_ui: Callable[..., bool],
+        stage_actions: StageActions,
     ):
         self.settings = settings
         self.orchestrator = orchestrator
-        self.run_post_message = run_post_message
-        self.receive_fn = receive_fn
-        self.loading_fn = loading_fn
-        self.run_tasks_ui = run_tasks_ui
+        self.stage_actions = stage_actions
         self.stage_handlers = {
             "post": self.handle_post_stage,
             "receive": self.handle_receive_stage,
@@ -72,7 +69,7 @@ class WorkflowStageExecutor:
             )
             return metadata, False
         post_result = self.orchestrator.run_with_retry(
-            lambda payload=message_payload: self.run_post_message(payload),
+            lambda payload=message_payload: self.stage_actions.run_post_message(payload),
             f"Post Message (Workflow {workflow_idx})",
         )
         if not post_result.success:
@@ -96,7 +93,7 @@ class WorkflowStageExecutor:
         if receive_quantity is None:
             receive_quantity = 1
         receive_result = self.orchestrator.run_with_retry(
-            self.receive_fn,
+            self.stage_actions.receive,
             f"Receive (Workflow {workflow_idx})",
             asn=receive_asn,
             item=receive_item,
@@ -115,7 +112,7 @@ class WorkflowStageExecutor:
         if not stage_cfg:
             return metadata, True
         load_result = self.orchestrator.run_with_retry(
-            self.loading_fn,
+            self.stage_actions.loading,
             f"Load (Workflow {workflow_idx})",
             shipment=stage_cfg.get("shipment"),
             dock_door=stage_cfg.get("dock_door"),
@@ -126,15 +123,6 @@ class WorkflowStageExecutor:
             return metadata, False
         return metadata, True
 
-    def run_stage(
-        self, stage_name: str, stage_cfg: dict[str, Any], metadata: dict[str, Any], workflow_idx: int
-    ) -> Tuple[dict[str, Any], bool]:
-        handler = self.stage_handlers.get(stage_name.lower())
-        if handler:
-            return handler(stage_cfg, metadata, workflow_idx)
-        app_log(f"ℹ️ No handler for workflow stage '{stage_name}'; skipping.")
-        return metadata, True
-
     def handle_tasks_stage(
         self, stage_cfg: dict[str, Any], metadata: dict[str, Any], workflow_idx: int
     ) -> Tuple[dict[str, Any], bool]:
@@ -142,8 +130,17 @@ class WorkflowStageExecutor:
             return metadata, True
         search_term = stage_cfg.get("search_term", "tasks")
         match_text = stage_cfg.get("match_text", "Tasks (Configuration)")
-        success = self.run_tasks_ui(search_term, match_text)
+        success = self.stage_actions.run_tasks_ui(search_term, match_text)
         if not success:
             app_log(f"❌ Unable to open Tasks UI for workflow {workflow_idx}; halting.")
             return metadata, False
+        return metadata, True
+
+    def run_stage(
+        self, stage_name: str, stage_cfg: dict[str, Any], metadata: dict[str, Any], workflow_idx: int
+    ) -> Tuple[dict[str, Any], bool]:
+        handler = self.stage_handlers.get(stage_name.lower())
+        if handler:
+            return handler(stage_cfg, metadata, workflow_idx)
+        app_log(f"ℹ️ No handler for workflow stage '{stage_name}'; skipping.")
         return metadata, True

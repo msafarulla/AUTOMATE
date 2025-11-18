@@ -18,16 +18,22 @@ from ui.rf_menu import RFMenuManager
 
 
 @dataclass
-class OperationServices:
-    screenshot_mgr: ScreenshotManager
-    nav_mgr: NavigationManager
-    orchestrator: AutomationOrchestrator
+@dataclass
+class StageActions:
     run_login: Callable[[], None]
     run_change_warehouse: Callable[[], None]
     run_post_message: Callable[[str | None], bool]
     receive: Callable[..., bool]
     loading: Callable[..., bool]
     run_tasks_ui: Callable[..., bool]
+
+
+@dataclass
+class OperationServices:
+    screenshot_mgr: ScreenshotManager
+    nav_mgr: NavigationManager
+    orchestrator: AutomationOrchestrator
+    stage_actions: StageActions
 
 
 class OperationRunner:
@@ -160,11 +166,13 @@ def create_operation_services(settings: Any) -> Generator[OperationServices, Non
             screenshot_mgr=screenshot_mgr,
             nav_mgr=nav_mgr,
             orchestrator=orchestrator,
-            run_login=runner.run_login,
-            run_change_warehouse=runner.run_change_warehouse,
-            run_post_message=runner.run_post_message,
-            receive=runner.receive,
-            loading=runner.loading,
-            run_tasks_ui=runner.run_tasks_ui,
+            stage_actions=StageActions(
+                run_login=runner.run_login,
+                run_change_warehouse=runner.run_change_warehouse,
+                run_post_message=runner.run_post_message,
+                receive=runner.receive,
+                loading=runner.loading,
+                run_tasks_ui=runner.run_tasks_ui,
+            ),
         )
         yield services
