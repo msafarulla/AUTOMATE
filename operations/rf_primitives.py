@@ -341,7 +341,7 @@ class RFWorkflows:
             )
             return False
 
-        if expected_tran_id:
+        if expected_tran_id and Settings.app.verify_tran_id_marker:
             expected_tran = expected_tran_id if expected_tran_id.startswith("#") else f"#{expected_tran_id}"
             try:
                 menu_text = rf.read_field(
