@@ -87,10 +87,10 @@ class ScreenshotManager:
             rect = self._get_element_rect(target)
 
             try:
-                    if overlay_text_val:
-                        top = self._calculate_overlay_top(rect)
-                        self._add_overlay_to_target(target, overlay_text_val, top_offset=top)
-                        overlay_added = True
+                if overlay_text_val:
+                    top = self._calculate_overlay_top(rect)
+                    self._add_overlay_to_target(target, overlay_text_val, top_offset=top)
+                    overlay_added = True
 
                 self._add_timestamp(page, rect)
                 timestamp_added = True
