@@ -79,10 +79,10 @@ class NavigationManager:
         page = self.page
         normalized_match = normalize_text(match_text)
 
-            for attempt in range(max_attempt):
-                if close_existing:
-                    self.close_active_windows()
-                page.wait_for_timeout(500)
+        for attempt in range(max_attempt):
+            if close_existing:
+                self.close_active_windows()
+            page.wait_for_timeout(500)
 
             self._open_menu_panel()
             self._reset_menu_filter()
