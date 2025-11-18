@@ -224,11 +224,6 @@ class RFPrimitives:
             return
         self.press_key("Control+b", "RF_HOME", "RF Home")
 
-    def ensure_tran_id_marker(self):
-        """Ensure the tran id marker is visible on the RF home screen."""
-        # Best-effort single Ctrl+P without hash validation
-        self.press_key("Control+p", "rf_tran_marker", "Show tran id", wait_for_change=False)
-
     def accept_message(self):
         """Accept/proceed from info or error screen (Ctrl+A)."""
         self.press_key("Control+a", "accepted_message", "Accepted/Proceeded")
