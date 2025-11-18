@@ -95,6 +95,95 @@ def main():
             app_log("✅ PROD confirmation received.")
             return True
 
+        def handle_post_stage(stage_cfg: dict[str, Any], metadata: dict[str, Any], workflow_idx: int) -> tuple[dict[str, Any], bool]:
+            if not bool(stage_cfg.get("enabled")):
+                return metadata, True
+            post_type = stage_cfg.get("type")
+            if not post_type:
+                app_log(f"❌ Post workflow {workflow_idx} missing 'type'; halting.")
+                return metadata, False
+            source = (stage_cfg.get("source") or "db").lower()
+            db_env = stage_cfg.get("db_env")
+            if not _confirm_prod_post(workflow_idx):
+                return metadata, False
+            payload_metadata: dict[str, Any] = {}
+            message_payload = None
+            if source == "db":
+                message_payload, payload_metadata = build_post_message_payload(
+                    stage_cfg,
+                    post_type,
+                    settings.app.change_warehouse,
+                    db_env,
+                )
+            else:
+                message_payload = stage_cfg.get("message") or settings.app.post_message_text
+            if not message_payload:
+                app_log(f"❌ Unable to resolve post message payload for workflow {workflow_idx}; halting.")
+                return metadata, False
+            post_result = orchestrator.run_with_retry(
+                lambda payload=message_payload: run_post_message(payload),
+                f"Post Message (Workflow {workflow_idx})",
+            )
+            if not post_result.success:
+                app_log(f"⏹️ Halting workflow {workflow_idx} due to post message failure")
+                return metadata, False
+            metadata.update(payload_metadata)
+            return metadata, True
+
+        def handle_receive_stage(stage_cfg: dict[str, Any], metadata: dict[str, Any], workflow_idx: int) -> tuple[dict[str, Any], bool]:
+            if not stage_cfg:
+                return metadata, True
+            override_asn = metadata.get("asn_id")
+            receive_asn = override_asn if override_asn else stage_cfg.get("asn")
+            receive_items = metadata.get("receive_items") or []
+            receive_default = receive_items[0] if receive_items else {}
+            receive_item = stage_cfg.get("item") or receive_default.get("item")
+            quantity_cfg = stage_cfg.get("quantity", 0)
+            receive_quantity = quantity_cfg if quantity_cfg else receive_default.get("quantity")
+            if receive_quantity is None:
+                receive_quantity = 1
+            receive_result = orchestrator.run_with_retry(
+                receive,
+                f"Receive (Workflow {workflow_idx})",
+                asn=receive_asn,
+                item=receive_item,
+                quantity=receive_quantity,
+                flow_hint=stage_cfg.get("flow"),
+                auto_handle=stage_cfg.get("auto_handle_deviation", False),
+            )
+            if not receive_result.success:
+                app_log(f"⏹️ Halting workflow {workflow_idx} due to receive failure")
+                return metadata, False
+            return metadata, True
+
+        def handle_loading_stage(stage_cfg: dict[str, Any], metadata: dict[str, Any], workflow_idx: int) -> tuple[dict[str, Any], bool]:
+            if not stage_cfg:
+                return metadata, True
+            load_result = orchestrator.run_with_retry(
+                loading,
+                f"Load (Workflow {workflow_idx})",
+                shipment=stage_cfg.get("shipment"),
+                dock_door=stage_cfg.get("dock_door"),
+                bol=stage_cfg.get("bol"),
+            )
+            if not load_result.success:
+                app_log(f"⏹️ Halting workflow {workflow_idx} due to loading failure")
+                return metadata, False
+            return metadata, True
+
+        stage_handlers = {
+            "post": handle_post_stage,
+            "receive": handle_receive_stage,
+            "loading": handle_loading_stage,
+        }
+
+        def run_stage(stage_name: str, stage_cfg: dict[str, Any], metadata: dict[str, Any], workflow_idx: int) -> tuple[dict[str, Any], bool]:
+            handler = stage_handlers.get(stage_name)
+            if handler:
+                return handler(stage_cfg, metadata, workflow_idx)
+            app_log(f"ℹ️ No handler for workflow stage '{stage_name}'; skipping.")
+            return metadata, True
+
         @guarded
         def run_post_message(payload: str | None = None):
             nav_mgr.open_menu_item("POST", "Post Message (Integration)")
@@ -126,66 +215,12 @@ def main():
                 app_log(f"📦 WORKFLOW {index}/{total_workflows} ({scenario_name})")
                 app_log("=" * 60)
 
-                post_cfg = workflow.get('post', {})
-                payload_metadata: dict[str, Any] = {}
-                post_result = None
-                receive_cfg = workflow.get('receive')
-                should_post = bool(post_cfg.get('enabled')) and not (receive_cfg and receive_cfg.get('asn'))
-                if should_post:
-                    post_type = post_cfg.get('type')
-                    if not post_type:
-                        app_log(f"❌ Post workflow {index} missing 'type'; halting.")
+                workflow_metadata: dict[str, Any] = {}
+                for stage_name, stage_cfg in workflow.items():
+                    stage_cfg = stage_cfg or {}
+                    workflow_metadata, continue_run = run_stage(stage_name, stage_cfg, workflow_metadata, index)
+                    if not continue_run:
                         break
-
-                    source = (post_cfg.get('source') or 'db').lower()
-                    db_env = post_cfg.get('db_env')
-                    if not _confirm_prod_post(index):
-                        break
-                    message_payload = None
-                    if source == 'db':
-                        message_payload, payload_metadata = build_post_message_payload(
-                            post_cfg,
-                            post_type,
-                            settings.app.change_warehouse,
-                            db_env
-                        )
-                    else:
-                        message_payload = post_cfg.get('message') or settings.app.post_message_text
-
-                    if not message_payload:
-                        app_log(f"❌ Unable to resolve post message payload for workflow {index}; halting.")
-                        break
-
-                    post_result = orchestrator.run_with_retry(
-                        lambda payload=message_payload: run_post_message(payload),
-                        f"Post Message (Workflow {index})"
-                    )
-                    if not post_result.success:
-                        app_log(f"⏹️ Halting workflow {index} due to post message failure")
-                        break
-                elif post_cfg.get('enabled'):
-                    app_log(f"ℹ️ Skipping Post Message for workflow {index}; receive config supplied ASN.")
-
-                receive_result = None
-                if receive_cfg:
-                    override_asn = payload_metadata.get('asn_id')
-                    receive_asn = override_asn if override_asn else receive_cfg.get('asn')
-                    receive_items = payload_metadata.get('receive_items') or []
-                    receive_default = receive_items[0] if receive_items else {}
-                    receive_item = receive_cfg.get('item') or receive_default.get('item')
-                    quantity_cfg = receive_cfg.get('quantity', 0)
-                    receive_quantity = quantity_cfg if quantity_cfg else receive_default.get('quantity')
-                    if receive_quantity is None:
-                        receive_quantity = 1
-                    receive_result = orchestrator.run_with_retry(
-                        receive,
-                        f"Receive (Workflow {index})",
-                        asn=receive_asn,
-                        item=receive_item,
-                        quantity=receive_quantity,
-                        flow_hint=receive_cfg.get('flow'),
-                        auto_handle=receive_cfg.get('auto_handle_deviation', False),
-                    )
 
             orchestrator.print_summary()
             app_log("✅ Automation completed!")
