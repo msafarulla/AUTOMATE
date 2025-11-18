@@ -21,7 +21,6 @@ class RFMenuManager:
         self.page_mgr = page_mgr
         self.screenshot_mgr = screenshot_mgr
         self._maximized = False
-        self._tran_marker_verified = False
         self._last_home_hash = None
         self.verbose_logging = verbose_logging
         self._auto_click_info_icon = auto_click_info_icon
@@ -55,18 +54,6 @@ class RFMenuManager:
             prev_snapshot,
             warn_on_timeout=False,
         )
-        if not self._tran_marker_verified:
-            if not self._home_menu_has_hash(rf_iframe):
-                tran_prev_snapshot = HashUtils.get_frame_snapshot(rf_iframe)
-                self.page.keyboard.press("Control+p")
-                WaitUtils.wait_for_screen_change(rf_iframe, tran_prev_snapshot)
-                if not self._home_menu_has_hash(rf_iframe):
-                    self._log("⚠️ RF home menu never showed # marker after Control+P.")
-                    self._tran_marker_verified = False
-                else:
-                    self._tran_marker_verified = True
-            else:
-                self._tran_marker_verified = True
         self.screenshot_mgr.capture_rf_window(self.page, "RF_HOME", "RF Home")
 
     def maximize_window(self):
@@ -145,35 +132,6 @@ class RFMenuManager:
 
         self.screenshot_mgr.capture_rf_window(self.page, "after_accept","Accepted/Proceeded")
         return True
-
-    def ensure_tran_id_marker(self, rf_iframe: Frame = None):
-        """Ensure the RF home list displays the tran_id hash marker via Ctrl+P."""
-        if rf_iframe is None:
-            rf_iframe = self.get_iframe()
-        self._display_tran_id_via_ctrl_p(rf_iframe)
-
-    def _display_tran_id_via_ctrl_p(self, rf_iframe: Frame, max_attempts: int = 1):
-        """Send Control+P until the RF home list shows the tran_id hash marker."""
-        for attempt in range(1, max_attempts + 1):
-            prev_snapshot = HashUtils.get_frame_snapshot(rf_iframe)
-            self.page.keyboard.press("Control+p")
-            WaitUtils.wait_for_screen_change(
-                self.get_iframe,
-                prev_snapshot
-            )
-            if self._home_menu_has_hash(rf_iframe):
-                if attempt > 1:
-                    self._log(f"🔁 Control+P succeeded on attempt {attempt}.")
-                return
-        self._log("⚠️ RF home menu never showed # marker after Control+P attempts.") #what to do if so? todo
-
-    def _home_menu_has_hash(self, rf_iframe: Frame) -> bool:
-        try:
-            text = rf_iframe.locator("body").inner_text().strip()
-        except Exception:
-            return False
-        hash_index = text.find('#')
-        return hash_index != -1
 
     def _capture_response_screen(self, message: str):
         label = f"{self._slugify_for_filename(message)}"
