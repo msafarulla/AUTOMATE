@@ -16,6 +16,7 @@ def main():
             ops.run_post_message,
             ops.receive,
             ops.loading,
+            ops.nav_mgr,
         )
 
         try:

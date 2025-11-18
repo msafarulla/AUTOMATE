@@ -49,6 +49,14 @@ class NavigationManager:
                                     f"Changed to {warehouse}")
         app_log(f"✅ Changed warehouse to {warehouse}")
 
+    def open_tasks_ui(self, search_term: str = "tasks", match_text: str = "Tasks (Configuration)") -> bool:
+        page = self.page
+        if self.open_menu_item(search_term, match_text):
+            self.screenshot_mgr.capture(page, "Tasks UI", "Tasks Navigation")
+            return True
+        app_log(f"❌ Failed to open Tasks UI via '{search_term}' search")
+        return False
+
     def open_menu_item(self, search_term: str, match_text: str, max_attempt: int = 1) -> bool:
         import re
         from difflib import ndiff

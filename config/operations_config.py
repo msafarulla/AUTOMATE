@@ -102,32 +102,49 @@ class OperationConfig:
     }
 
     DEFAULT_WORKFLOWS = {
-        'inbound': {
-            'receive_HAPPY_PATH': {
-                'post': {
+        'UI_Navigation': {
+            'tasksUI': {
+                    'Tasks': {
                     'enabled': True,
-                    'source': 'db',
-                    'type': 'ASN',
-                    'message': None,  # manually an xml can be put here
-                    'lookback_days': 14,
-                    'db_env': 'prod',
-                    'asn_items': [
-                        {
-                            'ItemName': '81402XC01C',
-                            'Quantity': {'ShippedQty': 20000},
-                        },
-                    ],
                 },
-                'receive': {
-                    'asn': '',
-                    'item': '',
-                    'quantity': 0,
-                    'flow': 'HAPPY_PATH',
-                    'auto_handle_deviation': True,
-                },
-            },
-        },
+        }
+        }
     }
+
+    # DEFAULT_WORKFLOWS = {
+    #     'UI_Navigation': {
+    #         'tasksUI': {
+    #                 'Tasks': {
+    #                 'enabled': True,
+    #             },
+    #     }
+    #     },
+    #     'inbound': {
+    #         'receive_HAPPY_PATH': {
+    #             'post': {
+    #                 'enabled': True,
+    #                 'source': 'db',
+    #                 'type': 'ASN',
+    #                 'message': None,  # manually an xml can be put here
+    #                 'lookback_days': 14,
+    #                 'db_env': 'prod',
+    #                 'asn_items': [
+    #                     {
+    #                         'ItemName': '81402XC01C',
+    #                         'Quantity': {'ShippedQty': 20000},
+    #                     },
+    #                 ],
+    #             },
+    #             'receive': {
+    #                 'asn': '',
+    #                 'item': '',
+    #                 'quantity': 0,
+    #                 'flow': 'HAPPY_PATH',
+    #                 'auto_handle_deviation': True,
+    #             },
+    #         },
+    #     },
+    # }
 
 
 RECEIVE = OperationConfig.RECEIVE_MENU

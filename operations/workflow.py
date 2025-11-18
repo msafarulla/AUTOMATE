@@ -4,6 +4,7 @@ from core.logger import app_log
 from core.orchestrator import AutomationOrchestrator
 from core.post_message_payload import build_post_message_payload
 from config.settings import Settings
+from ui.navigation import NavigationManager
 
 
 class WorkflowStageExecutor:
@@ -14,16 +15,19 @@ class WorkflowStageExecutor:
         run_post_message: Callable[[str | None], bool],
         receive_fn: Callable[..., bool],
         loading_fn: Callable[..., bool],
+        navigation_mgr: NavigationManager,
     ):
         self.settings = settings
         self.orchestrator = orchestrator
         self.run_post_message = run_post_message
         self.receive_fn = receive_fn
         self.loading_fn = loading_fn
+        self.nav_mgr = navigation_mgr
         self.stage_handlers = {
             "post": self.handle_post_stage,
             "receive": self.handle_receive_stage,
             "loading": self.handle_loading_stage,
+            "tasks": self.handle_tasks_stage,
         }
 
     def _confirm_prod_post(self, workflow_index: int) -> bool:
@@ -128,8 +132,21 @@ class WorkflowStageExecutor:
     def run_stage(
         self, stage_name: str, stage_cfg: dict[str, Any], metadata: dict[str, Any], workflow_idx: int
     ) -> Tuple[dict[str, Any], bool]:
-        handler = self.stage_handlers.get(stage_name)
+        handler = self.stage_handlers.get(stage_name.lower())
         if handler:
             return handler(stage_cfg, metadata, workflow_idx)
         app_log(f"ℹ️ No handler for workflow stage '{stage_name}'; skipping.")
+        return metadata, True
+
+    def handle_tasks_stage(
+        self, stage_cfg: dict[str, Any], metadata: dict[str, Any], workflow_idx: int
+    ) -> Tuple[dict[str, Any], bool]:
+        if not bool(stage_cfg.get("enabled", True)):
+            return metadata, True
+        search_term = stage_cfg.get("search_term", "tasks")
+        match_text = stage_cfg.get("match_text", "Tasks (Configuration)")
+        success = self.nav_mgr.open_tasks_ui(search_term, match_text)
+        if not success:
+            app_log(f"❌ Unable to open Tasks UI for workflow {workflow_idx}; halting.")
+            return metadata, False
         return metadata, True
