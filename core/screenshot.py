@@ -12,8 +12,6 @@ class ScreenshotManager:
         self.output_dir.mkdir(exist_ok=True)
         self.current_output_dir = self.output_dir
         self.current_scenario_dir = self.output_dir
-        self.current_scenario_label: str | None = None
-        self.current_stage_label: str | None = None
         self.sequence = 0
         fmt = (image_format or "png").lower()
         if fmt == "jpg":
@@ -38,12 +36,11 @@ class ScreenshotManager:
         filename = self._build_filename(label)
         overlay_added = False
         timestamp_added = False
-        overlay_text_val = overlay_text or self._default_overlay_text()
 
         try:
             try:
-                if overlay_text_val:
-                    self._add_overlay(page, overlay_text_val)
+                if overlay_text:
+                    self._add_overlay(page, overlay_text)
                     overlay_added = True
 
                 self._add_timestamp(page)
@@ -76,7 +73,6 @@ class ScreenshotManager:
         filename = self._build_filename(label)
         overlay_added = False
         timestamp_added = False
-        overlay_text_val = overlay_text or self._default_overlay_text()
 
         try:
             self._run_rf_hook(self._rf_pre_capture_hook)
@@ -87,9 +83,9 @@ class ScreenshotManager:
             rect = self._get_element_rect(target)
 
             try:
-                if overlay_text_val:
+                if overlay_text:
                     top = self._calculate_overlay_top(rect)
-                    self._add_overlay(page, overlay_text_val, top_offset=top)
+                    self._add_overlay(page, overlay_text, top_offset=top)
                     overlay_added = True
 
                 self._add_timestamp(page, rect)
@@ -150,8 +146,6 @@ class ScreenshotManager:
         target_dir.mkdir(parents=True, exist_ok=True)
         self.current_scenario_dir = target_dir
         self.current_output_dir = target_dir
-        self.current_scenario_label = scenario_name
-        self.current_stage_label = None
 
     def set_stage(self, stage_name: str | None):
         """Create nested folder for the current stage within the active scenario."""
@@ -163,17 +157,7 @@ class ScreenshotManager:
             target_dir = target_dir / folder_name
             target_dir.mkdir(parents=True, exist_ok=True)
         self.current_output_dir = target_dir
-        self.current_stage_label = stage_name
 
-    def _default_overlay_text(self) -> str | None:
-        parts = []
-        if self.current_scenario_label:
-            parts.append(self.current_scenario_label)
-        if self.current_stage_label:
-            parts.append(self.current_stage_label)
-        if not parts:
-            return None
-        return " / ".join(parts)
     def _add_overlay(self, page: Page, text: str, top_offset: float = 40):
         safe_page_evaluate(
             page,
