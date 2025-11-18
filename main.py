@@ -39,6 +39,7 @@ def main():
 
                 workflow_metadata: dict[str, Any] = {}
                 for stage_name, stage_cfg in workflow.items():
+                    ops.screenshot_mgr.set_stage(stage_name)
                     stage_cfg = stage_cfg or {}
                     workflow_metadata, continue_run = stage_executor.run_stage(
                         stage_name, stage_cfg, workflow_metadata, index

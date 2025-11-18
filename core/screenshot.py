@@ -11,6 +11,7 @@ class ScreenshotManager:
         self.output_dir = Path(output_dir)
         self.output_dir.mkdir(exist_ok=True)
         self.current_output_dir = self.output_dir
+        self.current_scenario_dir = self.output_dir
         self.sequence = 0
         fmt = (image_format or "png").lower()
         if fmt == "jpg":
@@ -139,9 +140,22 @@ class ScreenshotManager:
         """Switch the active screenshot folder to a scenario-specific subdirectory."""
         target_dir = self.output_dir
         if scenario_name:
-            folder_name = self._sanitize_scenario_name(scenario_name)
-            target_dir = self.output_dir / folder_name
+            for segment in scenario_name.split("."):
+                folder_name = self._sanitize_scenario_name(segment)
+                target_dir = target_dir / folder_name
         target_dir.mkdir(parents=True, exist_ok=True)
+        self.current_scenario_dir = target_dir
+        self.current_output_dir = target_dir
+
+    def set_stage(self, stage_name: str | None):
+        """Create nested folder for the current stage within the active scenario."""
+        if not self.current_scenario_dir:
+            self.current_scenario_dir = self.output_dir
+        target_dir = self.current_scenario_dir
+        if stage_name:
+            folder_name = self._sanitize_scenario_name(stage_name)
+            target_dir = target_dir / folder_name
+            target_dir.mkdir(parents=True, exist_ok=True)
         self.current_output_dir = target_dir
 
     def _add_overlay(self, page: Page, text: str, top_offset: float = 40):
