@@ -92,7 +92,7 @@ class AppConfig:
     requires_prod_confirmation: bool = False
     auto_accept_rf_messages: bool = True
     auto_click_info_icon: bool = False
-    verify_tran_id_marker: bool = True
+    verify_tran_id_marker: bool = False
     app_server_user: str = ""
     app_server_pass: str = ""
 

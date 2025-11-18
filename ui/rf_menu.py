@@ -16,6 +16,7 @@ class RFMenuManager:
         screenshot_mgr: ScreenshotManager,
         verbose_logging: bool = False,
         auto_click_info_icon: bool = True,
+        verify_tran_id_marker: bool = False,
     ):
         self.page = page
         self.page_mgr = page_mgr
