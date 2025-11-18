@@ -1,7 +1,3 @@
-"""
-Configuration and constants for warehouse operations.
-Centralizes selectors, menu names, and transaction IDs.
-"""
 from dataclasses import dataclass
 from typing import Dict
 

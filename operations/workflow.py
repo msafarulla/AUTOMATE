@@ -4,9 +4,6 @@ from core.logger import app_log
 from core.orchestrator import AutomationOrchestrator
 from core.post_message_payload import build_post_message_payload
 from config.settings import Settings
-from ui.navigation import NavigationManager
-
-
 class WorkflowStageExecutor:
     def __init__(
         self,
@@ -15,14 +12,14 @@ class WorkflowStageExecutor:
         run_post_message: Callable[[str | None], bool],
         receive_fn: Callable[..., bool],
         loading_fn: Callable[..., bool],
-        navigation_mgr: NavigationManager,
+        run_tasks_ui: Callable[..., bool],
     ):
         self.settings = settings
         self.orchestrator = orchestrator
         self.run_post_message = run_post_message
         self.receive_fn = receive_fn
         self.loading_fn = loading_fn
-        self.nav_mgr = navigation_mgr
+        self.run_tasks_ui = run_tasks_ui
         self.stage_handlers = {
             "post": self.handle_post_stage,
             "receive": self.handle_receive_stage,
@@ -145,7 +142,7 @@ class WorkflowStageExecutor:
             return metadata, True
         search_term = stage_cfg.get("search_term", "tasks")
         match_text = stage_cfg.get("match_text", "Tasks (Configuration)")
-        success = self.nav_mgr.open_tasks_ui(search_term, match_text)
+        success = self.run_tasks_ui(search_term, match_text)
         if not success:
             app_log(f"❌ Unable to open Tasks UI for workflow {workflow_idx}; halting.")
             return metadata, False

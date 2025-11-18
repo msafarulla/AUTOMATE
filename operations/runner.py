@@ -56,6 +56,7 @@ class OperationRunner:
         self.run_login = self._guarded(self._run_login)
         self.run_change_warehouse = self._guarded(self._run_change_warehouse)
         self.run_post_message = self._guarded(self._run_post_message)
+        self.run_tasks_ui = self._guarded(self._run_tasks_ui)
 
     def _guarded(self, func: Callable[..., Any]) -> Callable[..., Any]:
         @wraps(func)
@@ -112,6 +113,12 @@ class OperationRunner:
             f"Post succeeded ({payload or 'default'})"
         )
         return success
+
+    def _run_tasks_ui(self, search_term: str = "tasks", match_text: str = "Tasks (Configuration)") -> bool:
+        succeeded = self.nav_mgr.open_tasks_ui(search_term, match_text)
+        if not succeeded:
+            app_log("❌ Tasks UI navigation failed")
+        return succeeded
 
 
 @contextmanager
