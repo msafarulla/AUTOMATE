@@ -18,9 +18,9 @@ def main():
 
         try:
             app_log("🚀 Starting warehouse automation...")
-        ops.stage_actions.run_login()
-        ops.nav_mgr.close_menu_overlay_after_sign_on()
-        ops.stage_actions.run_change_warehouse()
+            ops.stage_actions.run_login()
+            ops.nav_mgr.close_menu_overlay_after_sign_on()
+            ops.stage_actions.run_change_warehouse()
 
             workflow_map = OperationConfig.DEFAULT_WORKFLOWS
             workflow_items: list[tuple[str, dict[str, Any]]] = []
