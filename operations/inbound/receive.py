@@ -67,8 +67,13 @@ class ReceiveOperation(BaseOperation):
                 return True
             dest_loc = self._read_suggested_location(rf, selectors)
 
-            # Confirm location (1 line instead of 8!)
+            # Confirm location
             workflows.confirm_location(selectors.location, dest_loc)
+            self.screenshot_mgr.capture_rf_window(
+                self.page,
+                "receive_summary",
+                f"Received {quantity} {item or 'units'}"
+            )
 
         return success
 

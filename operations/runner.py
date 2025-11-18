@@ -105,6 +105,12 @@ class OperationRunner:
             app_log(f"Response payload: {response_info['payload']}")
         if not success:
             app_log("⚠️ Post Message failed.")
+            return False
+        self.screenshot_mgr.capture_rf_window(
+            self.page,
+            "post_confirmation",
+            f"Post succeeded ({payload or 'default'})"
+        )
         return success
 
 
