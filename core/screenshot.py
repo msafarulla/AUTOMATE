@@ -220,8 +220,12 @@ class ScreenshotManager:
     def _add_overlay_to_target(self, target, text: str, top_offset: float = 40):
         target.evaluate(
             """
-            (params) => {
-                const existing = document.getElementById('screenshot-overlay-text');
+            (element, params) => {
+                const style = window.getComputedStyle(element);
+                if (!style.position || style.position === 'static') {
+                    element.style.position = 'relative';
+                }
+                const existing = element.querySelector('#screenshot-overlay-text');
                 if (existing) existing.remove();
                 const overlay = document.createElement('div');
                 overlay.id = 'screenshot-overlay-text';
@@ -243,7 +247,7 @@ class ScreenshotManager:
                 overlay.style.whiteSpace = 'nowrap';
                 overlay.style.width = 'auto';
                 overlay.style.maxWidth = '90%';
-                target.appendChild(overlay);
+                element.appendChild(overlay);
             }
             """,
             {"text": text, "top": top_offset},
