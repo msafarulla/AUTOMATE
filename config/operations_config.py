@@ -130,15 +130,14 @@ class OperationConfig:
                     'quantity': 0,
                     'flow': 'HAPPY_PATH',
                     'auto_handle_deviation': True,
-                },
-                'tasks': {
-                    'preserve_window': True,
-                    'search_term': 'tasks',
-                    'match_text': 'Tasks (Configuration)',
-                },
-                'rf_return': {
-                    'search_term': 'RF MENU',
-                    'match_text': 'RF Menu (Distribution)',
+                    'tasks': {
+                        'enabled': True,
+                        'preserve_window': True,
+                        'search_term': 'tasks',
+                        'match_text': 'Tasks (Configuration)',
+                        'operation_note': 'Visited Tasks UI before confirming location',
+                        'rf_focus_title': 'RF Menu (Distribution)',
+                    },
                 },
             },
         },

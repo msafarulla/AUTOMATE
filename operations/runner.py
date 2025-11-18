@@ -89,6 +89,7 @@ class OperationRunner:
         quantity: int = 1,
         flow_hint: str | None = None,
         auto_handle: bool = False,
+        tasks_cfg: dict[str, Any] | None = None,
     ) -> bool:
         self.nav_mgr.open_menu_item("RF MENU", "RF Menu (Distribution)")
         receive_op = ReceiveOperation(self.page, self.page_mgr, self.screenshot_mgr, self.rf_menu)
@@ -98,6 +99,7 @@ class OperationRunner:
             quantity,
             flow_hint=flow_hint,
             auto_handle=auto_handle,
+            tasks_cfg=tasks_cfg,
         )
 
     def _loading_impl(self, shipment: str, dock_door: str, bol: str) -> bool:

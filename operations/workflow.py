@@ -93,6 +93,7 @@ class WorkflowStageExecutor:
         receive_quantity = quantity_cfg if quantity_cfg else receive_default.get("quantity")
         if receive_quantity is None:
             receive_quantity = 1
+        tasks_cfg = stage_cfg.get("tasks")
         receive_result = self.orchestrator.run_with_retry(
             self.stage_actions.receive,
             f"Receive (Workflow {workflow_idx})",
@@ -101,6 +102,7 @@ class WorkflowStageExecutor:
             quantity=receive_quantity,
             flow_hint=stage_cfg.get("flow"),
             auto_handle=stage_cfg.get("auto_handle_deviation", False),
+            tasks_cfg=tasks_cfg,
         )
         if not receive_result.success:
             app_log(f"⏹️ Halting workflow {workflow_idx} due to receive failure")

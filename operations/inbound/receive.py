@@ -1,6 +1,8 @@
 from datetime import datetime, timezone
 from typing import Any
 
+from ui.navigation import NavigationManager
+
 from operations.base_operation import BaseOperation
 from operations.rf_primitives import RFMenuIntegration
 from config.operations_config import OperationConfig
@@ -17,6 +19,7 @@ class ReceiveOperation(BaseOperation):
         *,
         flow_hint: str | None = None,
         auto_handle: bool = False,
+        tasks_cfg: dict[str, Any] | None = None,
     ):
         menu_cfg = OperationConfig.RECEIVE_MENU
         selectors = OperationConfig.RECEIVE_SELECTORS
@@ -42,13 +45,16 @@ class ReceiveOperation(BaseOperation):
             rf_log(f"❌ Item scan failed: {msg}")
             return False
 
-        # Enter quantity (1 line instead of 8!)
+        # Enter quantity
         success = workflows.enter_quantity(selectors.quantity, quantity, item)
         if not success:
             rf_log("❌ Quantity entry failed")
             return False
 
         if success:
+            if not self._maybe_run_tasks_ui(tasks_cfg):
+                return False
+
             screen_state = self.inspect_receive_screen_after_qty(rf,flow_hint)
             detected_flow = screen_state.get("flow")
             target_flow = flow_hint
@@ -120,6 +126,36 @@ class ReceiveOperation(BaseOperation):
             if isinstance(selector, str):
                 candidates.append(selector)
         return candidates
+
+    def _maybe_run_tasks_ui(self, tasks_cfg: dict[str, Any] | None) -> bool:
+        """Open the Tasks UI mid-flow if the workflow configuration requests it."""
+        if not tasks_cfg or not bool(tasks_cfg.get("enabled", True)):
+            return True
+
+        nav_mgr = NavigationManager(self.page, self.screenshot_mgr)
+        search_term = tasks_cfg.get("search_term", "tasks")
+        match_text = tasks_cfg.get("match_text", "Tasks (Configuration)")
+        preserve_window = bool(tasks_cfg.get("preserve_window") or tasks_cfg.get("preserve"))
+        close_existing = not preserve_window
+
+        if not nav_mgr.open_tasks_ui(search_term, match_text, close_existing=close_existing):
+            rf_log("❌ Tasks UI detour failed during receive flow.")
+            return False
+
+        operation_note = tasks_cfg.get("operation_note", "Visited Tasks UI during receive")
+        self.screenshot_mgr.capture(
+            self.page,
+            "receive_tasks_ui",
+            operation_note,
+        )
+
+        focus_title = tasks_cfg.get("rf_focus_title", "RF Menu")
+        if not nav_mgr.focus_window_by_title(focus_title):
+            rf_log("⚠️ Unable to bring RF Menu back to foreground after tasks detour.")
+            return False
+
+        rf_log(f"ℹ️ {operation_note}")
+        return True
 
     def _assert_receive_screen_flow_hint(self, screen_state: dict[str, Any]) -> bool:
         detected_flow = screen_state.get("detected_flow")
