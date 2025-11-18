@@ -77,7 +77,7 @@ class DB:
         }
 
     @classmethod
-    def get_credentials(cls, where=None, whse=None):
+    def get_credentials_for(cls, where=None, whse=None):
         data = cls._load_config(where, whse)
         section = data["config"][data["where"]]
         return {

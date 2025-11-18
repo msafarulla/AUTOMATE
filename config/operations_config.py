@@ -113,7 +113,7 @@ class OperationConfig:
                  'asn_items': [
                      {
                          'ItemName': '81402XC01C',
-                         'Quantity': {'ShippedQty': 2000},
+                         'Quantity': {'ShippedQty': 20000},
                      },
                  ],
             },
