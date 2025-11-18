@@ -2,22 +2,29 @@ from playwright.sync_api import Page, TimeoutError as PlaywrightTimeoutError
 from utils.eval_utils import safe_page_evaluate
 from core.screenshot import ScreenshotManager
 from core.logger import app_log
+from DB import DB
+from config.settings import Settings
 
 
 class AuthManager:
-    def __init__(self, page: Page, screenshot_mgr: ScreenshotManager):
+    def __init__(self, page: Page, screenshot_mgr: ScreenshotManager, settings: Settings, credentials_env: str = "qa"):
         self.page = page
         self.screenshot_mgr = screenshot_mgr
+        self.credentials_env = credentials_env
+        self._credentials: dict[str, str] | None = None
+        self.settings = settings
 
-    def login(self, username: str, password: str, base_url: str):
+    def login(self):
+        base_url = self.settings.app.base_url
         self.page.goto(base_url, wait_until="networkidle")
         self.page.wait_for_selector("#username", timeout=5000)
 
+        credentials = self._get_credentials()
         app_log("Filling username...")
-        self.page.fill('#username', username)
+        self.page.fill('#username', credentials["app_server_user"])
 
         app_log("Filling password...")
-        self.page.fill('#password', password)
+        self.page.fill('#password', credentials["app_server_pass"])
 
         app_log("Dispatching events...")
         self.page.dispatch_event('#username', 'input')
@@ -42,6 +49,11 @@ class AuthManager:
         self._close_default_windows()
         self.screenshot_mgr.capture(self.page, "logged_in", "Logged In")
         app_log("✅ Logged in successfully")
+
+    def _get_credentials(self) -> dict[str, str]:
+        if self._credentials is None:
+            self._credentials = DB.get_credentials(self.credentials_env)
+        return self._credentials
 
     """Auto-Launch Menu can create default windows to open up, close them https://moshort.short.gy/gmHTsp"""
     def _close_default_windows(self):

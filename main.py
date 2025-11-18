@@ -19,7 +19,6 @@ from core.post_message_payload import build_post_message_payload
 
 def main():
     settings = Settings.from_env()
-    
     with BrowserManager(settings) as browser_mgr:
         page = browser_mgr.new_page()
 
@@ -29,7 +28,7 @@ def main():
             image_quality=settings.browser.screenshot_quality,
         )
         page_mgr = PageManager(page)
-        auth_mgr = AuthManager(page, screenshot_mgr)
+        auth_mgr = AuthManager(page, screenshot_mgr, settings)
         nav_mgr = NavigationManager(page, screenshot_mgr)
         post_message_mgr = PostMessageManager(page, screenshot_mgr)
         rf_menu = RFMenuManager(
@@ -51,7 +50,7 @@ def main():
 
         @guarded
         def run_login():
-            auth_mgr.login(settings.app.app_server_user, settings.app.app_server_pass, settings.app.base_url)
+            auth_mgr.login()
 
         @guarded
         def run_change_warehouse():

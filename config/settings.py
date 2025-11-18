@@ -133,7 +133,7 @@ class Settings:
             marker in base_url_lower for marker in ("prod", "prd")
         )
         try:
-            credentials = DB.get_credentials_for("qa")
+            credentials = DB.get_credentials("qa")
         except Exception as exc:
             app_log(f"⚠️ Failed to load App logon credentials from config in dev: {exc}")
             credentials = {}
