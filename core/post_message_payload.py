@@ -85,6 +85,7 @@ def _fetch_recent_object_id(
     record_index: int,
 ) -> Optional[str]:
 
+    how_many_rows= 20
     if message_type == "ASN":
         query = f"""
             select TC_ASN_ID as OBJECT_ID, CREATED_DTTM
@@ -92,7 +93,7 @@ def _fetch_recent_object_id(
             where DESTINATION_FACILITY_ALIAS_ID = '{facility}'
               and CREATED_DTTM >= sysdate - interval '{lookback_days}' day
               and TC_ASN_ID in (select OBJECT_ID from TRAN_LOG where MSG_TYPE  = 'ASN')
-            order by CREATED_DTTM desc fetch first 2 rows only
+            order by CREATED_DTTM desc fetch first {how_many_rows} rows only
         """
     else:
         query = f"""
@@ -100,15 +101,15 @@ def _fetch_recent_object_id(
             from ORDERS
             where O_FACILITY_ALIAS_ID = '{facility}'
               and CREATED_DTTM >= sysdate - interval '{lookback_days}' day
-            order by CREATED_DTTM desc fetch first 2 rows only
+            order by CREATED_DTTM desc fetch first {how_many_rows} rows only
         """
 
     db.runSQL(query)
     rows, columns = db.fetchall()
     if not rows:
         return None
-
-    object_idx = min(record_index, len(rows) - 1)
+    import random
+    object_idx = random.choice(range(0, how_many_rows))
     col_index = columns.index("OBJECT_ID")
     return rows[object_idx][col_index]
 
