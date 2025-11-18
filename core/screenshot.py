@@ -88,7 +88,7 @@ class ScreenshotManager:
 
             try:
                 if overlay_text_val:
-                    top = 10
+                    top = 5
                     self._add_overlay_to_target(target, overlay_text_val, top_offset=top)
                     overlay_added = True
 
@@ -234,14 +234,14 @@ class ScreenshotManager:
                 overlay.style.top = params.top + 'px';
                 overlay.style.left = '50%';
                 overlay.style.transform = 'translateX(-50%)';
-                overlay.style.background = 'linear-gradient(135deg, rgba(58,123,213,0.85), rgba(0,210,255,0.75))';
-                overlay.style.color = 'white';
-                overlay.style.padding = '8px 20px';
-                overlay.style.fontSize = '18px';
+                overlay.style.background = 'rgba(255,255,255,0.8)';
+                overlay.style.color = 'rgba(0,0,0,0.85)';
+                overlay.style.padding = '6px 18px';
+                overlay.style.fontSize = '16px';
                 overlay.style.fontWeight = '500';
                 overlay.style.fontFamily = 'Fira Code, monospace';
-                overlay.style.borderRadius = '8px';
-                overlay.style.boxShadow = '0 3px 10px rgba(0,0,0,0.2)';
+                overlay.style.borderRadius = '10px';
+                overlay.style.boxShadow = '0 4px 16px rgba(0,0,0,0.25)';
                 overlay.style.zIndex = '99999999';
                 overlay.style.pointerEvents = 'none';
                 overlay.style.whiteSpace = 'nowrap';
