@@ -138,6 +138,21 @@ class NavigationManager:
         app_log(f"❌ No exact match found for: '{match_text}' after retries")
         return False
 
+    def focus_window_by_title(self, title: str) -> bool:
+        windows = self.page.locator("div.x-window:visible")
+        for index in range(windows.count()):
+            window = windows.nth(index)
+            try:
+                window_title = self._get_window_title(window)
+            except Exception:
+                window_title = ""
+            if window_title and title.lower() in window_title.lower():
+                app_log(f"✨ Bringing existing window '{window_title}' to front")
+                window.evaluate("el => el.style.zIndex = '99999999'")
+                return True
+        app_log(f"⚠️ No window with title containing '{title}' is visible")
+        return False
+
     def _open_menu_panel(self):
         """Open the navigation panel (idempotent)."""
         page = self.page

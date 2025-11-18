@@ -27,7 +27,7 @@ class StageActions:
     loading: Callable[..., bool]
     run_tasks_ui: Callable[..., bool]
     run_tasks_ui_in_place: Callable[..., bool]
-    run_rf_ui: Callable[..., bool]
+    run_focus_rf: Callable[..., bool]
     run_rf_ui: Callable[..., bool]
 
 
@@ -68,7 +68,7 @@ class OperationRunner:
         self.run_post_message = self._guarded(self._run_post_message)
         self.run_tasks_ui = self._guarded(self._run_tasks_ui)
         self.run_tasks_ui_in_place = self._guarded(self._run_tasks_ui_in_place)
-        self.run_rf_ui = self._guarded(self._run_rf_ui)
+        self.run_focus_rf = self._guarded(self._run_focus_rf)
 
     def _guarded(self, func: Callable[..., Any]) -> Callable[..., Any]:
         @wraps(func)
@@ -142,12 +142,11 @@ class OperationRunner:
             app_log("❌ Tasks UI in-place navigation failed")
         return succeeded
 
-    def _run_rf_ui(self, search_term: str = "RF MENU", match_text: str = "RF Menu (Distribution)") -> bool:
-        succeeded = self.nav_mgr.open_menu_item(search_term, match_text, close_existing=False)
+    def _run_focus_rf(self, title: str = "RF Menu") -> bool:
+        succeeded = self.nav_mgr.focus_window_by_title(title)
         if not succeeded:
-            app_log("❌ RF UI navigation failed")
+            app_log("❌ RF window focus failed")
         return succeeded
-
 
 @contextmanager
 def create_operation_services(settings: Any) -> Generator[OperationServices, None, None]:
@@ -187,15 +186,15 @@ def create_operation_services(settings: Any) -> Generator[OperationServices, Non
             screenshot_mgr=screenshot_mgr,
             nav_mgr=nav_mgr,
             orchestrator=orchestrator,
-    stage_actions=StageActions(
-        run_login=runner.run_login,
-        run_change_warehouse=runner.run_change_warehouse,
-        run_post_message=runner.run_post_message,
-        receive=runner.receive,
-        loading=runner.loading,
-        run_tasks_ui=runner.run_tasks_ui,
-        run_tasks_ui_in_place=runner.run_tasks_ui_in_place,
-        run_rf_ui=runner.run_rf_ui,
-    ),
-)
+            stage_actions=StageActions(
+                run_login=runner.run_login,
+                run_change_warehouse=runner.run_change_warehouse,
+                run_post_message=runner.run_post_message,
+                receive=runner.receive,
+                loading=runner.loading,
+                run_tasks_ui=runner.run_tasks_ui,
+                run_tasks_ui_in_place=runner.run_tasks_ui_in_place,
+                run_focus_rf=runner.run_focus_rf,
+            ),
+        )
         yield services

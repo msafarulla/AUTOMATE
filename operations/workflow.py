@@ -144,9 +144,8 @@ class WorkflowStageExecutor:
     def handle_rf_return_stage(
         self, stage_cfg: dict[str, Any], metadata: dict[str, Any], workflow_idx: int
     ):
-        search_term = stage_cfg.get("search_term", "RF MENU")
-        match_text = stage_cfg.get("match_text", "RF Menu (Distribution)")
-        success = self.stage_actions.run_rf_ui(search_term, match_text)
+        title = stage_cfg.get("title", "RF Menu")
+        success = self.stage_actions.run_focus_rf(title)
         if not success:
             app_log(f"❌ Unable to resume RF UI for workflow {workflow_idx}; halting.")
             return metadata, False
