@@ -72,7 +72,7 @@ class ReceiveOperation(BaseOperation):
             self.screenshot_mgr.capture_rf_window(
                 self.page,
                 "receive_summary",
-                f"Received {quantity} {item or 'units'}"
+                f"ASN {asn} received {quantity} {'Units' if quantity > 1 else 'Unit'} of {item}"
             )
 
         return success
