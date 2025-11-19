@@ -90,16 +90,6 @@ class RFMenuManager:
                 const newHeight = Math.min(maxAllowed, rect.height + extraHeight);
                 el.style.setProperty("height", `${newHeight}px`, "important");
                 el.style.setProperty("min-height", `${newHeight}px`, "important");
-                el.style.setProperty("border-bottom", "1px solid #1f456b", "important");
-                el.style.setProperty("box-shadow", "0 6px 16px rgba(0,0,0,0.25)", "important");
-                el.style.setProperty("background-color", "rgba(255,255,255,0.9)", "important");
-                const body = el.querySelector(".x-window-body, .x-body");
-                if (body) {
-                    body.style.setProperty("min-height", `${newHeight}px`, "important");
-                    body.style.setProperty("background-color", "rgba(255,255,255,0.9)", "important");
-                    body.style.setProperty("border", "0", "important");
-                    body.style.setProperty("box-shadow", "none", "important");
-                }
             }
                 """,
             )
@@ -107,6 +97,23 @@ class RFMenuManager:
             pass
         finally:
             handle.dispose()
+
+        try:
+            safe_page_evaluate(
+                self.page,
+                """
+            () => {
+                const win = Ext.ComponentQuery.query('window[title~="RF"]')[0];
+                if (!win || !win.setHeight) return;
+                const currentHeight = win.getHeight?.() || (win.getSize?.()[1] || 0);
+                win.setHeight(currentHeight + 192);
+                win.updateLayout?.();
+            }
+                """,
+                description="RFMenuManager.maximize_window_adjust",
+            )
+        except Exception:
+            pass
 
         self._maximized = True
         return True
