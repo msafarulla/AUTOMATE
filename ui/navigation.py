@@ -12,7 +12,6 @@ class NavigationManager:
         self.page = page
         self.screenshot_mgr = screenshot_mgr
         self._ensure_menu_overlay_closed_after_sign_on = False
-        self._prepared_windows: set[str] = set()
 
     def change_warehouse(self, warehouse: str):
         """Select facility and warehouse only if different"""
@@ -93,7 +92,7 @@ class NavigationManager:
             try:
                 search_box.fill("")
             except Exception:
-                print("cant clear the search text")
+                pass
             search_box.fill(search_term)
             page.wait_for_timeout(300)
 
@@ -199,75 +198,7 @@ class NavigationManager:
             self.page.wait_for_timeout(delay_ms)
         return items_locator.count()
 
-    def prepare_window_for_later(
-        self,
-        search_term: str,
-        match_text: str,
-        close_existing: bool = False,
-    ) -> bool:
-        """Open a window once and keep a handle so we can switch back later."""
-        if not self.open_menu_item(search_term, match_text, close_existing=close_existing):
-            return False
-
-        window = self._find_window_by_title(match_text)
-        if not window:
-            return False
-
-        self._mark_window_prepared(match_text, window)
-        return True
-
-    def focus_prepared_window(self, match_text: str) -> bool:
-        """Bring a previously prepared window to the front without re-opening it."""
-        window = self._get_prepared_window(match_text)
-        if not window:
-            return False
-        window.evaluate("el => el.style.zIndex = '99999999'")
-        return True
-
-    def _mark_window_prepared(self, match_text: str, window: Locator):
-        key = self._prepared_key(match_text)
-        if not key:
-            return
-        locator = window.locator("..")
-        try:
-            window.evaluate(
-                "(el, key) => el.setAttribute('data-prepared-window', key)",
-                key,
-            )
-        except Exception:
-            return
-        self._prepared_windows.add(key)
-
-    def _get_prepared_window(self, match_text: str) -> Locator | None:
-        key = self._prepared_key(match_text)
-        if key not in self._prepared_windows:
-            return None
-        locator = self.page.locator(f"div.x-window[data-prepared-window='{key}']:visible")
-        if locator.count() == 0:
-            self._prepared_windows.discard(key)
-            return None
-        return locator.first
-
-    def _prepared_key(self, match_text: str) -> str:
-        if not match_text:
-            return ""
-        return match_text.strip().lower().replace(" ", "_")
-
-    def _find_window_by_title(self, title: str) -> Locator | None:
-        windows = self.page.locator("div.x-window:visible")
-        count = windows.count()
-        for idx in range(count):
-            window = windows.nth(idx)
-            try:
-                window_title = self._get_window_title(window)
-            except Exception:
-                window_title = ""
-            if window_title and title.lower() in window_title.lower():
-                return window
-        return None
-
     def close_active_windows(self, skip_titles=None):
-        return
         """Close any open workspace windows so new screens start fresh."""
         skip = {title.strip().lower() for title in (skip_titles or []) if title}
         while True:
@@ -291,20 +222,12 @@ class NavigationManager:
         return None
 
     def _should_skip_window(self, window: Locator, skip_titles) -> bool:
-        attr = ""
-        try:
-            attr = window.get_attribute("data-prepared-window") or ""
-        except Exception:
-            attr = ""
-
-        if attr:
-            return True
         try:
             win_id = window.get_attribute("id") or ""
+            if win_id.startswith("mps_menu"):
+                return True
         except Exception:
-            win_id = ""
-        if win_id and win_id.startswith("mps_menu"):
-            return True
+            pass
 
         title = self._get_window_title(window)
         if not title:

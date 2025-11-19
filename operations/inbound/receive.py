@@ -1,6 +1,5 @@
 from datetime import datetime, timezone
 from typing import Any
-from pathlib import Path
 
 from ui.navigation import NavigationManager
 
@@ -8,8 +7,6 @@ from operations.base_operation import BaseOperation
 from operations.rf_primitives import RFMenuIntegration
 from config.operations_config import OperationConfig
 from core.logger import rf_log
-from utils.hash_utils import HashUtils
-from utils.wait_utils import WaitUtils
 
 
 class ReceiveOperation(BaseOperation):
@@ -141,19 +138,9 @@ class ReceiveOperation(BaseOperation):
         preserve_window = bool(tasks_cfg.get("preserve_window") or tasks_cfg.get("preserve"))
         close_existing = not preserve_window
 
-        if not nav_mgr.focus_prepared_window(match_text):
-            prev_snapshot = HashUtils.get_frame_snapshot(self.page.main_frame)
-            if not nav_mgr.open_tasks_ui(search_term, match_text, close_existing=close_existing):
-                rf_log("❌ Tasks UI detour failed during receive flow.")
-                return False
-
-            ready = WaitUtils.wait_for_screen_change(
-                lambda: self.page.main_frame,
-                prev_snapshot,
-                warn_on_timeout=False,
-            )
-            if not ready:
-                self._record_tasks_ui_debug(prev_snapshot, match_text)
+        if not nav_mgr.open_tasks_ui(search_term, match_text, close_existing=close_existing):
+            rf_log("❌ Tasks UI detour failed during receive flow.")
+            return False
 
         operation_note = tasks_cfg.get("operation_note", "Visited Tasks UI during receive")
         self.screenshot_mgr.capture(
@@ -163,6 +150,7 @@ class ReceiveOperation(BaseOperation):
         )
 
         focus_title = tasks_cfg.get("rf_focus_title", "RF Menu")
+        nav_mgr.close_active_windows(skip_titles=[focus_title])
         if not nav_mgr.focus_window_by_title(focus_title):
             rf_log("⚠️ Unable to bring RF Menu back to foreground after tasks detour.")
             return False
@@ -230,68 +218,6 @@ class ReceiveOperation(BaseOperation):
             if not any(keyword in lower_screen for keyword in keywords):
                 return False
         return True
-
-    def _record_tasks_ui_debug(self, prev_snapshot: str, match_text: str):
-        label = "tasks_ui_hang"
-        note = f"Tasks UI '{match_text}' hung during receive"
-        self.screenshot_mgr.capture(self.page, label, note)
-        rf_log("ℹ️ Captured screenshot for stuck Tasks UI.")
-        rf_log(f"ℹ️ Tasks UI URL: {self.page.url}")
-        current_snapshot = ""
-        try:
-            current_snapshot = HashUtils.get_frame_snapshot(self.page.main_frame)
-        except Exception as exc:
-            rf_log(f"⚠️ Can't snapshot current Tasks UI body: {exc}")
-        if prev_snapshot:
-            rf_log(f"ℹ️ Tasks UI prev snapshot snippet: {prev_snapshot[:200]}")
-        if current_snapshot:
-            rf_log(f"ℹ️ Tasks UI current snapshot snippet: {current_snapshot[:200]}")
-        body_text = ""
-        body_html = ""
-        try:
-            body_text = self.page.main_frame.locator("body").inner_text()
-            rf_log(f"ℹ️ Tasks UI body snippet: {body_text[:260]}")
-        except Exception as exc:
-            rf_log(f"⚠️ Unable to read Tasks UI body text: {exc}")
-        try:
-            body_html = self.page.main_frame.locator("body").inner_html()
-        except Exception as exc:
-            rf_log(f"⚠️ Unable to read Tasks UI body HTML: {exc}")
-
-        self._append_tasks_ui_debug_log(
-            prev_snapshot,
-            current_snapshot,
-            body_text,
-            body_html
-        )
-
-    def _append_tasks_ui_debug_log(
-        self,
-        prev_snapshot: str,
-        current_snapshot: str,
-        body_text: str,
-        body_html: str,
-    ):
-        timestamp = datetime.now(timezone.utc).isoformat()
-        log_lines = [
-            f"Timestamp: {timestamp}",
-            f"URL: {self.page.url}",
-            f"Prev snapshot: {prev_snapshot[:400]}",
-            f"Current snapshot: {current_snapshot[:400]}",
-            f"Body text (truncated): {body_text[:600]}",
-            f"Body html (truncated): {body_html[:1200]}",
-            "-" * 80,
-        ]
-        target_dir: Path = getattr(self.screenshot_mgr, "current_output_dir", self.screenshot_mgr.output_dir)
-        log_file = target_dir / "tasks_ui_debug.log"
-        try:
-            log_file.parent.mkdir(parents=True, exist_ok=True)
-            with log_file.open("a", encoding="utf-8") as fh:
-                for line in log_lines:
-                    fh.write(line + "\n")
-            rf_log(f"ℹ️ Tasks UI debug log appended: {log_file}")
-        except Exception as exc:
-            rf_log(f"⚠️ Could not write Tasks UI debug log: {exc}")
 
     def _handle_ib_rule_exception_blind_ilpn(self, rf) -> bool:
         timestamp = _current_lpn_timestamp()

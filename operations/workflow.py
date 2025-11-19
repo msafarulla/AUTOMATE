@@ -23,7 +23,6 @@ class WorkflowStageExecutor:
             "loading": self.handle_loading_stage,
             "tasks": self.handle_tasks_stage,
             "rf_return": self.handle_rf_return_stage,
-            "prerequisites": self.handle_prerequisites_stage,
         }
 
     def _confirm_prod_post(self, workflow_index: int) -> bool:
@@ -95,15 +94,6 @@ class WorkflowStageExecutor:
         if receive_quantity is None:
             receive_quantity = 1
         tasks_cfg = stage_cfg.get("tasks")
-        if tasks_cfg:
-            ref_key = tasks_cfg.get("ui_ref")
-            if ref_key:
-                prereq = metadata.get(f"prereq_{ref_key}")
-                if isinstance(prereq, dict):
-                    merged = {**prereq, **tasks_cfg}
-                    # ensure ref stays so it still works when we need it
-                    merged["ui_ref"] = ref_key
-                    tasks_cfg = merged
         receive_result = self.orchestrator.run_with_retry(
             self.stage_actions.receive,
             f"Receive (Workflow {workflow_idx})",
@@ -151,23 +141,6 @@ class WorkflowStageExecutor:
         if not success:
             app_log(f"❌ Unable to open Tasks UI for workflow {workflow_idx}; halting.")
             return metadata, False
-        return metadata, True
-
-    def handle_prerequisites_stage(
-        self,
-        stage_cfg: dict[str, Any],
-        metadata: dict[str, Any],
-        workflow_idx: int,
-    ) -> Tuple[dict[str, Any], bool]:
-        if not stage_cfg:
-            return metadata, True
-        tasks_cfg = stage_cfg.get("tasks_ui")
-        if tasks_cfg:
-            self.stage_actions.prepare_tasks_ui(
-                search_term=tasks_cfg.get("search_term", "tasks"),
-                match_text=tasks_cfg.get("match_text", "Tasks (Configuration)"),
-            )
-            metadata["prereq_tasks_ui"] = tasks_cfg
         return metadata, True
 
     def handle_rf_return_stage(
