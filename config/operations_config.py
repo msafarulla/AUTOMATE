@@ -110,6 +110,13 @@ class OperationConfig:
     DEFAULT_WORKFLOWS = {
         'inbound': {
             'receive_HAPPY_PATH': {
+                'prerequisites': {
+                    'tasks_ui': {
+                        'search_term': 'tasks',
+                        'match_text': 'Tasks (Configuration)',
+                        'match_note': 'Tasks UI preloaded before receives',
+                    },
+                },
                 'post': {
                     'enabled': True,
                     'source': 'db',
@@ -133,10 +140,8 @@ class OperationConfig:
                     'tasks': {
                         'enabled': True,
                         'preserve_window': True,
-                        'search_term': 'tasks',
-                        'match_text': 'Tasks (Configuration)',
+                        'ui_ref': 'tasks_ui',
                         'operation_note': 'Visited Tasks UI before confirming location',
-                        'rf_focus_title': 'RF Menu',
                     },
                 },
             },

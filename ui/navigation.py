@@ -12,6 +12,7 @@ class NavigationManager:
         self.page = page
         self.screenshot_mgr = screenshot_mgr
         self._ensure_menu_overlay_closed_after_sign_on = False
+        self._prepared_windows: dict[str, str] = {}
 
     def change_warehouse(self, warehouse: str):
         """Select facility and warehouse only if different"""
@@ -197,6 +198,64 @@ class NavigationManager:
                 return count
             self.page.wait_for_timeout(delay_ms)
         return items_locator.count()
+
+    def prepare_window_for_later(
+        self,
+        search_term: str,
+        match_text: str,
+        close_existing: bool = False,
+    ) -> bool:
+        """Open a window once and keep a handle so we can switch back later."""
+        if not self.open_menu_item(search_term, match_text, close_existing=close_existing):
+            return False
+
+        window = self._find_window_by_title(match_text)
+        if not window:
+            return False
+
+        self._remember_prepared_window(match_text, window)
+        return True
+
+    def focus_prepared_window(self, match_text: str) -> bool:
+        """Bring a previously prepared window to the front without re-opening it."""
+        window = self._get_prepared_window(match_text)
+        if not window:
+            return False
+        window.evaluate("el => el.style.zIndex = '99999999'")
+        return True
+
+    def _remember_prepared_window(self, match_text: str, window: Locator):
+        try:
+            window_id = window.get_attribute("id") or ""
+        except Exception:
+            window_id = ""
+        if not window_id:
+            return
+        self._prepared_windows[match_text.strip().lower()] = window_id
+
+    def _get_prepared_window(self, match_text: str) -> Locator | None:
+        key = match_text.strip().lower()
+        window_id = self._prepared_windows.get(key)
+        if not window_id:
+            return None
+        locator = self.page.locator(f"div.x-window#{window_id}:visible")
+        if locator.count() == 0:
+            self._prepared_windows.pop(key, None)
+            return None
+        return locator.first
+
+    def _find_window_by_title(self, title: str) -> Locator | None:
+        windows = self.page.locator("div.x-window:visible")
+        count = windows.count()
+        for idx in range(count):
+            window = windows.nth(idx)
+            try:
+                window_title = self._get_window_title(window)
+            except Exception:
+                window_title = ""
+            if window_title and title.lower() in window_title.lower():
+                return window
+        return None
 
     def close_active_windows(self, skip_titles=None):
         """Close any open workspace windows so new screens start fresh."""

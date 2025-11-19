@@ -141,18 +141,19 @@ class ReceiveOperation(BaseOperation):
         preserve_window = bool(tasks_cfg.get("preserve_window") or tasks_cfg.get("preserve"))
         close_existing = not preserve_window
 
-        prev_snapshot = HashUtils.get_frame_snapshot(self.page.main_frame)
-        if not nav_mgr.open_tasks_ui(search_term, match_text, close_existing=close_existing):
-            rf_log("❌ Tasks UI detour failed during receive flow.")
-            return False
+        if not nav_mgr.focus_prepared_window(match_text):
+            prev_snapshot = HashUtils.get_frame_snapshot(self.page.main_frame)
+            if not nav_mgr.open_tasks_ui(search_term, match_text, close_existing=close_existing):
+                rf_log("❌ Tasks UI detour failed during receive flow.")
+                return False
 
-        ready = WaitUtils.wait_for_screen_change(
-            lambda: self.page.main_frame,
-            prev_snapshot,
-            warn_on_timeout=False,
-        )
-        if not ready:
-            self._record_tasks_ui_debug(prev_snapshot, match_text)
+            ready = WaitUtils.wait_for_screen_change(
+                lambda: self.page.main_frame,
+                prev_snapshot,
+                warn_on_timeout=False,
+            )
+            if not ready:
+                self._record_tasks_ui_debug(prev_snapshot, match_text)
 
         operation_note = tasks_cfg.get("operation_note", "Visited Tasks UI during receive")
         self.screenshot_mgr.capture(

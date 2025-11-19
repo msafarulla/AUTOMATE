@@ -27,6 +27,7 @@ class StageActions:
     loading: Callable[..., bool]
     run_tasks_ui: Callable[..., bool]
     run_tasks_ui_in_place: Callable[..., bool]
+    prepare_tasks_ui: Callable[..., bool]
     run_focus_rf: Callable[..., bool]
 
 
@@ -67,6 +68,7 @@ class OperationRunner:
         self.run_post_message = self._guarded(self._run_post_message)
         self.run_tasks_ui = self._guarded(self._run_tasks_ui)
         self.run_tasks_ui_in_place = self._guarded(self._run_tasks_ui_in_place)
+        self.prepare_tasks_ui = self._guarded(self._prepare_tasks_ui)
         self.run_focus_rf = self._guarded(self._run_focus_rf)
 
     def _guarded(self, func: Callable[..., Any]) -> Callable[..., Any]:
@@ -143,6 +145,16 @@ class OperationRunner:
             app_log("❌ Tasks UI in-place navigation failed")
         return succeeded
 
+    def _prepare_tasks_ui(
+        self,
+        search_term: str = "tasks",
+        match_text: str = "Tasks (Configuration)",
+    ) -> bool:
+        succeeded = self.nav_mgr.prepare_window_for_later(search_term, match_text, close_existing=False)
+        if not succeeded:
+            app_log("❌ Tasks UI preparation failed")
+        return succeeded
+
     def _run_focus_rf(self, title: str = "RF Menu") -> bool:
         succeeded = self.nav_mgr.focus_window_by_title(title)
         if not succeeded:
@@ -193,8 +205,9 @@ def create_operation_services(settings: Any) -> Generator[OperationServices, Non
                 run_post_message=runner.run_post_message,
                 receive=runner.receive,
                 loading=runner.loading,
-                run_tasks_ui=runner.run_tasks_ui,
-                run_tasks_ui_in_place=runner.run_tasks_ui_in_place,
+            run_tasks_ui=runner.run_tasks_ui,
+            run_tasks_ui_in_place=runner.run_tasks_ui_in_place,
+            prepare_tasks_ui=runner.prepare_tasks_ui,
                 run_focus_rf=runner.run_focus_rf,
             ),
         )
