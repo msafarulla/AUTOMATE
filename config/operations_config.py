@@ -132,7 +132,6 @@ class OperationConfig:
                     'auto_handle_deviation': True,
                     'tasks': {
                         'enabled': True,
-                        'preserve_window': True,
                         'search_term': 'tasks',
                         'match_text': 'Tasks (Configuration)',
                         'operation_note': 'Visited Tasks UI before confirming location',
