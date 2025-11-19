@@ -1,5 +1,6 @@
 from datetime import datetime, timezone
 from typing import Any
+from pathlib import Path
 
 from ui.navigation import NavigationManager
 
@@ -244,11 +245,52 @@ class ReceiveOperation(BaseOperation):
             rf_log(f"ℹ️ Tasks UI prev snapshot snippet: {prev_snapshot[:200]}")
         if current_snapshot:
             rf_log(f"ℹ️ Tasks UI current snapshot snippet: {current_snapshot[:200]}")
+        body_text = ""
+        body_html = ""
         try:
             body_text = self.page.main_frame.locator("body").inner_text()
             rf_log(f"ℹ️ Tasks UI body snippet: {body_text[:260]}")
         except Exception as exc:
             rf_log(f"⚠️ Unable to read Tasks UI body text: {exc}")
+        try:
+            body_html = self.page.main_frame.locator("body").inner_html()
+        except Exception as exc:
+            rf_log(f"⚠️ Unable to read Tasks UI body HTML: {exc}")
+
+        self._append_tasks_ui_debug_log(
+            prev_snapshot,
+            current_snapshot,
+            body_text,
+            body_html
+        )
+
+    def _append_tasks_ui_debug_log(
+        self,
+        prev_snapshot: str,
+        current_snapshot: str,
+        body_text: str,
+        body_html: str,
+    ):
+        timestamp = datetime.now(timezone.utc).isoformat()
+        log_lines = [
+            f"Timestamp: {timestamp}",
+            f"URL: {self.page.url}",
+            f"Prev snapshot: {prev_snapshot[:400]}",
+            f"Current snapshot: {current_snapshot[:400]}",
+            f"Body text (truncated): {body_text[:600]}",
+            f"Body html (truncated): {body_html[:1200]}",
+            "-" * 80,
+        ]
+        target_dir: Path = getattr(self.screenshot_mgr, "current_output_dir", self.screenshot_mgr.output_dir)
+        log_file = target_dir / "tasks_ui_debug.log"
+        try:
+            log_file.parent.mkdir(parents=True, exist_ok=True)
+            with log_file.open("a", encoding="utf-8") as fh:
+                for line in log_lines:
+                    fh.write(line + "\n")
+            rf_log(f"ℹ️ Tasks UI debug log appended: {log_file}")
+        except Exception as exc:
+            rf_log(f"⚠️ Could not write Tasks UI debug log: {exc}")
 
     def _handle_ib_rule_exception_blind_ilpn(self, rf) -> bool:
         timestamp = _current_lpn_timestamp()
