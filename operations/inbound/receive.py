@@ -155,12 +155,7 @@ class ReceiveOperation(BaseOperation):
             rf_log("⚠️ Unable to bring RF Menu back to foreground after tasks detour.")
             return False
 
-        rf_locator = self.page.locator("div.x-window:has-text('RF Menu') input#dataForm\\:locn").first
-        try:
-            rf_locator.wait_for(state="visible", timeout=5000)
-        except Exception as exc:
-            rf_log(f"⚠️ RF location field still hidden after focus switch: {exc}")
-            return False
+        nav_mgr.send_window_to_back(match_text)
 
         rf_log(f"ℹ️ {operation_note}")
         return True
