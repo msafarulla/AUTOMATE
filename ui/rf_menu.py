@@ -90,8 +90,8 @@ class RFMenuManager:
                 const newHeight = Math.min(maxAllowed, rect.height + extraHeight);
                 el.style.setProperty("height", `${newHeight}px`, "important");
                 el.style.setProperty("min-height", `${newHeight}px`, "important");
-                el.style.setProperty("border-bottom", "1px solid #5073a4", "important");
-                el.style.setProperty("box-shadow", "0 4px 12px rgba(0,0,0,0.2)", "important");
+                el.style.setProperty("border-bottom", "1px solid #1f456b", "important");
+                el.style.setProperty("box-shadow", "0 6px 16px rgba(0,0,0,0.25)", "important");
                 el.style.setProperty("background-color", "rgba(255,255,255,0.9)", "important");
                 const body = el.querySelector(".x-window-body, .x-body");
                 if (body) {
