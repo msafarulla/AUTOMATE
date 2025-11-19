@@ -72,6 +72,7 @@ class RFMenuManager:
         self.screenshot_mgr.capture_rf_window(self.page, "RF_HOME", "RF Home")
 
     def maximize_window(self):
+        return
         """Maximize RF Menu window"""
         try:
             success = safe_page_evaluate(
