@@ -186,21 +186,6 @@ class NavigationManager:
                 return True
         return False
 
-    def set_window_interactivity(self, title: str, interactive: bool):
-        """Toggle pointer events on a window by title."""
-        windows = self.page.locator("div.x-window")
-        value = "auto" if interactive else "none"
-        for index in range(windows.count()):
-            window = windows.nth(index)
-            try:
-                window_title = self._get_window_title(window)
-            except Exception:
-                window_title = ""
-            if window_title and title.lower() in window_title.lower():
-                window.evaluate(f"el => el.style.pointerEvents = '{value}'")
-                return True
-        return False
-
     def _open_menu_panel(self):
         """Open the navigation panel (idempotent)."""
         page = self.page

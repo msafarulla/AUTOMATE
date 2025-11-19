@@ -151,9 +151,7 @@ class ReceiveOperation(BaseOperation):
 
         focus_title = tasks_cfg.get("rf_focus_title", "RF Menu")
         nav_mgr.send_window_to_back(match_text)
-        nav_mgr.set_window_interactivity(match_text, False)
         if not nav_mgr.focus_window_by_title(focus_title):
-            nav_mgr.set_window_interactivity(match_text, True)
             rf_log("⚠️ Unable to bring RF Menu back to foreground after tasks detour.")
             return False
 
@@ -163,11 +161,8 @@ class ReceiveOperation(BaseOperation):
         try:
             rf_locator.wait_for(state="visible", timeout=5000)
         except Exception as exc:
-            nav_mgr.set_window_interactivity(match_text, True)
             rf_log(f"⚠️ RF location field still hidden after focus switch: {exc}")
             return False
-        finally:
-            nav_mgr.set_window_interactivity(match_text, True)
 
         rf_log(f"ℹ️ {operation_note}")
         return True
