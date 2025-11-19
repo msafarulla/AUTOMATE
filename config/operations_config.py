@@ -136,7 +136,7 @@ class OperationConfig:
                         'search_term': 'tasks',
                         'match_text': 'Tasks (Configuration)',
                         'operation_note': 'Visited Tasks UI before confirming location',
-                        'rf_focus_title': 'RF Menu (Distribution)',
+                        'rf_focus_title': 'RF Menu',
                     },
                 },
             },
