@@ -98,23 +98,6 @@ class RFMenuManager:
         finally:
             handle.dispose()
 
-        try:
-            safe_page_evaluate(
-                self.page,
-                """
-            () => {
-                const win = Ext.ComponentQuery.query('window[title~="RF"]')[0];
-                if (!win || !win.setHeight) return;
-                const currentHeight = win.getHeight?.() || (win.getSize?.()[1] || 0);
-                win.setHeight(currentHeight + 192);
-                win.updateLayout?.();
-            }
-                """,
-                description="RFMenuManager.maximize_window_adjust",
-            )
-        except Exception:
-            pass
-
         self._maximized = True
         return True
 
