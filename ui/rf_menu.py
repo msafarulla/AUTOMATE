@@ -35,10 +35,6 @@ class RFMenuManager:
     def get_iframe(self) -> Frame:
         return self.page_mgr.get_rf_iframe()
 
-    def ensure_maximized(self):
-        """Ensure RF window is maximized from callers that know it should exist."""
-        self._ensure_maximized()
-
     def reset_to_home(self):
         """Send Ctrl+B so RF navigation always starts from the home menu."""
         self._ensure_maximized()
@@ -72,28 +68,44 @@ class RFMenuManager:
         self.screenshot_mgr.capture_rf_window(self.page, "RF_HOME", "RF Home")
 
     def maximize_window(self):
-        return
-        """Maximize RF Menu window"""
+        """Resize the RF Menu window using safe DOM manipulation once it is ready."""
+        rf_window = self.page.locator("div.x-window:has-text('RF Menu')").first
         try:
-            success = safe_page_evaluate(
-                self.page,
+            rf_window.wait_for(state="visible", timeout=4000)
+        except Exception:
+            return False
+
+        handle = rf_window.element_handle()
+        if handle is None:
+            return False
+
+        try:
+            handle.evaluate(
                 """
-            () => {
-                const win = Ext.ComponentQuery.query('window[title~="RF"]')[0];
-                if (!win) return false;
-                win.setHeight(window.innerHeight * 0.9);
-                win.center();
-                win.updateLayout();
-                return true;
+            (el) => {
+                const viewportWidth = window.innerWidth;
+                const viewportHeight = window.innerHeight;
+                const targetWidth = Math.max(400, viewportWidth * 0.92);
+                const targetHeight = Math.max(300, viewportHeight * 0.9);
+                const top = Math.max(12, viewportHeight * 0.04);
+                const left = Math.max(12, (viewportWidth - targetWidth) / 2);
+                el.style.setProperty("position", "absolute", "important");
+                el.style.setProperty("left", `${left}px`, "important");
+                el.style.setProperty("top", `${top}px`, "important");
+                el.style.setProperty("width", `${targetWidth}px`, "important");
+                el.style.setProperty("height", `${targetHeight}px`, "important");
+                el.style.setProperty("margin", "0", "important");
+                el.style.setProperty("transform", "none", "important");
             }
                 """,
-                description="RFMenuManager.maximize_window",
             )
         except Exception:
-            success = False
+            return False
+        finally:
+            handle.dispose()
 
-        self._maximized = bool(success)
-        return self._maximized
+        self._maximized = True
+        return True
 
     def enter_choice(self, choice: str, ui_name: str) -> tuple[bool, str]:
         """Enter a choice in RF Menu and press Enter"""

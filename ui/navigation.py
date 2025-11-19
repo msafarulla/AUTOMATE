@@ -121,7 +121,6 @@ class NavigationManager:
                         retry_due_to_click_failure = True
                         break
 
-                    self._maybe_maximize_rf_window(normalized_match)
                     self._maybe_center_post_message_window(normalized_match)
                     self._maybe_maximize_workspace_window(normalized_match)
                     page.wait_for_timeout(3000)
@@ -312,62 +311,6 @@ class NavigationManager:
             return
         self._ensure_menu_closed()
         self._ensure_menu_overlay_closed_after_sign_on = False
-
-    def _maybe_maximize_rf_window(self, normalized_match: str):
-        """Maximize RF window immediately after launching RF menu."""
-        if "rf menu" not in normalized_match:
-            return
-
-        try:
-            self.page.locator("div.x-window:has-text('RF Menu')").first.wait_for(
-                state="visible", timeout=4000
-            )
-        except Exception:
-            pass
-
-        try:
-            success = safe_page_evaluate(
-                self.page,
-                """
-            () => {
-                const win = Ext.ComponentQuery.query('window[title~="RF"]')[0];
-                if (!win) return false;
-                const topPadding = Math.max(window.innerHeight * 0.05, 15);
-                const leftPadding = Math.max(window.innerWidth * 0.01, 12);
-                const el = win.el?.dom;
-                if (!el) return false;
-
-                const reposition = () => {
-                    el.style.position = "absolute";
-                    el.style.top = `${topPadding}px`;
-                    el.style.left = `${leftPadding}px`;
-                    el.style.transform = "none";
-                    el.style.margin = "0";
-                    el.style.transition = "none";
-                    el.style.setProperty("left", `${leftPadding}px`, "important");
-                    el.style.setProperty("top", `${topPadding}px`, "important");
-                    win.updateLayout?.();
-                };
-
-                reposition();
-                win.toFront?.();
-
-                if (!win.__rf_left_aligned) {
-                    win.__rf_left_aligned = true;
-                    win.on?.("afterlayout", reposition);
-                    win.on?.("show", reposition);
-                    win.on?.("resize", reposition);
-                }
-
-                return true;
-            }
-                """,
-                description="NavigationManager._maybe_maximize_rf_window",
-            )
-            if success:
-                app_log("🪟 RF window maximized from navigation.")
-        except Exception as e:
-            app_log(f"⚠️ Unable to maximize RF window: {e}")
 
     def _maybe_center_post_message_window(self, normalized_match: str):
         """Pin the Post Message window near the top-center so it does not cascade down."""
