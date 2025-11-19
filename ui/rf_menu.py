@@ -93,6 +93,13 @@ class RFMenuManager:
                 el.style.setProperty("border-bottom", "0", "important");
                 el.style.setProperty("box-shadow", "none", "important");
                 el.style.setProperty("background-color", "rgba(255,255,255,0.9)", "important");
+                const body = el.querySelector(".x-window-body, .x-body");
+                if (body) {
+                    body.style.setProperty("min-height", `${newHeight}px`, "important");
+                    body.style.setProperty("background-color", "rgba(255,255,255,0.9)", "important");
+                    body.style.setProperty("border", "0", "important");
+                    body.style.setProperty("box-shadow", "none", "important");
+                }
             }
                 """,
             )
