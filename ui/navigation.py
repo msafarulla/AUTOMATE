@@ -152,6 +152,26 @@ class NavigationManager:
         app_log(f"⚠️ No window with title containing '{title}' is visible")
         return False
 
+    def activate_rf_window(self):
+        try:
+            safe_page_evaluate(
+                self.page,
+                """
+            () => {
+                const win = Ext.ComponentQuery.query('window[title~="RF"]')[0];
+                if (!win) return false;
+                win.toFront?.();
+                win.focus?.();
+                win.el?.dom?.classList.add('x-window-active');
+                win.el?.dom?.classList.remove('x-window-inactive');
+                return true;
+            }
+                """,
+                description="NavigationManager.activate_rf_window",
+            )
+        except Exception:
+            pass
+
     def send_window_to_back(self, title: str) -> bool:
         """Lower the z-index so another window can appear on top."""
         windows = self.page.locator("div.x-window:visible")
