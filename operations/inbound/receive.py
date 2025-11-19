@@ -7,6 +7,8 @@ from operations.base_operation import BaseOperation
 from operations.rf_primitives import RFMenuIntegration
 from config.operations_config import OperationConfig
 from core.logger import rf_log
+from utils.hash_utils import HashUtils
+from utils.wait_utils import WaitUtils
 
 
 class ReceiveOperation(BaseOperation):
@@ -138,11 +140,16 @@ class ReceiveOperation(BaseOperation):
         preserve_window = bool(tasks_cfg.get("preserve_window") or tasks_cfg.get("preserve"))
         close_existing = not preserve_window
 
+        prev_snapshot = HashUtils.get_frame_snapshot(self.page.main_frame)
         if not nav_mgr.open_tasks_ui(search_term, match_text, close_existing=close_existing):
             rf_log("❌ Tasks UI detour failed during receive flow.")
             return False
 
-        nav_mgr.wait_for_window_ready(match_text)
+        WaitUtils.wait_for_screen_change(
+            lambda: self.page.main_frame,
+            prev_snapshot,
+            warn_on_timeout=False,
+        )
 
         operation_note = tasks_cfg.get("operation_note", "Visited Tasks UI during receive")
         self.screenshot_mgr.capture(

@@ -198,21 +198,6 @@ class NavigationManager:
             self.page.wait_for_timeout(delay_ms)
         return items_locator.count()
 
-    def wait_for_window_ready(self, title_text: str, timeout_ms: int = 9000) -> bool:
-        """Wait until a window with the given title text appears and any loading mask clears."""
-        page = self.page
-        escaped = title_text.replace("'", "\\'")
-        selector = f"div.x-window:visible:has-text('{escaped}')"
-        try:
-            window = page.locator(selector).first
-            window.wait_for(state="visible", timeout=timeout_ms)
-        except Exception as exc:
-            app_log(f"⚠️ Waiting for window '{title_text}' visibility failed: {exc}")
-            return False
-
-        self._wait_for_mask_to_clear(timeout_ms=timeout_ms)
-        return True
-
     def close_active_windows(self, skip_titles=None):
         """Close any open workspace windows so new screens start fresh."""
         skip = {title.strip().lower() for title in (skip_titles or []) if title}
