@@ -114,7 +114,6 @@ class NavigationManager:
                 if normalized_text == normalized_match:
                     self.screenshot_mgr.capture(page, f"Selecting {normalized_text} UI", f"Selecting {text} UI")
                     app_log(f"✅ Exact match found: '{text}' — selecting it")
-
                     try:
                         self._activate_menu_selection(items.nth(i), "rf menu" in normalized_match)
                     except PlaywrightTimeoutError:
@@ -122,7 +121,6 @@ class NavigationManager:
                         retry_due_to_click_failure = True
                         break
 
-                    self._wait_for_mask_to_clear(timeout_ms=6000)
                     self._maybe_maximize_rf_window(normalized_match)
                     self._maybe_center_post_message_window(normalized_match)
                     self._maybe_maximize_workspace_window(normalized_match)
