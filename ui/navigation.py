@@ -124,7 +124,7 @@ class NavigationManager:
                     self._maybe_maximize_rf_window(normalized_match)
                     self._maybe_center_post_message_window(normalized_match)
                     self._maybe_maximize_workspace_window(normalized_match)
-                    page.wait_for_timeout(500)
+                    page.wait_for_timeout(3000)
                     return True
                 else:
                     diff = ''.join(ndiff([normalized_text], [normalized_match]))
