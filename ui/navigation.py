@@ -283,10 +283,13 @@ class NavigationManager:
     def _should_skip_window(self, window: Locator, skip_titles) -> bool:
         try:
             win_id = window.get_attribute("id") or ""
-            if win_id.startswith("mps_menu"):
-                return True
         except Exception:
-            pass
+            win_id = ""
+
+        if win_id.startswith("mps_menu"):
+            return True
+        if win_id and win_id in self._prepared_windows.values():
+            return True
 
         title = self._get_window_title(window)
         if not title:

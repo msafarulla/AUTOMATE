@@ -115,6 +115,7 @@ class OperationConfig:
                         'search_term': 'tasks',
                         'match_text': 'Tasks (Configuration)',
                         'match_note': 'Tasks UI preloaded before receives',
+                        'preserve_window': True,
                     },
                 },
                 'post': {
@@ -138,10 +139,7 @@ class OperationConfig:
                     'flow': 'HAPPY_PATH',
                     'auto_handle_deviation': True,
                     'tasks': {
-                        'enabled': True,
-                        'preserve_window': True,
-                        'ui_ref': 'tasks_ui',
-                        'operation_note': 'Visited Tasks UI before confirming location',
+                        'element': None,
                     },
                 },
             },
