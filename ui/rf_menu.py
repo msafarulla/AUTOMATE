@@ -68,8 +68,7 @@ class RFMenuManager:
         self.screenshot_mgr.capture_rf_window(self.page, "RF_HOME", "RF Home")
 
     def maximize_window(self):
-        return
-        """Resize the RF Menu window using safe DOM manipulation once it is ready."""
+        """Increase the RF Menu window height by ~2 inches without repositioning."""
         rf_window = self.page.locator("div.x-window:has-text('RF Menu')").first
         try:
             rf_window.wait_for(state="visible", timeout=4000)
@@ -84,21 +83,15 @@ class RFMenuManager:
             handle.evaluate(
                 """
             (el) => {
-                const viewportWidth = window.innerWidth;
+                const rect = el.getBoundingClientRect();
+                const extraHeight = 192;
                 const viewportHeight = window.innerHeight;
-                const targetWidth = Math.max(400, viewportWidth * 0.92);
-                const targetHeight = Math.max(300, viewportHeight * 0.9);
-                const top = Math.max(12, viewportHeight * 0.04);
-                const left = Math.max(12, (viewportWidth - targetWidth) / 2);
-                el.style.setProperty("position", "absolute", "important");
-                el.style.setProperty("left", `${left}px`, "important");
-                el.style.setProperty("top", `${top}px`, "important");
-                el.style.setProperty("width", `${targetWidth}px`, "important");
-                el.style.setProperty("height", `${targetHeight}px`, "important");
-                el.style.setProperty("margin", "0", "important");
-                el.style.setProperty("transform", "none", "important");
-            }
-                """,
+                const maxAllowed = viewportHeight - rect.top - 12;
+                const newHeight = Math.min(maxAllowed, rect.height + extraHeight);
+                el.style.setProperty("min-height", `${newHeight}px`, "important");
+                el.style.setProperty("height", `${newHeight}px`, "important");
+                }
+                    """,
             )
         except Exception:
             return False
