@@ -267,6 +267,7 @@ class NavigationManager:
         return None
 
     def close_active_windows(self, skip_titles=None):
+        return
         """Close any open workspace windows so new screens start fresh."""
         skip = {title.strip().lower() for title in (skip_titles or []) if title}
         while True:
