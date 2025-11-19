@@ -150,7 +150,6 @@ class ReceiveOperation(BaseOperation):
         )
 
         focus_title = tasks_cfg.get("rf_focus_title", "RF Menu")
-        nav_mgr.send_window_to_back(match_text)
         if not nav_mgr.focus_window_by_title(focus_title):
             rf_log("⚠️ Unable to bring RF Menu back to foreground after tasks detour.")
             return False
