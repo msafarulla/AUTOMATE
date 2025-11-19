@@ -152,20 +152,6 @@ class NavigationManager:
         app_log(f"⚠️ No window with title containing '{title}' is visible")
         return False
 
-    def send_window_to_back(self, title: str) -> bool:
-        """Lower the z-index so another window can appear on top."""
-        windows = self.page.locator("div.x-window:visible")
-        for index in range(windows.count()):
-            window = windows.nth(index)
-            try:
-                window_title = self._get_window_title(window)
-            except Exception:
-                window_title = ""
-            if window_title and title.lower() in window_title.lower():
-                window.evaluate("el => el.style.zIndex = '100'")
-                return True
-        return False
-
     def _open_menu_panel(self):
         """Open the navigation panel (idempotent)."""
         page = self.page

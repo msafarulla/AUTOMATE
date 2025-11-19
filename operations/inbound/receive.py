@@ -154,8 +154,6 @@ class ReceiveOperation(BaseOperation):
             rf_log("⚠️ Unable to bring RF Menu back to foreground after tasks detour.")
             return False
 
-        nav_mgr.send_window_to_back(match_text)
-
         rf_log(f"ℹ️ {operation_note}")
         return True
 
