@@ -145,11 +145,13 @@ class ReceiveOperation(BaseOperation):
             rf_log("❌ Tasks UI detour failed during receive flow.")
             return False
 
-        WaitUtils.wait_for_screen_change(
+        ready = WaitUtils.wait_for_screen_change(
             lambda: self.page.main_frame,
             prev_snapshot,
             warn_on_timeout=False,
         )
+        if not ready:
+            self._record_tasks_ui_debug(prev_snapshot, match_text)
 
         operation_note = tasks_cfg.get("operation_note", "Visited Tasks UI during receive")
         self.screenshot_mgr.capture(
@@ -226,6 +228,27 @@ class ReceiveOperation(BaseOperation):
             if not any(keyword in lower_screen for keyword in keywords):
                 return False
         return True
+
+    def _record_tasks_ui_debug(self, prev_snapshot: str, match_text: str):
+        label = "tasks_ui_hang"
+        note = f"Tasks UI '{match_text}' hung during receive"
+        self.screenshot_mgr.capture(self.page, label, note)
+        rf_log("ℹ️ Captured screenshot for stuck Tasks UI.")
+        rf_log(f"ℹ️ Tasks UI URL: {self.page.url}")
+        current_snapshot = ""
+        try:
+            current_snapshot = HashUtils.get_frame_snapshot(self.page.main_frame)
+        except Exception as exc:
+            rf_log(f"⚠️ Can't snapshot current Tasks UI body: {exc}")
+        if prev_snapshot:
+            rf_log(f"ℹ️ Tasks UI prev snapshot snippet: {prev_snapshot[:200]}")
+        if current_snapshot:
+            rf_log(f"ℹ️ Tasks UI current snapshot snippet: {current_snapshot[:200]}")
+        try:
+            body_text = self.page.main_frame.locator("body").inner_text()
+            rf_log(f"ℹ️ Tasks UI body snippet: {body_text[:260]}")
+        except Exception as exc:
+            rf_log(f"⚠️ Unable to read Tasks UI body text: {exc}")
 
     def _handle_ib_rule_exception_blind_ilpn(self, rf) -> bool:
         timestamp = _current_lpn_timestamp()
