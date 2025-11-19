@@ -68,6 +68,7 @@ class RFMenuManager:
         self.screenshot_mgr.capture_rf_window(self.page, "RF_HOME", "RF Home")
 
     def maximize_window(self):
+        return
         """Resize the RF Menu window using safe DOM manipulation once it is ready."""
         rf_window = self.page.locator("div.x-window:has-text('RF Menu')").first
         try:

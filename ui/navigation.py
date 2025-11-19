@@ -336,22 +336,11 @@ class NavigationManager:
     def _maybe_maximize_workspace_window(self, normalized_match: str):
         """Maximize non-RF workspace windows so screenshots capture more detail."""
         if "rf menu" in normalized_match:
-            return
-
-        for attempt in range(6):
-            if self._maximize_active_non_rf_window():
-                if attempt:
-                    app_log(f"🪟 Workspace window maximized after retry {attempt + 1}.")
-                else:
-                    app_log("🪟 Workspace window maximized for capture.")
-                return
-            self.page.wait_for_timeout(200)
+            return  
+        self._maximize_active_non_rf_window()
+        return
 
     def _activate_menu_selection(self, item_locator: Locator, use_info_button: bool):
-        """
-        Select the menu entry, preferring the blue info button when requested since
-        some RF-focused menu items only launch via that icon.
-        """
         if use_info_button and self._click_info_icon(item_locator):
             return
 
