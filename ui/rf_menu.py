@@ -88,17 +88,34 @@ class RFMenuManager:
                 const viewportHeight = window.innerHeight;
                 const maxAllowed = viewportHeight - rect.top - 12;
                 const newHeight = Math.min(maxAllowed, rect.height + extraHeight);
-                el.style.setProperty("min-height", `${newHeight}px`, "important");
                 el.style.setProperty("height", `${newHeight}px`, "important");
-                el.style.setProperty("border-bottom", "none", "important");
-                el.style.setProperty("box-shadow", "none", "important");
-                }
-                    """,
+                el.style.setProperty("min-height", `${newHeight}px`, "important");
+                el.style.setProperty("border-bottom", "0", "important");
+                el.style.setProperty("box-shadow", "0 0 0 rgba(0,0,0,0)", "important");
+            }
+                """,
             )
         except Exception:
-            return False
+            pass
         finally:
             handle.dispose()
+
+        try:
+            safe_page_evaluate(
+                self.page,
+                """
+            () => {
+                const win = Ext.ComponentQuery.query('window[title~="RF"]')[0];
+                if (!win || !win.setHeight) return;
+                const currentHeight = win.getHeight?.() || (win.getSize?.()[1] || 0);
+                win.setHeight(currentHeight + 192);
+                win.updateLayout?.();
+            }
+                """,
+                description="RFMenuManager.maximize_window_adjust",
+            )
+        except Exception:
+            pass
 
         self._maximized = True
         return True
