@@ -48,11 +48,11 @@ class ReceiveOperation(BaseOperation):
             return False
 
         shipped_qty = self._read_shipped_quantity()
-        received_qty = self._read_current_received_quantity(selectors.quantity)
+        received_qty = self._read_received_quantity()
         rf_log(
-            f"ℹ️ Screen reports shipped={shipped_qty if shipped_qty is not None else 'unknown'}; "
-            f"current quantity field={received_qty if received_qty is not None else quantity}"
-        )
+                f"ℹ️ Screen reports shipped={shipped_qty if shipped_qty is not None else 'unknown'}; "
+                f"current quantity value={received_qty if received_qty is not None else 'unknown'}"
+            )
 
         # Enter quantity
         success = workflows.enter_quantity(selectors.quantity, quantity, item)
@@ -150,13 +150,13 @@ class ReceiveOperation(BaseOperation):
         except ValueError:
             return None
 
-    def _read_current_received_quantity(self, selector: str) -> int | None:
+    def _read_received_quantity(self) -> int | None:
         try:
-            value = self.page.locator(selector).input_value().strip()
+            text = self.page.locator("div#RecvQty").inner_text().strip()
         except Exception as exc:
-            rf_log(f"⚠️ Unable to read quantity input value: {exc}")
+            rf_log(f"⚠️ Unable to read received quantity label: {exc}")
             return None
-        digits = re.findall(r"\d+", value)
+        digits = re.findall(r"\d+", text)
         if not digits:
             return None
         try:
