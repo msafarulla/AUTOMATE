@@ -47,8 +47,8 @@ class ReceiveOperation(BaseOperation):
             rf_log(f"❌ Item scan failed: {msg}")
             return False
 
-        shipped_qty = self._read_quantity_field(rf, selectors, "shipped_quantity")
-        received_qty = self._read_quantity_field(rf, selectors, "received_quantity")
+        shipped_qty = self._read_container_quantity(rf, selectors, "shipped_quantity", r"Shpd:? ([\d,]+)")
+        received_qty = self._read_container_quantity(rf, selectors, "received_quantity", r"Rcvd:? ([\d,]+)")
         rf_log(
                 f"ℹ️ Screen reports shipped={shipped_qty if shipped_qty is not None else 'unknown'}; "
                 f"current quantity value={received_qty if received_qty is not None else 'unknown'}"
@@ -136,22 +136,25 @@ class ReceiveOperation(BaseOperation):
                 candidates.append(selector)
         return candidates
 
-    def _read_quantity_field(self, rf, selectors, key: str) -> int | None:
+    def _read_container_quantity(self, rf, selectors, key: str, pattern: str) -> int | None:
         selector = selectors.selectors.get(key)
         if not selector:
             return None
 
         for _ in range(5):
             try:
-                text = rf.read_field(selector).strip()
+                container_text = rf.read_field(selector).replace("\u00a0", " ").strip()
             except Exception as exc:
-                rf_log(f"⚠️ Unable to read {key} label: {exc}")
+                rf_log(f"⚠️ Unable to read {key} container: {exc}")
                 return None
-            digits = re.findall(r"[\d,]+", text)
-            if digits:
-                candidate = digits[0].replace(",", "")
+            if not container_text:
+                self.page.wait_for_timeout(300)
+                continue
+            match = re.search(pattern, container_text, re.IGNORECASE)
+            if match:
+                digits = match.group(1).replace(",", "")
                 try:
-                    return int(candidate)
+                    return int(digits)
                 except ValueError:
                     return None
             self.page.wait_for_timeout(300)
