@@ -1,3 +1,5 @@
+import re
+
 from datetime import datetime, timezone
 from typing import Any
 
@@ -44,6 +46,13 @@ class ReceiveOperation(BaseOperation):
         if has_error:
             rf_log(f"❌ Item scan failed: {msg}")
             return False
+
+        shipped_qty = self._read_shipped_quantity()
+        received_qty = self._read_current_received_quantity(selectors.quantity)
+        rf_log(
+            f"ℹ️ Screen reports shipped={shipped_qty if shipped_qty is not None else 'unknown'}; "
+            f"current quantity field={received_qty if received_qty is not None else quantity}"
+        )
 
         # Enter quantity
         success = workflows.enter_quantity(selectors.quantity, quantity, item)
@@ -126,6 +135,34 @@ class ReceiveOperation(BaseOperation):
             if isinstance(selector, str):
                 candidates.append(selector)
         return candidates
+
+    def _read_shipped_quantity(self) -> int | None:
+        try:
+            text = self.page.locator("div#shippedQty").inner_text().strip()
+        except Exception as exc:
+            rf_log(f"⚠️ Unable to read shipped quantity label: {exc}")
+            return None
+        digits = re.findall(r"\d+", text)
+        if not digits:
+            return None
+        try:
+            return int(digits[0])
+        except ValueError:
+            return None
+
+    def _read_current_received_quantity(self, selector: str) -> int | None:
+        try:
+            value = self.page.locator(selector).input_value().strip()
+        except Exception as exc:
+            rf_log(f"⚠️ Unable to read quantity input value: {exc}")
+            return None
+        digits = re.findall(r"\d+", value)
+        if not digits:
+            return None
+        try:
+            return int(digits[0])
+        except ValueError:
+            return None
 
     def _maybe_run_tasks_ui(self, tasks_cfg: dict[str, Any] | None) -> bool:
         """Open the Tasks UI mid-flow if the workflow configuration requests it."""
