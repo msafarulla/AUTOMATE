@@ -158,6 +158,7 @@ class ReceiveOperation(BaseOperation):
         )
 
         focus_title = tasks_cfg.get("rf_focus_title", "RF Menu")
+        nav_mgr.close_active_windows(skip_titles=[focus_title])
         if not nav_mgr.focus_window_by_title(focus_title):
             rf_log("⚠️ Unable to bring RF Menu back to foreground after tasks detour.")
             return False
