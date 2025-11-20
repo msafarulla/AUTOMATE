@@ -47,8 +47,8 @@ class ReceiveOperation(BaseOperation):
             rf_log(f"❌ Item scan failed: {msg}")
             return False
 
-        shipped_qty = self._read_shipped_quantity(rf)
-        received_qty = self._read_received_quantity(rf)
+        shipped_qty = self._read_quantity_field(rf, selectors, "shipped_quantity")
+        received_qty = self._read_quantity_field(rf, selectors, "received_quantity")
         rf_log(
                 f"ℹ️ Screen reports shipped={shipped_qty if shipped_qty is not None else 'unknown'}; "
                 f"current quantity value={received_qty if received_qty is not None else 'unknown'}"
@@ -135,6 +135,23 @@ class ReceiveOperation(BaseOperation):
             if isinstance(selector, str):
                 candidates.append(selector)
         return candidates
+
+    def _read_quantity_field(self, rf, selectors, key: str) -> int | None:
+        selector = selectors.selectors.get(key)
+        if not selector:
+            return None
+        try:
+            text = rf.read_field(selector).strip()
+        except Exception as exc:
+            rf_log(f"⚠️ Unable to read {key} label: {exc}")
+            return None
+        digits = re.findall(r"\d+", text)
+        if not digits:
+            return None
+        try:
+            return int(digits[0])
+        except ValueError:
+            return None
 
     def _read_shipped_quantity(self, rf) -> int | None:
         try:
