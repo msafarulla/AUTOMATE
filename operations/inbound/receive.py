@@ -47,8 +47,8 @@ class ReceiveOperation(BaseOperation):
             rf_log(f"❌ Item scan failed: {msg}")
             return False
 
-        shipped_qty = self._read_shipped_quantity()
-        received_qty = self._read_received_quantity()
+        shipped_qty = self._read_shipped_quantity(rf)
+        received_qty = self._read_received_quantity(rf)
         rf_log(
                 f"ℹ️ Screen reports shipped={shipped_qty if shipped_qty is not None else 'unknown'}; "
                 f"current quantity value={received_qty if received_qty is not None else 'unknown'}"
@@ -136,9 +136,9 @@ class ReceiveOperation(BaseOperation):
                 candidates.append(selector)
         return candidates
 
-    def _read_shipped_quantity(self) -> int | None:
+    def _read_shipped_quantity(self, rf) -> int | None:
         try:
-            text = self.page.locator("div#shippedQty").inner_text().strip()
+            text = rf.read_field("div#shippedQty").strip()
         except Exception as exc:
             rf_log(f"⚠️ Unable to read shipped quantity label: {exc}")
             return None
@@ -150,9 +150,9 @@ class ReceiveOperation(BaseOperation):
         except ValueError:
             return None
 
-    def _read_received_quantity(self) -> int | None:
+    def _read_received_quantity(self, rf) -> int | None:
         try:
-            text = self.page.locator("div#RecvQty").inner_text().strip()
+            text = rf.read_field("div#RecvQty").strip()
         except Exception as exc:
             rf_log(f"⚠️ Unable to read received quantity label: {exc}")
             return None
