@@ -136,14 +136,31 @@ class ReceiveOperation(BaseOperation):
         return candidates
 
     def _read_quantities_from_body(self, rf) -> tuple[int | None, int | None]:
+        selectors = OperationConfig.RECEIVE_SELECTORS.selectors
+
+        shipped = self._read_quantity_from_selector(rf, selectors.get("shipped_quantity"))
+        received = self._read_quantity_from_selector(rf, selectors.get("received_quantity"))
+        if shipped is not None or received is not None:
+            return shipped, received
+
         try:
-            body_text = rf.read_field("body", description="RF body dump")
+            body_text = rf.read_field("body")
         except Exception as exc:
             rf_log(f"⚠️ Unable to read RF body text: {exc}")
             return None, None
         shipped = self._extract_quantity(body_text, r"Shpd:? ([\d,]+)")
         received = self._extract_quantity(body_text, r"Rcvd:? ([\d,]+)")
         return shipped, received
+
+    def _read_quantity_from_selector(self, rf, selector: str | None) -> int | None:
+        if not selector:
+            return None
+        try:
+            text = rf.read_field(selector)
+        except Exception as exc:
+            rf_log(f"⚠️ Unable to read quantity from '{selector}': {exc}")
+            return None
+        return self._extract_quantity(text, r"([\d,]+)")
 
     def _extract_quantity(self, text: str, pattern: str) -> int | None:
         match = re.search(pattern, text, re.IGNORECASE)
