@@ -135,10 +135,7 @@ class ReceiveOperation(BaseOperation):
         nav_mgr = NavigationManager(self.page, self.screenshot_mgr)
         search_term = tasks_cfg.get("search_term", "tasks")
         match_text = tasks_cfg.get("match_text", "Tasks (Configuration)")
-        preserve_window = bool(tasks_cfg.get("preserve_window") or tasks_cfg.get("preserve"))
-        close_existing = not preserve_window
-
-        if not nav_mgr.open_tasks_ui(search_term, match_text, close_existing=close_existing):
+        if not nav_mgr.open_tasks_ui(search_term, match_text):
             rf_log("❌ Tasks UI detour failed during receive flow.")
             return False
 
@@ -149,7 +146,7 @@ class ReceiveOperation(BaseOperation):
             operation_note,
         )
 
-        focus_title = tasks_cfg.get("rf_focus_title", "RF Menu")
+        focus_title = "RF Menu"
         nav_mgr.close_active_windows(skip_titles=[focus_title])
         if not nav_mgr.focus_window_by_title(focus_title):
             rf_log("⚠️ Unable to bring RF Menu back to foreground after tasks detour.")
