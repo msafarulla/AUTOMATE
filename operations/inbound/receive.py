@@ -135,7 +135,9 @@ class ReceiveOperation(BaseOperation):
         nav_mgr = NavigationManager(self.page, self.screenshot_mgr)
         search_term = tasks_cfg.get("search_term", "tasks")
         match_text = tasks_cfg.get("match_text", "Tasks (Configuration)")
-        if not nav_mgr.open_tasks_ui(search_term, match_text):
+        preserve_window = bool(tasks_cfg.get("preserve_window") or tasks_cfg.get("preserve"))
+        close_existing = not preserve_window
+        if not nav_mgr.open_tasks_ui(search_term, match_text, close_existing=close_existing):
             rf_log("❌ Tasks UI detour failed during receive flow.")
             return False
 
