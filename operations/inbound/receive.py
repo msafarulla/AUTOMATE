@@ -12,6 +12,14 @@ from core.logger import rf_log
 
 
 class ReceiveOperation(BaseOperation):
+
+    def __init__(self, page, page_mgr, screenshot_mgr, rf_menu):
+        super().__init__(page, page_mgr, screenshot_mgr, rf_menu)
+        integration = RFMenuIntegration(self.rf_menu)
+        self.rf = integration.get_primitives()
+        self.workflows = integration.get_workflows()
+        self.menu_cfg = OperationConfig.RECEIVE_MENU
+        self.selectors = OperationConfig.RECEIVE_SELECTORS
     
     def execute(
         self,
@@ -23,75 +31,81 @@ class ReceiveOperation(BaseOperation):
         auto_handle: bool = False,
         tasks_cfg: dict[str, Any] | None = None,
     ):
-        menu_cfg = OperationConfig.RECEIVE_MENU
-        selectors = OperationConfig.RECEIVE_SELECTORS
-
-        # Create integration layer to get primitives and workflows
-        integration = RFMenuIntegration(self.rf_menu)
-        workflows = integration.get_workflows()
-        rf = integration.get_primitives()
-
-        # Navigate via shared workflow helper
-        if not workflows.navigate_to_menu_by_search(menu_cfg.search_term, menu_cfg.tran_id):
+        if not self._navigate_to_receive_menu():
             return False
 
-        # Scan ASN
-        has_error, msg = workflows.scan_barcode_auto_enter(selectors.asn, asn, "ASN")
-        if has_error:
-            rf_log(f"❌ ASN scan failed: {msg}")
+        if not self._scan_identifiers(asn, item):
             return False
 
-        # Scan item
-        has_error, msg = workflows.scan_barcode_auto_enter(selectors.item, item, "Item")
-        if has_error:
-            rf_log(f"❌ Item scan failed: {msg}")
+        if not self._log_quantities():
             return False
 
-        shipped_qty, received_qty = self._read_quantities_from_body(rf)
-        rf_log(
-            f"ℹ️ Screen reports shipped={shipped_qty if shipped_qty is not None else 'unknown'}; "
-            f"received={received_qty if received_qty is not None else 'unknown'}"
-        )
-
-        # Enter quantity
-        success = workflows.enter_quantity(selectors.quantity, quantity, item)
+        success = self.workflows.enter_quantity(self.selectors.quantity, quantity, item)
         if not success:
             rf_log("❌ Quantity entry failed")
             return False
 
-        if success:
-            if not self._maybe_run_tasks_ui(tasks_cfg):
-                return False
+        return self._handle_post_quantity_flow(asn, item, quantity, flow_hint, tasks_cfg, auto_handle)
 
-            screen_state = self.inspect_receive_screen_after_qty(rf,flow_hint)
-            detected_flow = screen_state.get("flow")
-            target_flow = flow_hint
-            screen_state["detected_flow"] = detected_flow
-            screen_state["expected_flow"] = target_flow
-            mismatch = not self._assert_receive_screen_flow_hint(screen_state)
-            if mismatch:
-                rf_log("⚠️ Receive screen mismatch detected after quantity entry.")
-                handled = self._handle_alternate_flow_after_qty(
-                    rf,
-                    screen_state,
-                    auto_handle
-                )
-                if not auto_handle or not handled:
-                    return False
-                return True
-            dest_loc = self._read_suggested_location(rf, selectors)
+    def _navigate_to_receive_menu(self) -> bool:
+        return self.workflows.navigate_to_menu_by_search(self.menu_cfg.search_term, self.menu_cfg.tran_id)
 
-            # Confirm location
-            workflows.confirm_location(selectors.location, dest_loc)
-            self.screenshot_mgr.capture_rf_window(
-                self.page,
-                "receive_summary",
-                f"ASN {asn} received {quantity} {'Units' if quantity > 1 else 'Unit'} of {item}"
+    def _scan_identifiers(self, asn: str, item: str) -> bool:
+        has_error, msg = self.workflows.scan_barcode_auto_enter(self.selectors.asn, asn, "ASN")
+        if has_error:
+            rf_log(f"❌ ASN scan failed: {msg}")
+            return False
+        has_error, msg = self.workflows.scan_barcode_auto_enter(self.selectors.item, item, "Item")
+        if has_error:
+            rf_log(f"❌ Item scan failed: {msg}")
+            return False
+        return True
+
+    def _log_quantities(self) -> bool:
+        shipped_qty, received_qty = self._read_quantities_from_body(self.rf)
+        ref = lambda v: v if v is not None else "unknown"
+        rf_log(f"ℹ️ Screen reports shipped={ref(shipped_qty)}; received={ref(received_qty)}")
+        return True
+
+    def _handle_post_quantity_flow(
+        self,
+        asn: str,
+        item: str,
+        quantity: int,
+        flow_hint: str | None,
+        tasks_cfg: dict[str, Any] | None,
+        auto_handle: bool
+    ) -> bool:
+        if not self._maybe_run_tasks_ui(tasks_cfg):
+            return False
+
+        screen_state = self.inspect_receive_screen_after_qty(self.rf, flow_hint)
+        detected_flow = screen_state.get("flow")
+        target_flow = flow_hint
+        screen_state["detected_flow"] = detected_flow
+        screen_state["expected_flow"] = target_flow
+        mismatch = not self._assert_receive_screen_flow_hint(screen_state)
+        if mismatch:
+            rf_log("⚠️ Receive screen mismatch detected after quantity entry.")
+            handled = self._handle_alternate_flow_after_qty(
+                self.rf,
+                screen_state,
+                auto_handle
             )
+            if not auto_handle or not handled:
+                return False
+            return True
 
-        return success
+        dest_loc = self._read_suggested_location(self.rf, self.selectors)
+        self.workflows.confirm_location(self.selectors.location, dest_loc)
+        self.screenshot_mgr.capture_rf_window(
+            self.page,
+            "receive_summary",
+            f"ASN {asn} received {quantity} {'Units' if quantity > 1 else 'Unit'} of {item}"
+        )
+        return True
 
-    def inspect_receive_screen_after_qty(self, rf, flow_hint: str) -> dict[str, Any]:
+    def inspect_receive_screen_after_qty(self, rf, flow_hint: str | None) -> dict[str, Any]:
         screen_text = ""
         try:
             screen_text = rf.read_field("body")
@@ -320,7 +334,7 @@ class ReceiveOperation(BaseOperation):
         default = flows.get("UNKNOWN", {})
         return flows.get(flow_name, default)
 
-    def _determine_flow_after_qty(self, screen_text: str, flow_hint: str) -> str:
+    def _determine_flow_after_qty(self, screen_text: str, flow_hint: str | None) -> str:
         lower_screen = screen_text.lower()
         metadata = OperationConfig.RECEIVE_FLOW_METADATA
         for flow_name, flow_meta in metadata.items():
@@ -328,7 +342,7 @@ class ReceiveOperation(BaseOperation):
                 continue
             if self._matches_flow_meta(flow_meta, lower_screen):
                 return flow_name
-        return flow_hint
+        return flow_hint or "UNKNOWN"
 
     def _matches_flow_meta(self, meta: dict[str, Any], lower_screen: str) -> bool:
         keywords = meta.get("keywords")
