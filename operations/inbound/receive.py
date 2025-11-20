@@ -1,3 +1,5 @@
+import re
+
 from datetime import datetime, timezone
 from typing import Any
 
@@ -45,8 +47,14 @@ class ReceiveOperation(BaseOperation):
             rf_log(f"❌ Item scan failed: {msg}")
             return False
 
+        # Determine quantity from screen if not provided
+        quantity_to_enter = quantity or self._read_shipped_quantity()
+        if quantity_to_enter is None:
+            rf_log("⚠️ Unable to determine quantity to enter for receive.")
+            return False
+
         # Enter quantity
-        success = workflows.enter_quantity(selectors.quantity, quantity, item)
+        success = workflows.enter_quantity(selectors.quantity, quantity_to_enter, item)
         if not success:
             rf_log("❌ Quantity entry failed")
             return False
@@ -211,6 +219,20 @@ class ReceiveOperation(BaseOperation):
             if self._matches_flow_meta(flow_meta, lower_screen):
                 return flow_name
         return flow_hint
+
+    def _read_shipped_quantity(self) -> int | None:
+        try:
+            text = self.page.locator("div#shippedQty").inner_text().strip()
+        except Exception as exc:
+            rf_log(f"⚠️ Unable to read shipped quantity from RF screen: {exc}")
+            return None
+        digits = re.findall(r"\d+", text)
+        if digits:
+            try:
+                return int(digits[0])
+            except ValueError:
+                pass
+        return None
 
     def _matches_flow_meta(self, meta: dict[str, Any], lower_screen: str) -> bool:
         keywords = meta.get("keywords")
