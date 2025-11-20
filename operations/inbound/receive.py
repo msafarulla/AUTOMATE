@@ -47,12 +47,11 @@ class ReceiveOperation(BaseOperation):
             rf_log(f"❌ Item scan failed: {msg}")
             return False
 
-        shipped_qty = self._read_container_quantity(rf, selectors, "shipped_quantity", r"Shpd:? ([\d,]+)")
-        received_qty = self._read_container_quantity(rf, selectors, "received_quantity", r"Rcvd:? ([\d,]+)")
+        shipped_qty, received_qty = self._read_quantities_from_body(rf)
         rf_log(
-                f"ℹ️ Screen reports shipped={shipped_qty if shipped_qty is not None else 'unknown'}; "
-                f"current quantity value={received_qty if received_qty is not None else 'unknown'}"
-            )
+            f"ℹ️ Screen reports shipped={shipped_qty if shipped_qty is not None else 'unknown'}; "
+            f"received={received_qty if received_qty is not None else 'unknown'}"
+        )
 
         # Enter quantity
         success = workflows.enter_quantity(selectors.quantity, quantity, item)
@@ -136,29 +135,25 @@ class ReceiveOperation(BaseOperation):
                 candidates.append(selector)
         return candidates
 
-    def _read_container_quantity(self, rf, selectors, key: str, pattern: str) -> int | None:
-        selector = selectors.selectors.get(key)
-        if not selector:
-            return None
+    def _read_quantities_from_body(self, rf) -> tuple[int | None, int | None]:
+        try:
+            body_text = rf.read_field("body", description="RF body dump")
+        except Exception as exc:
+            rf_log(f"⚠️ Unable to read RF body text: {exc}")
+            return None, None
+        shipped = self._extract_quantity(body_text, r"Shpd:? ([\d,]+)")
+        received = self._extract_quantity(body_text, r"Rcvd:? ([\d,]+)")
+        return shipped, received
 
-        for _ in range(5):
-            try:
-                container_text = rf.read_field(selector).replace("\u00a0", " ").strip()
-            except Exception as exc:
-                rf_log(f"⚠️ Unable to read {key} container: {exc}")
-                return None
-            if not container_text:
-                self.page.wait_for_timeout(300)
-                continue
-            match = re.search(pattern, container_text, re.IGNORECASE)
-            if match:
-                digits = match.group(1).replace(",", "")
-                try:
-                    return int(digits)
-                except ValueError:
-                    return None
-            self.page.wait_for_timeout(300)
-        return None
+    def _extract_quantity(self, text: str, pattern: str) -> int | None:
+        match = re.search(pattern, text, re.IGNORECASE)
+        if not match:
+            return None
+        digits = match.group(1).replace(",", "")
+        try:
+            return int(digits)
+        except ValueError:
+            return None
 
     def _read_shipped_quantity(self, rf) -> int | None:
         try:
