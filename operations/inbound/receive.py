@@ -112,7 +112,7 @@ class ReceiveOperation(BaseOperation):
 
         for selector in candidate_selectors:
             try:
-                raw = rf.read_field(selector)
+                raw = rf.read_field(selector, transform=lambda t: " ".join(t.split()))
             except Exception:
                 continue
             if raw:
@@ -120,7 +120,19 @@ class ReceiveOperation(BaseOperation):
                 if cleaned:
                     return cleaned
 
-        rf_log("⚠️ Unable to resolve suggested location from RF screen; none of the selectors produced a value.")
+        # Fallback to parsing body text
+        try:
+            body_text = rf.read_field("body")
+        except Exception as exc:
+            rf_log(f"⚠️ Unable to read RF body text for suggested location: {exc}")
+            return ""
+
+        location = self._extract_suggested_location(body_text)
+        if location:
+            return location
+
+        body_preview = " ".join(body_text.split())[:120]
+        rf_log(f"⚠️ Unable to resolve suggested location from RF screen. Preview: '{body_preview}'")
         return ""
 
     def _suggested_location_candidates(self, selectors) -> list[str]:
@@ -193,6 +205,18 @@ class ReceiveOperation(BaseOperation):
             if qty is not None:
                 return qty
         return None
+
+    def _extract_suggested_location(self, text: str) -> str:
+        patterns = [
+            r"ALOC\s*:?\s*([A-Za-z0-9\-]+)",
+            r"CLOC\s*:?\s*([A-Za-z0-9\-]+)",
+            r"Loc(?:ation)?\s*:?\s*([A-Za-z0-9\-]+)",
+        ]
+        for pattern in patterns:
+            match = re.search(pattern, text, re.IGNORECASE)
+            if match:
+                return match.group(1).replace("-", "").strip()
+        return ""
 
     def _read_shipped_quantity(self, rf) -> int | None:
         try:
