@@ -140,18 +140,22 @@ class ReceiveOperation(BaseOperation):
         selector = selectors.selectors.get(key)
         if not selector:
             return None
-        try:
-            text = rf.read_field(selector).strip()
-        except Exception as exc:
-            rf_log(f"⚠️ Unable to read {key} label: {exc}")
-            return None
-        digits = re.findall(r"\d+", text)
-        if not digits:
-            return None
-        try:
-            return int(digits[0])
-        except ValueError:
-            return None
+
+        for _ in range(5):
+            try:
+                text = rf.read_field(selector).strip()
+            except Exception as exc:
+                rf_log(f"⚠️ Unable to read {key} label: {exc}")
+                return None
+            digits = re.findall(r"[\d,]+", text)
+            if digits:
+                candidate = digits[0].replace(",", "")
+                try:
+                    return int(candidate)
+                except ValueError:
+                    return None
+            self.page.wait_for_timeout(300)
+        return None
 
     def _read_shipped_quantity(self, rf) -> int | None:
         try:
