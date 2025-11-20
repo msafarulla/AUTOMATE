@@ -140,6 +140,7 @@ class ReceiveOperation(BaseOperation):
 
         shipped = self._read_quantity_from_selector(rf, selectors.get("shipped_quantity"))
         received = self._read_quantity_from_selector(rf, selectors.get("received_quantity"))
+
         if shipped is not None or received is not None:
             return shipped, received
 
@@ -148,19 +149,33 @@ class ReceiveOperation(BaseOperation):
         except Exception as exc:
             rf_log(f"⚠️ Unable to read RF body text: {exc}")
             return None, None
-        shipped = self._extract_quantity(body_text, r"Shpd:? ([\d,]+)")
-        received = self._extract_quantity(body_text, r"Rcvd:? ([\d,]+)")
+        shipped = self._extract_quantity_multi(body_text, [
+            r"Shpd\s*:?\s*([\d,]+)",
+            r"Shipped(?:\s+Qty)?[:\s]+([\d,]+)",
+            r"Shipped\s+([\d,]+)",
+        ])
+        received = self._extract_quantity_multi(body_text, [
+            r"Rcvd\s*:?\s*([\d,]+)",
+            r"Received(?:\s+Qty)?[:\s]+([\d,]+)",
+            r"Received\s+([\d,]+)",
+        ])
+        if shipped is None and received is None:
+            body_preview = " ".join(body_text.split())[:120]
+            rf_log(f"⚠️ Unable to parse shipped/received from RF body. Preview: '{body_preview}'")
         return shipped, received
 
     def _read_quantity_from_selector(self, rf, selector: str | None) -> int | None:
         if not selector:
             return None
         try:
-            text = rf.read_field(selector)
+            text = rf.read_field(selector, transform=lambda t: " ".join(t.split()))
         except Exception as exc:
             rf_log(f"⚠️ Unable to read quantity from '{selector}': {exc}")
             return None
-        return self._extract_quantity(text, r"([\d,]+)")
+        qty = self._extract_quantity(text, r"([\d,]+)")
+        if qty is None and text:
+            rf_log(f"⚠️ Selector '{selector}' returned '{text}' but no quantity was parsed.")
+        return qty
 
     def _extract_quantity(self, text: str, pattern: str) -> int | None:
         match = re.search(pattern, text, re.IGNORECASE)
@@ -171,6 +186,13 @@ class ReceiveOperation(BaseOperation):
             return int(digits)
         except ValueError:
             return None
+
+    def _extract_quantity_multi(self, text: str, patterns: list[str]) -> int | None:
+        for pattern in patterns:
+            qty = self._extract_quantity(text, pattern)
+            if qty is not None:
+                return qty
+        return None
 
     def _read_shipped_quantity(self, rf) -> int | None:
         try:
