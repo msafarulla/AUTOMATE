@@ -1,3 +1,5 @@
+import re
+
 from datetime import datetime, timezone
 from typing import Any
 
@@ -45,8 +47,15 @@ class ReceiveOperation(BaseOperation):
             rf_log(f"❌ Item scan failed: {msg}")
             return False
 
+        quantity_to_enter = quantity
+        if quantity_to_enter is None:
+            quantity_to_enter = self._read_shipped_quantity()
+        if quantity_to_enter is None:
+            rf_log("⚠️ Unable to determine quantity for receive flow.")
+            return False
+
         # Enter quantity
-        success = workflows.enter_quantity(selectors.quantity, quantity, item)
+        success = workflows.enter_quantity(selectors.quantity, quantity_to_enter, item)
         if not success:
             rf_log("❌ Quantity entry failed")
             return False
@@ -218,6 +227,20 @@ class ReceiveOperation(BaseOperation):
             if not any(keyword in lower_screen for keyword in keywords):
                 return False
         return True
+
+    def _read_shipped_quantity(self) -> int | None:
+        try:
+            text = self.page.locator("div#shippedQty").inner_text().strip()
+        except Exception as exc:
+            rf_log(f"⚠️ Unable to read shipped quantity from screen: {exc}")
+            return None
+        digits = re.findall(r"\d+", text)
+        if digits:
+            try:
+                return int(digits[0])
+            except ValueError:
+                rf_log("⚠️ Received non-numeric shipped quantity.")
+        return None
 
     def _handle_ib_rule_exception_blind_ilpn(self, rf) -> bool:
         timestamp = _current_lpn_timestamp()
