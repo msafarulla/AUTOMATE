@@ -40,8 +40,9 @@ class OperationConfig:
         'location': "input#dataForm\\:locn",
         'suggested_location_aloc': "span#dataForm\\:SBRUdtltxt1_b1",
         'suggested_location_cloc': "span#dataForm\\:SBRUdtltxt1_b2",
-        'shipped_quantity': "div[id^='dataForm:id_'] div#shippedQTy",
-        'received_quantity': "div[id^='dataForm:id_'] div#RecvQty",
+        # These target the container rows so inner_text includes the numeric value after the label.
+        'shipped_quantity': "div#dataForm\\:id_101",
+        'received_quantity': "div#dataForm\\:id_133",
     })
 
     RECEIVE_DEVIATION_SELECTORS = ScreenSelectors({
