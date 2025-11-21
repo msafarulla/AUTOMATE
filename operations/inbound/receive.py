@@ -5,7 +5,7 @@ Flow: Navigate → Scan ASN → Scan Item → Enter Qty → Confirm Location
 """
 import re
 from datetime import datetime
-from typing import Any
+from typing import Any, Iterable
 
 from operations.base_operation import BaseOperation
 from operations.rf_primitives import RFMenuIntegration
@@ -29,9 +29,18 @@ class ReceiveOperation(BaseOperation):
         self.menu = OperationConfig.RECEIVE_MENU
         self.selectors = OperationConfig.RECEIVE_SELECTORS
         self._ilpn: str | None = None
-        self._qty_context: dict[str, int | None] | None = None
+        self._screen_context: dict[str, int | None] | None = None
 
-    def execute(self, asn: str, item: str, quantity: int, **options) -> bool:
+    def execute(
+        self,
+        asn: str,
+        item: str,
+        quantity: int,
+        *,
+        flow_hint: str | None = None,
+        auto_handle: bool = False,
+        open_ui_cfg: dict[str, Any] | None = None,
+    ) -> bool:
         """
         Execute receive operation.
         
@@ -39,13 +48,15 @@ class ReceiveOperation(BaseOperation):
             asn: ASN number to receive
             item: Item barcode
             quantity: Quantity to receive
-            **options: flow_hint, auto_handle, open_ui_cfg
+            flow_hint: expected flow after qty
+            auto_handle: whether to auto-handle deviations
+            open_ui_cfg: optional UI detours (Tasks/iLPNs) from workflow config
         """
         steps = [
             (self._navigate, "Navigate to receive"),
             (lambda: self._scan(asn, item), "Scan ASN/Item"),
-            (lambda: self._enter_quantity(quantity, item, options), "Enter quantity"),
-            (lambda: self._complete(asn, item, quantity, options), "Complete receive"),
+            (lambda: self._enter_quantity(quantity, item, open_ui_cfg), "Enter quantity"),
+            (lambda: self._complete(asn, item, quantity, flow_hint, auto_handle), "Complete receive"),
         ]
         
         for step_fn, step_name in steps:
@@ -81,34 +92,42 @@ class ReceiveOperation(BaseOperation):
                 return False
         shipped, received, ilpn = self._log_screen_values()
         self._ilpn = ilpn
-        self._qty_context = {"shipped": shipped, "received": received, "ilpn": ilpn}
+        self._screen_context = {"shipped": shipped, "received": received, "ilpn": ilpn}
         return True
 
-    def _enter_quantity(self, quantity: int, item: str, options: dict) -> bool:
+    def _enter_quantity(
+        self,
+        quantity: int,
+        item: str,
+        open_ui_cfg: dict[str, Any] | None,
+    ) -> bool:
         """Step 3: Enter quantity."""
-        if self._qty_context:
+        if self._screen_context:
             rf_log(
-                f"ℹ️ Entering qty with context shipped={self._qty_context.get('shipped')} "
-                f"received={self._qty_context.get('received')} "
-                f"ilpn={self._qty_context.get('ilpn')}"
+                f"ℹ️ Entering qty with context shipped={self._screen_context.get('shipped')} "
+                f"received={self._screen_context.get('received')} "
+                f"ilpn={self._screen_context.get('ilpn')}"
             )
         success = self.workflows.enter_quantity(
             self.selectors.quantity,
             quantity,
             item_name=item,
-            context=self._qty_context,
+            context=self._screen_context,
         )
 
         if success:
-            open_ui_cfg = options.get("open_ui_cfg")
             success = self._maybe_run_open_ui(open_ui_cfg)
         return success
 
-    def _complete(self, asn: str, item: str, quantity: int, options: dict) -> bool:
+    def _complete(
+        self,
+        asn: str,
+        item: str,
+        quantity: int,
+        flow_hint: str | None,
+        auto_handle: bool,
+    ) -> bool:
         """Step 4: Handle post-quantity flow."""
-        flow_hint = options.get("flow_hint")
-        auto_handle = options.get("auto_handle", False)
-
         # Check current screen
         detected = self._detect_flow(flow_hint)
         
