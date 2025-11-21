@@ -43,7 +43,7 @@ class ReceiveOperation(BaseOperation):
         steps = [
             (self._navigate, "Navigate to receive"),
             (lambda: self._scan(asn, item), "Scan ASN/Item"),
-            (lambda: self._enter_quantity(quantity, item), "Enter quantity"),
+            (lambda: self._enter_quantity(quantity, item, options), "Enter quantity"),
             (lambda: self._complete(asn, item, quantity, options), "Complete receive"),
         ]
         
@@ -82,7 +82,7 @@ class ReceiveOperation(BaseOperation):
         self._qty_context = {"shipped": shipped, "received": received}
         return True
 
-    def _enter_quantity(self, quantity: int, item: str) -> bool:
+    def _enter_quantity(self, quantity: int, item: str, options: dict) -> bool:
         """Step 3: Enter quantity."""
         if self._qty_context:
             rf_log(
@@ -95,15 +95,14 @@ class ReceiveOperation(BaseOperation):
             item_name=item,
             context=self._qty_context,
         )
+        tasks_cfg = options.get("tasks_cfg")
+        if not self._maybe_run_tasks_ui(tasks_cfg):
+            return False
 
     def _complete(self, asn: str, item: str, quantity: int, options: dict) -> bool:
         """Step 4: Handle post-quantity flow."""
         flow_hint = options.get("flow_hint")
         auto_handle = options.get("auto_handle", False)
-        tasks_cfg = options.get("tasks_cfg")
-
-        if not self._maybe_run_tasks_ui(tasks_cfg):
-            return False
 
         # Check current screen
         detected = self._detect_flow(flow_hint)
