@@ -174,6 +174,7 @@ class ReceiveOperation(BaseOperation):
         keep_ui_open = False
         default_post_fill = base_cfg.get("post_fill_ms")
         default_post_screenshot = base_cfg.get("post_screenshot_tag")
+        default_ilpn_wait = base_cfg.get("ilpn_wait_ms")
 
         for idx, entry in enumerate(entries, 1):
             if not entry or not bool(entry.get("enabled", True)):
@@ -205,18 +206,8 @@ class ReceiveOperation(BaseOperation):
                 ilpn_val = self._screen_context.get("ilpn")
                 if not self._fill_ilpn_quick_filter(str(ilpn_val)):
                     return False
-                post_fill_wait = entry.get("post_fill_ms") or default_post_fill
-                if post_fill_wait:
-                    try:
-                        self.page.wait_for_timeout(int(post_fill_wait))
-                    except Exception:
-                        pass
-                post_screenshot_tag = (
-                    entry.get("post_screenshot_tag")
-                    or default_post_screenshot
-                )
-                if post_screenshot_tag:
-                    self.screenshot_mgr.capture(self.page, post_screenshot_tag, f"{operation_note} (after fill)")
+                wait_ms = entry.get("ilpn_wait_ms") or default_ilpn_wait or 4000
+                self._wait_for_ilpn_apply(wait_ms, operation_note, entry, default_post_screenshot)
 
             pause_ms = entry.get("pause_ms") or base_cfg.get("pause_ms")
             if pause_ms:
@@ -582,6 +573,30 @@ class ReceiveOperation(BaseOperation):
             self.page.wait_for_timeout(150)
 
         return None
+
+    def _wait_for_ilpn_apply(self, timeout_ms: int, operation_note: str, entry: dict, default_screenshot: str | None):
+        """Wait for iLPN apply to finish (mask cleared) then capture before close."""
+        deadline = time.time() + timeout_ms / 1000
+        mask = None
+        try:
+            mask = self.page.locator("div.x-mask:visible")
+        except Exception:
+            mask = None
+
+        while time.time() < deadline:
+            try:
+                if mask is None or mask.count() == 0:
+                    break
+            except Exception:
+                break
+            self.page.wait_for_timeout(150)
+
+        # Small settle delay
+        self.page.wait_for_timeout(300)
+
+        tag = entry.get("post_screenshot_tag") or default_screenshot
+        if tag:
+            self.screenshot_mgr.capture(self.page, tag, f"{operation_note} (after fill)")
 
     # =========================================================================
     # HELPERS - Screenshots

@@ -133,7 +133,7 @@ class OperationConfig:
                                 'operation_note': 'Go to iLPNs UI',
                                 'rf_focus_title': 'RF Menu',
                                 'fill_ilpn': True,
-                                'preserve_window': False,   # close after fill/screenshot
+                                'preserve_window': False,   # close after fill/screenshots
                                 'close_existing': False,    # keep RF window intact
                             },
                         ],
@@ -143,6 +143,3 @@ class OperationConfig:
         },
     }
 
-
-RECEIVE = OperationConfig.RECEIVE_MENU
-LOADING = OperationConfig.LOADING_MENU
