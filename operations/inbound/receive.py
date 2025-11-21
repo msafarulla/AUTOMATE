@@ -174,15 +174,7 @@ class ReceiveOperation(BaseOperation):
 
             search_term = entry.get("search_term") or base_cfg.get("search_term", "tasks")
             match_text = entry.get("match_text") or base_cfg.get("match_text", "Tasks (Configuration)")
-            preserve_window = bool(
-                entry.get("preserve_window")
-                or entry.get("preserve")
-                or base_cfg.get("preserve_window")
-                or base_cfg.get("preserve")
-            )
-            close_existing = not preserve_window
-
-            if not nav_mgr.open_menu_item(search_term, match_text, close_existing=close_existing):
+            if not nav_mgr.open_menu_item(search_term, match_text, close_existing=True):
                 rf_log(f"❌ UI detour #{idx} failed during receive flow.")
                 return False
 
@@ -201,9 +193,8 @@ class ReceiveOperation(BaseOperation):
             focus_title = entry.get("rf_focus_title") or focus_title
             rf_log(f"ℹ️ {operation_note}")
 
-            # Close the just-opened UI before moving to the next (unless preserved)
-            if not preserve_window:
-                nav_mgr.close_active_windows(skip_titles=[focus_title])
+            # Close the just-opened UI before moving to the next
+            nav_mgr.close_active_windows(skip_titles=[focus_title])
 
         nav_mgr.close_active_windows(skip_titles=[focus_title])
         if not nav_mgr.focus_window_by_title(focus_title):

@@ -138,14 +138,12 @@ class OperationConfig:
                     'open_ui': {
                         'entries': [
                             {
-                                'preserve_window': True,
                                 'search_term': 'ILPNS',
                                 'match_text': 'iLPNs (Distribution)',
                                 'operation_note': 'Go to iLPNs UI',
                                 'rf_focus_title': 'RF Menu',
                             },
                                                         {
-                                'preserve_window': not True,
                                 'search_term': 'ILPNS',
                                 'match_text': 'iLPNs (Distribution)',
                                 'operation_note': 'Go to iLPNs UI',
