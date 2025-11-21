@@ -172,6 +172,7 @@ class ReceiveOperation(BaseOperation):
         focus_title = base_cfg.get("rf_focus_title", "RF Menu")
 
         keep_ui_open = False
+        refocus_rf = bool(base_cfg.get("refocus_rf", True))
 
         for idx, entry in enumerate(entries, 1):
             if not entry or not bool(entry.get("enabled", True)):
@@ -204,13 +205,21 @@ class ReceiveOperation(BaseOperation):
                 if not self._fill_ilpn_quick_filter(str(ilpn_val)):
                     return False
 
+            pause_ms = entry.get("pause_ms") or base_cfg.get("pause_ms")
+            if pause_ms:
+                try:
+                    self.page.wait_for_timeout(int(pause_ms))
+                except Exception:
+                    pass
+
             # Close the just-opened UI before moving to the next (unless caller wants to preserve)
             preserve = bool(entry.get("preserve_window") or entry.get("preserve"))
             keep_ui_open = keep_ui_open or preserve
+            refocus_rf = bool(entry.get("refocus_rf", refocus_rf))
             if not preserve:
                 nav_mgr.close_active_windows(skip_titles=[focus_title])
 
-        if not keep_ui_open:
+        if not keep_ui_open and refocus_rf:
             nav_mgr.close_active_windows(skip_titles=[focus_title])
             if not nav_mgr.focus_window_by_title(focus_title):
                 rf_log("⚠️ Unable to bring RF Menu back to foreground after UI detours.")

@@ -143,10 +143,12 @@ class OperationConfig:
                                 'operation_note': 'Go to iLPNs UI',
                                 'rf_focus_title': 'RF Menu',
                                 'fill_ilpn': True,
-                                'preserve_window': True,
-                                'close_existing': False,
+                                'preserve_window': False,   # close after fill/screenshot
+                                'close_existing': False,    # keep RF window intact
+                                'refocus_rf': True,
                             },
                         ],
+                        'refocus_rf': True,
                     },
                 },
             },
