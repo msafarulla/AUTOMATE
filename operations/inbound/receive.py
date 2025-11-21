@@ -36,7 +36,7 @@ class ReceiveOperation(BaseOperation):
             asn: ASN number to receive
             item: Item barcode
             quantity: Quantity to receive
-            **options: flow_hint, auto_handle, tasks_cfg
+            **options: flow_hint, auto_handle
         """
         steps = [
             (self._navigate, "Navigate to receive"),
@@ -68,8 +68,11 @@ class ReceiveOperation(BaseOperation):
             (self.selectors.asn, asn, "ASN"),
             (self.selectors.item, item, "Item"),
         ]
+        
         for selector, value, label in scans:
-            has_error, msg = self.workflows.scan_barcode_auto_enter(selector, value, label)
+            has_error, msg = self.workflows.scan_barcode_auto_enter(
+                selector, value, label
+            )
             if has_error:
                 rf_log(f"❌ {label} scan failed: {msg}")
                 return False
@@ -85,11 +88,6 @@ class ReceiveOperation(BaseOperation):
         """Step 4: Handle post-quantity flow."""
         flow_hint = options.get("flow_hint")
         auto_handle = options.get("auto_handle", False)
-        tasks_cfg = options.get("tasks_cfg")
-
-        # Optional tasks UI detour
-        if tasks_cfg and not self._run_tasks_detour(tasks_cfg):
-            return False
 
         # Check current screen
         detected = self._detect_flow(flow_hint)
@@ -124,6 +122,7 @@ class ReceiveOperation(BaseOperation):
                 continue
             if any(kw in body for kw in meta.get("keywords", [])):
                 return name
+        
         return default or "UNKNOWN"
 
     def _handle_deviation(self, flow: str) -> bool:
@@ -230,29 +229,8 @@ class ReceiveOperation(BaseOperation):
         return None
 
     # =========================================================================
-    # HELPERS - Tasks UI & Screenshots
+    # HELPERS - Screenshots
     # =========================================================================
-
-    def _run_tasks_detour(self, cfg: dict) -> bool:
-        """Open Tasks UI mid-flow if configured."""
-        if not cfg.get("enabled", True):
-            return True
-
-        from ui.navigation import NavigationManager
-        nav = NavigationManager(self.page, self.screenshot_mgr)
-        
-        if not nav.open_tasks_ui(
-            cfg.get("search_term", "tasks"),
-            cfg.get("match_text", "Tasks (Configuration)"),
-            close_existing=False
-        ):
-            rf_log("❌ Tasks UI detour failed")
-            return False
-
-        nav.close_active_windows(skip_titles=["RF Menu"])
-        nav.focus_window_by_title("RF Menu")
-        rf_log(f"ℹ️ {cfg.get('operation_note', 'Tasks UI visited')}")
-        return True
 
     def _capture_success(self, asn: str, item: str, qty: int):
         """Capture success screenshot."""

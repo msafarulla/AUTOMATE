@@ -37,11 +37,12 @@ class RFPrimitives:
         selector: str,
         value: str,
         screenshot_label: str,
-        screenshot_text: Optional[str] = None,
+        screenshot_text: str | None = None,  # Use | instead of Optional
         wait_for_change: bool = True,
         check_errors: bool = True,
         timeout: int = 2000
-    ) -> tuple[bool, Optional[str]]:
+    ) -> tuple[bool, str | None]:  # Consistent style
+
 
         rf_iframe = self.get_iframe()
 
