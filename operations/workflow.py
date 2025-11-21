@@ -22,6 +22,7 @@ class WorkflowStageExecutor:
             "receive": self.handle_receive_stage,
             "loading": self.handle_loading_stage,
             "tasks": self.handle_tasks_stage,
+            "ilpns": self.handle_ilpns_stage,
             "rf_return": self.handle_rf_return_stage,
         }
 
@@ -142,6 +143,23 @@ class WorkflowStageExecutor:
             app_log(f"❌ Unable to open Tasks UI for workflow {workflow_idx}; halting.")
             return metadata, False
         return metadata, True
+
+        def handle_ilpns_stage(
+            self, stage_cfg: dict[str, Any], metadata: dict[str, Any], workflow_idx: int
+        ) -> Tuple[dict[str, Any], bool]:
+            if not bool(stage_cfg.get("enabled", True)):
+                return metadata, True
+            search_term = stage_cfg.get("search_term", "ilpns")
+            match_text = stage_cfg.get("match_text", "iLPNs (Distribution)")
+            in_place = bool(stage_cfg.get("preserve_window") or stage_cfg.get("preserve"))
+            if in_place:
+                success = self.stage_actions.run_tasks_ui_in_place(search_term, match_text)
+            else:
+                success = self.stage_actions.run_tasks_ui(search_term, match_text)
+            if not success:
+                app_log(f"❌ Unable to open iLPNs UI for workflow {workflow_idx}; halting.")
+                return metadata, False
+            return metadata, True
 
     def handle_rf_return_stage(
         self, stage_cfg: dict[str, Any], metadata: dict[str, Any], workflow_idx: int

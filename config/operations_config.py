@@ -135,12 +135,12 @@ class OperationConfig:
                     'quantity': 0,
                     'flow': 'HAPPY_PATH',
                     'auto_handle_deviation': True,
-                    'tasks': {
+                    'ilpns': {
                         'enabled': True,
                         'preserve_window': True,
-                        'search_term': 'tasks',
-                        'match_text': 'Tasks (Configuration)',
-                        'operation_note': 'Visited Tasks UI before confirming location',
+                        'search_term': 'ILPNS',
+                        'match_text': 'iLPNs (Distribution)',
+                        'operation_note': 'Go to iLPNs UI',
                         'rf_focus_title': 'RF Menu',
                     },
                 },
