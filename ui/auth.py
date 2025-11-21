@@ -46,7 +46,10 @@ class AuthManager:
         self.page.click('#loginButton')
         self.page.wait_for_timeout(10000)
 
-        self._close_default_windows()
+        if self.settings.app.auto_close_post_login_windows:
+            self._close_default_windows()
+        else:
+            app_log("ℹ️ Skipping auto-close of post-login windows (disabled via settings).")
         self.screenshot_mgr.capture(self.page, "logged_in", "Logged In")
         app_log("✅ Logged in successfully")
 

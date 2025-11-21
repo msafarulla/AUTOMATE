@@ -93,6 +93,7 @@ class AppConfig:
     auto_accept_rf_messages: bool = True
     auto_click_info_icon: bool = False
     verify_tran_id_marker: bool = False
+    auto_close_post_login_windows: bool = False
     app_server_user: str = ""
     app_server_pass: str = ""
 
@@ -129,6 +130,9 @@ class Settings:
         )
         cls.app.verify_tran_id_marker = _env_flag(
             "RF_VERIFY_TRAN_ID_MARKER", cls.app.verify_tran_id_marker
+        )
+        cls.app.auto_close_post_login_windows = _env_flag(
+            "AUTO_CLOSE_POST_LOGIN_WINDOWS", cls.app.auto_close_post_login_windows
         )
         set_general_verbose(cls.app.app_verbose_logging)
         set_rf_verbose(cls.app.rf_verbose_logging)
