@@ -43,6 +43,8 @@ class OperationConfig:
         # These target the container rows so inner_text includes the numeric value after the label.
         'shipped_quantity': "div#dataForm\\:id_101",
         'received_quantity': "div#dataForm\\:id_133",
+        'ilpn': "div#csid",
+        'ilpn_hidden': "input#caseinpid",
     })
 
     RECEIVE_DEVIATION_SELECTORS = ScreenSelectors({

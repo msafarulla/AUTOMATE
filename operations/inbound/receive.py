@@ -28,6 +28,7 @@ class ReceiveOperation(BaseOperation):
         # Load config
         self.menu = OperationConfig.RECEIVE_MENU
         self.selectors = OperationConfig.RECEIVE_SELECTORS
+        self._ilpn: str | None = None
         self._qty_context: dict[str, int | None] | None = None
 
     def execute(self, asn: str, item: str, quantity: int, **options) -> bool:
@@ -78,8 +79,9 @@ class ReceiveOperation(BaseOperation):
             if has_error:
                 rf_log(f"❌ {label} scan failed: {msg}")
                 return False
-        shipped, received = self._log_quantities()
-        self._qty_context = {"shipped": shipped, "received": received}
+        shipped, received, ilpn = self._log_quantities()
+        self._ilpn = ilpn
+        self._qty_context = {"shipped": shipped, "received": received, "ilpn": ilpn}
         return True
 
     def _enter_quantity(self, quantity: int, item: str, options: dict) -> bool:
@@ -87,7 +89,8 @@ class ReceiveOperation(BaseOperation):
         if self._qty_context:
             rf_log(
                 f"ℹ️ Entering qty with context shipped={self._qty_context.get('shipped')} "
-                f"received={self._qty_context.get('received')}"
+                f"received={self._qty_context.get('received')} "
+                f"ilpn={self._qty_context.get('ilpn')}"
             )
         success = self.workflows.enter_quantity(
             self.selectors.quantity,
@@ -239,10 +242,11 @@ class ReceiveOperation(BaseOperation):
         return ""
 
     def _log_quantities(self):
-        """Log shipped/received quantities from screen."""
+        """Log shipped/received quantities (and iLPN) from screen."""
         shipped, received = self._parse_quantities()
-        rf_log(f"ℹ️ Shipped: {shipped}, Received: {received}")
-        return shipped, received 
+        ilpn = self._parse_ilpn()
+        rf_log(f"ℹ️ Shipped: {shipped}, Received: {received}, LPN: {ilpn}")
+        return shipped, received, ilpn
 
     def _parse_quantities(self) -> tuple[int | None, int | None]:
         """Extract shipped/received quantities."""
@@ -259,6 +263,28 @@ class ReceiveOperation(BaseOperation):
             except Exception:
                 pass
         return shipped, received
+
+    def _parse_ilpn(self) -> str | None:
+        """Extract iLPN from screen or body."""
+        sel = self.selectors.selectors
+        ilpn_selector = sel.get("ilpn") or sel.get("ilpn_hidden")
+        if ilpn_selector:
+            try:
+                text = self.rf.read_field(ilpn_selector)
+                ilpn = self._extract_lpn(text)
+                if ilpn:
+                    return ilpn
+            except Exception:
+                pass
+
+        try:
+            body = self.rf.read_field("body")
+            ilpn = self._extract_lpn(body)
+            if ilpn:
+                return ilpn
+        except Exception:
+            pass
+        return None
 
     def _read_number(self, selector: str | None) -> int | None:
         """Read number from selector."""
@@ -278,6 +304,19 @@ class ReceiveOperation(BaseOperation):
                 return int(match.group(1).replace(",", ""))
             except ValueError:
                 pass
+        return None
+
+    def _extract_lpn(self, text: str) -> str | None:
+        """Extract LPN/id from provided text."""
+        patterns = [
+            r"\bLPN[:\s\"]*([A-Za-z0-9]+)",
+            r"\bcaseinpid\b.*?value=\"([A-Za-z0-9]+)\"",
+        ]
+        normalized = " ".join(text.split())
+        for pattern in patterns:
+            match = re.search(pattern, normalized, re.I)
+            if match:
+                return match.group(1).strip()
         return None
 
     # =========================================================================

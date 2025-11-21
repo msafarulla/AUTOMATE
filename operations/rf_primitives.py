@@ -486,11 +486,14 @@ class RFWorkflows:
         if context:
             shipped = context.get("shipped")
             received = context.get("received")
+            ilpn = context.get("ilpn")
             info_parts = []
             if shipped is not None:
                 info_parts.append(f"shpd={shipped}")
             if received is not None:
                 info_parts.append(f"rcvd={received}")
+            if ilpn:
+                info_parts.append(f"ilpn={ilpn}")
             if info_parts:
                 context_note = " (" + ", ".join(info_parts) + ")"
 
