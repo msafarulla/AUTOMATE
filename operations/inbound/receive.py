@@ -89,15 +89,17 @@ class ReceiveOperation(BaseOperation):
                 f"ℹ️ Entering qty with context shipped={self._qty_context.get('shipped')} "
                 f"received={self._qty_context.get('received')}"
             )
-        return self.workflows.enter_quantity(
+        success = self.workflows.enter_quantity(
             self.selectors.quantity,
             quantity,
             item_name=item,
             context=self._qty_context,
         )
-        tasks_cfg = options.get("tasks_cfg")
-        if not self._maybe_run_tasks_ui(tasks_cfg):
-            return False
+
+        if success:
+            tasks_cfg = options.get("tasks_cfg")
+            success = self._maybe_run_tasks_ui(tasks_cfg)
+        return success
 
     def _complete(self, asn: str, item: str, quantity: int, options: dict) -> bool:
         """Step 4: Handle post-quantity flow."""
