@@ -142,12 +142,14 @@ class OperationConfig:
                                 'match_text': 'iLPNs (Distribution)',
                                 'operation_note': 'Go to iLPNs UI',
                                 'rf_focus_title': 'RF Menu',
+                                'fill_ilpn': True,
                             },
-                                                        {
+                            {
                                 'search_term': 'ILPNS',
                                 'match_text': 'iLPNs (Distribution)',
                                 'operation_note': 'Go to iLPNs UI',
                                 'rf_focus_title': 'RF Menu',
+                                'fill_ilpn': True,
                             },
                         ],
                     },

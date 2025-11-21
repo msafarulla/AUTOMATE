@@ -160,6 +160,8 @@ class ReceiveOperation(BaseOperation):
         if isinstance(open_ui_cfg, list):
             entries = open_ui_cfg
         elif isinstance(open_ui_cfg, dict):
+            if not bool(open_ui_cfg.get("enabled", True)):
+                return True
             base_cfg = open_ui_cfg
             entries = open_ui_cfg.get("entries") or [open_ui_cfg]
         else:
@@ -169,7 +171,7 @@ class ReceiveOperation(BaseOperation):
         focus_title = base_cfg.get("rf_focus_title", "RF Menu")
 
         for idx, entry in enumerate(entries, 1):
-            if not entry:
+            if not entry or not bool(entry.get("enabled", True)):
                 continue
 
             search_term = entry.get("search_term") or base_cfg.get("search_term", "tasks")
@@ -193,8 +195,15 @@ class ReceiveOperation(BaseOperation):
             focus_title = entry.get("rf_focus_title") or focus_title
             rf_log(f"ℹ️ {operation_note}")
 
-            # Close the just-opened UI before moving to the next
-            nav_mgr.close_active_windows(skip_titles=[focus_title])
+            if entry.get("fill_ilpn") and self._screen_context and self._screen_context.get("ilpn"):
+                ilpn_val = self._screen_context.get("ilpn")
+                if not self._fill_ilpn_quick_filter(str(ilpn_val)):
+                    return False
+
+            # Close the just-opened UI before moving to the next (unless caller wants to preserve)
+            preserve = bool(entry.get("preserve_window") or entry.get("preserve"))
+            if not preserve:
+                nav_mgr.close_active_windows(skip_titles=[focus_title])
 
         nav_mgr.close_active_windows(skip_titles=[focus_title])
         if not nav_mgr.focus_window_by_title(focus_title):
@@ -361,6 +370,48 @@ class ReceiveOperation(BaseOperation):
             if match:
                 return match.group(1).strip()
         return None
+
+    # =========================================================================
+    # UI HELPERS
+    # =========================================================================
+
+    def _fill_ilpn_quick_filter(self, ilpn: str) -> bool:
+        """Fill the iLPN quick filter input and click Apply in the iLPNs UI."""
+        candidates = [
+            "//span[contains(.,'Quick filter')]/following::input[1]",
+            "//label[contains(.,'LPN')]/following::input[1]",
+            "input[id*='LPN']:visible",
+            "input[type='text']:visible",
+        ]
+        input_field = None
+        for sel in candidates:
+            try:
+                locator = self.page.locator(sel).first
+                locator.wait_for(state="visible", timeout=2000)
+                input_field = locator
+                break
+            except Exception:
+                continue
+
+        if not input_field:
+            rf_log("❌ Could not locate iLPN quick filter input.")
+            return False
+
+        input_field.fill(ilpn)
+
+        # Click Apply
+        try:
+            self.page.get_by_role("button", name="Apply").click()
+            return True
+        except Exception:
+            pass
+
+        try:
+            self.page.locator("//button[normalize-space()='Apply']|//span[normalize-space()='Apply']").first.click()
+            return True
+        except Exception:
+            rf_log("❌ Unable to click Apply in iLPNs UI.")
+            return False
 
     # =========================================================================
     # HELPERS - Screenshots
