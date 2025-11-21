@@ -76,8 +76,7 @@ class ReceiveOperation(BaseOperation):
             if has_error:
                 rf_log(f"❌ {label} scan failed: {msg}")
                 return False
-        
-        self._log_quantities()
+        shipped, received = self._log_quantities()
         return True
 
     def _enter_quantity(self, quantity: int, item: str) -> bool:
@@ -190,7 +189,8 @@ class ReceiveOperation(BaseOperation):
     def _log_quantities(self):
         """Log shipped/received quantities from screen."""
         shipped, received = self._parse_quantities()
-        rf_log(f"ℹ️ Shipped: {shipped or '?'}, Received: {received or '?'}")
+        rf_log(f"ℹ️ Shipped: {shipped}, Received: {received}")
+        return shipped, received 
 
     def _parse_quantities(self) -> tuple[int | None, int | None]:
         """Extract shipped/received quantities."""
