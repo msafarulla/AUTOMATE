@@ -377,18 +377,22 @@ class ReceiveOperation(BaseOperation):
 
     def _fill_ilpn_quick_filter(self, ilpn: str) -> bool:
         """Fill the iLPN quick filter input and click Apply in the iLPNs UI."""
-        frame = self.page.frame_locator("iframe[src*='LPNListInbound']")
+        # Scope to the iLPNs window if present
+        window = self.page.locator("div.x-window:has-text('iLPNs')").first
+        root = window if window.count() else self.page
+
         candidates = [
-            "//label[contains(normalize-space(),'LPN')]/following::input[1]",
             "//span[contains(normalize-space(),'Quick filter')]/following::input[1]",
-            "input[name*='lpn']:visible",
-            "input[id*='lpn']:visible",
+            "//label[contains(normalize-space(),'LPN')]/following::input[1]",
+            "//input[contains(@name,'lpn') and not(@type='hidden')]",
+            "//input[contains(@id,'lpn') and not(@type='hidden')]",
+            "input.x-form-text:visible",
             "input[type='text']:visible",
         ]
         input_field = None
         for sel in candidates:
             try:
-                locator = frame.locator(sel).first
+                locator = root.locator(sel).first
                 locator.wait_for(state="visible", timeout=3000)
                 input_field = locator
                 break
@@ -399,21 +403,27 @@ class ReceiveOperation(BaseOperation):
             rf_log("❌ Could not locate iLPN quick filter input.")
             return False
 
-        input_field.fill(ilpn)
-
-        # Click Apply
         try:
-            frame.get_by_role("button", name="Apply").click()
-            return True
-        except Exception:
-            pass
-
-        try:
-            frame.locator("//button[normalize-space()='Apply']|//span[normalize-space()='Apply']").first.click()
-            return True
-        except Exception:
-            rf_log("❌ Unable to click Apply in iLPNs UI.")
+            input_field.fill(ilpn)
+        except Exception as exc:
+            rf_log(f"❌ Unable to fill iLPN filter: {exc}")
             return False
+
+        apply_candidates = [
+            root.get_by_role("button", name="Apply"),
+            root.locator("//a[.//span[normalize-space()='Apply']]"),
+            root.locator("//button[normalize-space()='Apply']"),
+            root.locator("//span[normalize-space()='Apply']"),
+        ]
+        for btn in apply_candidates:
+            try:
+                btn.first.click()
+                return True
+            except Exception:
+                continue
+
+        rf_log("❌ Unable to click Apply in iLPNs UI.")
+        return False
 
     # =========================================================================
     # HELPERS - Screenshots
