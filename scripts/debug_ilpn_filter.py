@@ -186,7 +186,7 @@ def _fill_ilpn_filter(page, ilpn: str) -> bool:
         return False
 
 
-def open_ilpns_and_filter(ilpn: str, search_term: str, match_text: str, wait: bool, hold_seconds: int):
+def open_ilpns_and_filter(ilpn: str, search_term: str, match_text: str, wait: bool, hold_seconds: int, keep_open: bool):
     """Login, open iLPNs UI, and try filtering with the provided iLPN."""
     settings = Settings.from_env()
     success = False
@@ -202,9 +202,9 @@ def open_ilpns_and_filter(ilpn: str, search_term: str, match_text: str, wait: bo
                 app_log(f"🔎 Attempting to filter iLPN '{ilpn}'")
                 success = _fill_ilpn_filter(services.nav_mgr.page, ilpn)
                 if success:
-                app_log("✅ iLPN filter interaction completed (check UI for results).")
-            else:
-                app_log("❌ iLPN filter interaction failed.")
+                    app_log("✅ iLPN filter interaction completed (check UI for results).")
+                else:
+                    app_log("❌ iLPN filter interaction failed.")
         except Exception as exc:
             app_log(f"❌ Debug run failed: {exc}")
             success = False
@@ -222,6 +222,15 @@ def open_ilpns_and_filter(ilpn: str, search_term: str, match_text: str, wait: bo
                     input()
                 except KeyboardInterrupt:
                     pass
+
+            if keep_open:
+                app_log("⏳ Keeping browser session open until Ctrl+C (no auto-close).")
+                try:
+                    while True:
+                        services.nav_mgr.page.wait_for_timeout(5000)
+                except KeyboardInterrupt:
+                    app_log("⏹️ Keep-open interrupted by user.")
+
         return success
 
 
@@ -232,9 +241,13 @@ def main():
     parser.add_argument("--match-text", default="iLPNs (Distribution)", help="Menu item text to open")
     parser.add_argument("--wait", action="store_true", help="Keep the window open until Enter is pressed")
     parser.add_argument("--hold-seconds", type=int, default=0, help="Keep UI open for N seconds (non-interactive environments)")
+    parser.add_argument("--keep-open", action="store_true", help="Keep browser session alive until Ctrl+C (overrides hold/wait timing)")
     args = parser.parse_args()
 
-    open_ilpns_and_filter(args.ilpn, args.search_term, args.match_text, args.wait, args.hold_seconds)
+    if not args.wait and args.hold_seconds == 0 and not args.keep_open:
+        app_log("ℹ️ Tip: add --hold-seconds 300 or --keep-open to inspect the UI; otherwise the session will close after filtering.")
+
+    open_ilpns_and_filter(args.ilpn, args.search_term, args.match_text, args.wait, args.hold_seconds, args.keep_open)
 
 
 if __name__ == "__main__":
