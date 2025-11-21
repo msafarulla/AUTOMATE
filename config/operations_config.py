@@ -136,7 +136,6 @@ class OperationConfig:
                     'flow': 'HAPPY_PATH',
                     'auto_handle_deviation': True,
                     'open_ui': {
-                        'enabled': True,
                         'entries': [
                             {
                                 'preserve_window': True,

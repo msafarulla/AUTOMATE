@@ -160,8 +160,6 @@ class ReceiveOperation(BaseOperation):
         if isinstance(open_ui_cfg, list):
             entries = open_ui_cfg
         elif isinstance(open_ui_cfg, dict):
-            if not bool(open_ui_cfg.get("enabled", True)):
-                return True
             base_cfg = open_ui_cfg
             entries = open_ui_cfg.get("entries") or [open_ui_cfg]
         else:
@@ -171,7 +169,7 @@ class ReceiveOperation(BaseOperation):
         focus_title = base_cfg.get("rf_focus_title", "RF Menu")
 
         for idx, entry in enumerate(entries, 1):
-            if not entry or not bool(entry.get("enabled", True)):
+            if not entry:
                 continue
 
             search_term = entry.get("search_term") or base_cfg.get("search_term", "tasks")
