@@ -94,7 +94,7 @@ class AppConfig:
     auto_click_info_icon: bool = False
     verify_tran_id_marker: bool = False
     auto_close_post_login_windows: bool = False
-    force_enable_context_menu: bool = False
+    force_enable_context_menu: bool = True
     app_server_user: str = ""
     app_server_pass: str = ""
 
