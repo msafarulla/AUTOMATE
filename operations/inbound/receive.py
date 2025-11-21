@@ -1,9 +1,11 @@
+"""
+Receive Operation - Handles ASN receiving workflow in RF terminal.
+
+Flow: Navigate → Scan ASN → Scan Item → Enter Qty → Confirm Location
+"""
 import re
-
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Any
-
-from ui.navigation import NavigationManager
 
 from operations.base_operation import BaseOperation
 from operations.rf_primitives import RFMenuIntegration
@@ -12,378 +14,257 @@ from core.logger import rf_log
 
 
 class ReceiveOperation(BaseOperation):
+    """Handles ASN receiving workflow in RF terminal."""
 
     def __init__(self, page, page_mgr, screenshot_mgr, rf_menu):
         super().__init__(page, page_mgr, screenshot_mgr, rf_menu)
-        integration = RFMenuIntegration(self.rf_menu)
+        
+        # Setup RF integration
+        integration = RFMenuIntegration(rf_menu)
         self.rf = integration.get_primitives()
         self.workflows = integration.get_workflows()
-        self.menu_cfg = OperationConfig.RECEIVE_MENU
+        
+        # Load config
+        self.menu = OperationConfig.RECEIVE_MENU
         self.selectors = OperationConfig.RECEIVE_SELECTORS
-    
-    def execute(
-        self,
-        asn: str,
-        item: str,
-        quantity: int,
-        *,
-        flow_hint: str | None = None,
-        auto_handle: bool = False,
-        tasks_cfg: dict[str, Any] | None = None,
-    ):
-        if not self._navigate_to_receive_menu():
-            return False
 
-        if not self._scan_identifiers(asn, item):
-            return False
-
-        if not self._log_quantities():
-            return False
-
-        success = self.workflows.enter_quantity(self.selectors.quantity, quantity, item)
-        if not success:
-            rf_log("❌ Quantity entry failed")
-            return False
-
-        return self._handle_post_quantity_flow(asn, item, quantity, flow_hint, tasks_cfg, auto_handle)
-
-    def _navigate_to_receive_menu(self) -> bool:
-        return self.workflows.navigate_to_menu_by_search(self.menu_cfg.search_term, self.menu_cfg.tran_id)
-
-    def _scan_identifiers(self, asn: str, item: str) -> bool:
-        has_error, msg = self.workflows.scan_barcode_auto_enter(self.selectors.asn, asn, "ASN")
-        if has_error:
-            rf_log(f"❌ ASN scan failed: {msg}")
-            return False
-        has_error, msg = self.workflows.scan_barcode_auto_enter(self.selectors.item, item, "Item")
-        if has_error:
-            rf_log(f"❌ Item scan failed: {msg}")
-            return False
-        return True
-
-    def _log_quantities(self) -> bool:
-        shipped_qty, received_qty = self._read_quantities_from_body(self.rf)
-        ref = lambda v: v if v is not None else "unknown"
-        rf_log(f"ℹ️ Screen reports shipped={ref(shipped_qty)}; received={ref(received_qty)}")
-        return True
-
-    def _handle_post_quantity_flow(
-        self,
-        asn: str,
-        item: str,
-        quantity: int,
-        flow_hint: str | None,
-        tasks_cfg: dict[str, Any] | None,
-        auto_handle: bool
-    ) -> bool:
-        if not self._maybe_run_tasks_ui(tasks_cfg):
-            return False
-
-        screen_state = self.inspect_receive_screen_after_qty(self.rf, flow_hint)
-        detected_flow = screen_state.get("flow")
-        target_flow = flow_hint
-        screen_state["detected_flow"] = detected_flow
-        screen_state["expected_flow"] = target_flow
-        mismatch = not self._assert_receive_screen_flow_hint(screen_state)
-        if mismatch:
-            rf_log("⚠️ Receive screen mismatch detected after quantity entry.")
-            handled = self._handle_alternate_flow_after_qty(
-                self.rf,
-                screen_state,
-                auto_handle
-            )
-            if not auto_handle or not handled:
+    def execute(self, asn: str, item: str, quantity: int, **options) -> bool:
+        """
+        Execute receive operation.
+        
+        Args:
+            asn: ASN number to receive
+            item: Item barcode
+            quantity: Quantity to receive
+            **options: flow_hint, auto_handle, tasks_cfg
+        """
+        steps = [
+            (self._navigate, "Navigate to receive"),
+            (lambda: self._scan(asn, item), "Scan ASN/Item"),
+            (lambda: self._enter_quantity(quantity, item), "Enter quantity"),
+            (lambda: self._complete(asn, item, quantity, options), "Complete receive"),
+        ]
+        
+        for step_fn, step_name in steps:
+            if not step_fn():
+                rf_log(f"❌ Failed at: {step_name}")
                 return False
-            return True
-
-        dest_loc = self._read_suggested_location(self.rf, self.selectors)
-        self.workflows.confirm_location(self.selectors.location, dest_loc)
-        self.screenshot_mgr.capture_rf_window(
-            self.page,
-            "receive_summary",
-            f"ASN {asn} received {quantity} {'Units' if quantity > 1 else 'Unit'} of {item}"
-        )
         return True
 
-    def inspect_receive_screen_after_qty(self, rf, flow_hint: str | None) -> dict[str, Any]:
-        screen_text = ""
+    # =========================================================================
+    # MAIN STEPS
+    # =========================================================================
+
+    def _navigate(self) -> bool:
+        """Step 1: Navigate to receive menu."""
+        return self.workflows.navigate_to_menu_by_search(
+            self.menu.search_term, 
+            self.menu.tran_id
+        )
+
+    def _scan(self, asn: str, item: str) -> bool:
+        """Step 2: Scan ASN and item barcodes."""
+        scans = [
+            (self.selectors.asn, asn, "ASN"),
+            (self.selectors.item, item, "Item"),
+        ]
+        for selector, value, label in scans:
+            has_error, msg = self.workflows.scan_barcode_auto_enter(selector, value, label)
+            if has_error:
+                rf_log(f"❌ {label} scan failed: {msg}")
+                return False
+        
+        self._log_quantities()
+        return True
+
+    def _enter_quantity(self, quantity: int, item: str) -> bool:
+        """Step 3: Enter quantity."""
+        return self.workflows.enter_quantity(self.selectors.quantity, quantity, item)
+
+    def _complete(self, asn: str, item: str, quantity: int, options: dict) -> bool:
+        """Step 4: Handle post-quantity flow."""
+        flow_hint = options.get("flow_hint")
+        auto_handle = options.get("auto_handle", False)
+        tasks_cfg = options.get("tasks_cfg")
+
+        # Optional tasks UI detour
+        if tasks_cfg and not self._run_tasks_detour(tasks_cfg):
+            return False
+
+        # Check current screen
+        detected = self._detect_flow(flow_hint)
+        
+        # Handle deviation if needed
+        if detected != flow_hint:
+            rf_log(f"⚠️ Flow mismatch: expected {flow_hint}, got {detected}")
+            self._capture_deviation(detected, auto_handle)
+            if not auto_handle:
+                return False
+            return self._handle_deviation(detected)
+
+        # Happy path: confirm location
+        location = self._read_location()
+        self.workflows.confirm_location(self.selectors.location, location)
+        self._capture_success(asn, item, quantity)
+        return True
+
+    # =========================================================================
+    # FLOW DETECTION & HANDLING
+    # =========================================================================
+
+    def _detect_flow(self, default: str | None) -> str:
+        """Detect current screen based on keywords."""
         try:
-            screen_text = rf.read_field("body")
-        except Exception as exc:  # pragma: no cover
-            rf_log(f"⚠️ Unable to read screen body for flow detection: {exc}")
+            body = self.rf.read_field("body").lower()
+        except Exception:
+            return default or "UNKNOWN"
 
-        flow_name = self._determine_flow_after_qty(screen_text, flow_hint)
-        return {
-            "screen": screen_text,
-            "flow": flow_name
+        for name, meta in OperationConfig.RECEIVE_FLOW_METADATA.items():
+            if name == "UNKNOWN":
+                continue
+            if any(kw in body for kw in meta.get("keywords", [])):
+                return name
+        return default or "UNKNOWN"
+
+    def _handle_deviation(self, flow: str) -> bool:
+        """Handle non-happy-path flows."""
+        handlers = {
+            "IB_RULE_EXCEPTION_BLIND_ILPN": self._handle_blind_ilpn,
         }
+        handler = handlers.get(flow)
+        if handler:
+            return handler()
+        rf_log(f"⚠️ No handler for flow: {flow}")
+        return False
 
-    def _read_suggested_location(self, rf, selectors) -> str:
-        candidate_selectors = self._suggested_location_candidates(selectors)
-        if not candidate_selectors:
-            rf_log("⚠️ Suggested location selectors are not configured.")
-            return ""
-
-        for selector in candidate_selectors:
+    def _handle_blind_ilpn(self) -> bool:
+        """Handle IB rule exception requiring LPN entry."""
+        lpn = datetime.now().strftime("%y%m%d%H%M%S")
+        selectors = OperationConfig.RECEIVE_DEVIATION_SELECTORS
+        
+        for selector in (selectors.lpn_input, selectors.lpn_input_name):
             try:
-                raw = rf.read_field(selector, transform=lambda t: " ".join(t.split()))
+                has_error, _ = self.rf.fill_and_submit(
+                    selector, lpn, "blind_ilpn", f"Entered LPN: {lpn}"
+                )
+                if not has_error:
+                    self.screenshot_mgr.capture_rf_window(
+                        self.page, "ilpn_success", "Blind iLPN entered"
+                    )
+                    return True
             except Exception:
                 continue
-            if raw:
-                cleaned = raw.replace("-", "").strip()
-                if cleaned:
-                    return cleaned
+        
+        rf_log("❌ Could not enter blind iLPN")
+        return False
 
-        # Fallback to parsing body text
+    # =========================================================================
+    # HELPERS - Reading screen data
+    # =========================================================================
+
+    def _read_location(self) -> str:
+        """Read suggested location from screen."""
+        # Try configured selectors
+        for key in ("suggested_location_aloc", "suggested_location_cloc"):
+            selector = self.selectors.selectors.get(key)
+            if not selector:
+                continue
+            try:
+                loc = self.rf.read_field(selector).replace("-", "").strip()
+                if loc:
+                    return loc
+            except Exception:
+                continue
+
+        # Fallback: parse from body
         try:
-            body_text = rf.read_field("body")
-        except Exception as exc:
-            rf_log(f"⚠️ Unable to read RF body text for suggested location: {exc}")
-            return ""
+            body = self.rf.read_field("body")
+            match = re.search(r"[AC]LOC\s*:?\s*([A-Za-z0-9\-]+)", body, re.I)
+            if match:
+                return match.group(1).replace("-", "").strip()
+        except Exception:
+            pass
 
-        location = self._extract_suggested_location(body_text)
-        if location:
-            return location
-
-        body_preview = " ".join(body_text.split())[:120]
-        rf_log(f"⚠️ Unable to resolve suggested location from RF screen. Preview: '{body_preview}'")
+        rf_log("⚠️ Could not read suggested location")
         return ""
 
-    def _suggested_location_candidates(self, selectors) -> list[str]:
-        keys = (
-            "suggested_location_aloc",
-            "suggested_location_cloc",
-        )
-        candidates: list[str] = []
-        for key in keys:
-            selector = selectors.selectors.get(key)
-            if isinstance(selector, str):
-                candidates.append(selector)
-        return candidates
+    def _log_quantities(self):
+        """Log shipped/received quantities from screen."""
+        shipped, received = self._parse_quantities()
+        rf_log(f"ℹ️ Shipped: {shipped or '?'}, Received: {received or '?'}")
 
-    def _read_quantities_from_body(self, rf) -> tuple[int | None, int | None]:
-        selectors = OperationConfig.RECEIVE_SELECTORS.selectors
-
-        shipped = self._read_quantity_from_selector(rf, selectors.get("shipped_quantity"))
-        received = self._read_quantity_from_selector(rf, selectors.get("received_quantity"))
-
-        if shipped is not None or received is not None:
-            return shipped, received
-
-        try:
-            body_text = rf.read_field("body")
-        except Exception as exc:
-            rf_log(f"⚠️ Unable to read RF body text: {exc}")
-            return None, None
-        shipped = self._extract_quantity_multi(body_text, [
-            r"Shpd\s*:?\s*([\d,]+)",
-            r"Shipped(?:\s+Qty)?[:\s]+([\d,]+)",
-            r"Shipped\s+([\d,]+)",
-        ])
-        received = self._extract_quantity_multi(body_text, [
-            r"Rcvd\s*:?\s*([\d,]+)",
-            r"Received(?:\s+Qty)?[:\s]+([\d,]+)",
-            r"Received\s+([\d,]+)",
-        ])
+    def _parse_quantities(self) -> tuple[int | None, int | None]:
+        """Extract shipped/received quantities."""
+        s = self.selectors.selectors
+        shipped = self._read_number(s.get("shipped_quantity"))
+        received = self._read_number(s.get("received_quantity"))
+        
         if shipped is None and received is None:
-            body_preview = " ".join(body_text.split())[:120]
-            rf_log(f"⚠️ Unable to parse shipped/received from RF body. Preview: '{body_preview}'")
+            # Fallback: parse body text
+            try:
+                body = self.rf.read_field("body")
+                shipped = self._extract_number(body, r"Shpd?\s*:?\s*([\d,]+)")
+                received = self._extract_number(body, r"Rcvd?\s*:?\s*([\d,]+)")
+            except Exception:
+                pass
         return shipped, received
 
-    def _read_quantity_from_selector(self, rf, selector: str | None) -> int | None:
+    def _read_number(self, selector: str | None) -> int | None:
+        """Read number from selector."""
         if not selector:
             return None
         try:
-            text = rf.read_field(selector, transform=lambda t: " ".join(t.split()))
-        except Exception as exc:
-            rf_log(f"⚠️ Unable to read quantity from '{selector}': {exc}")
-            return None
-        qty = self._extract_quantity(text, r"([\d,]+)")
-        if qty is None and text:
-            rf_log(f"⚠️ Selector '{selector}' returned '{text}' but no quantity was parsed.")
-        return qty
-
-    def _extract_quantity(self, text: str, pattern: str) -> int | None:
-        match = re.search(pattern, text, re.IGNORECASE)
-        if not match:
-            return None
-        digits = match.group(1).replace(",", "")
-        try:
-            return int(digits)
-        except ValueError:
+            text = self.rf.read_field(selector)
+            return self._extract_number(text, r"([\d,]+)")
+        except Exception:
             return None
 
-    def _extract_quantity_multi(self, text: str, patterns: list[str]) -> int | None:
-        for pattern in patterns:
-            qty = self._extract_quantity(text, pattern)
-            if qty is not None:
-                return qty
+    def _extract_number(self, text: str, pattern: str) -> int | None:
+        """Extract first number matching pattern."""
+        match = re.search(pattern, text, re.I)
+        if match:
+            try:
+                return int(match.group(1).replace(",", ""))
+            except ValueError:
+                pass
         return None
 
-    def _extract_suggested_location(self, text: str) -> str:
-        patterns = [
-            r"ALOC\s*:?\s*([A-Za-z0-9\-]+)",
-            r"CLOC\s*:?\s*([A-Za-z0-9\-]+)",
-            r"Loc(?:ation)?\s*:?\s*([A-Za-z0-9\-]+)",
-        ]
-        for pattern in patterns:
-            match = re.search(pattern, text, re.IGNORECASE)
-            if match:
-                return match.group(1).replace("-", "").strip()
-        return ""
+    # =========================================================================
+    # HELPERS - Tasks UI & Screenshots
+    # =========================================================================
 
-    def _read_shipped_quantity(self, rf) -> int | None:
-        try:
-            text = rf.read_field("div#shippedQty").strip()
-        except Exception as exc:
-            rf_log(f"⚠️ Unable to read shipped quantity label: {exc}")
-            return None
-        digits = re.findall(r"\d+", text)
-        if not digits:
-            return None
-        try:
-            return int(digits[0])
-        except ValueError:
-            return None
-
-    def _read_received_quantity(self, rf) -> int | None:
-        try:
-            text = rf.read_field("div#RecvQty").strip()
-        except Exception as exc:
-            rf_log(f"⚠️ Unable to read received quantity label: {exc}")
-            return None
-        digits = re.findall(r"\d+", text)
-        if not digits:
-            return None
-        try:
-            return int(digits[0])
-        except ValueError:
-            return None
-
-    def _maybe_run_tasks_ui(self, tasks_cfg: dict[str, Any] | None) -> bool:
-        """Open the Tasks UI mid-flow if the workflow configuration requests it."""
-        if not tasks_cfg or not bool(tasks_cfg.get("enabled", True)):
+    def _run_tasks_detour(self, cfg: dict) -> bool:
+        """Open Tasks UI mid-flow if configured."""
+        if not cfg.get("enabled", True):
             return True
 
-        nav_mgr = NavigationManager(self.page, self.screenshot_mgr)
-        search_term = tasks_cfg.get("search_term", "tasks")
-        match_text = tasks_cfg.get("match_text", "Tasks (Configuration)")
-        preserve_window = bool(tasks_cfg.get("preserve_window") or tasks_cfg.get("preserve"))
-        close_existing = not preserve_window
-        if not nav_mgr.open_tasks_ui(search_term, match_text, close_existing=close_existing):
-            rf_log("❌ Tasks UI detour failed during receive flow.")
+        from ui.navigation import NavigationManager
+        nav = NavigationManager(self.page, self.screenshot_mgr)
+        
+        if not nav.open_tasks_ui(
+            cfg.get("search_term", "tasks"),
+            cfg.get("match_text", "Tasks (Configuration)"),
+            close_existing=False
+        ):
+            rf_log("❌ Tasks UI detour failed")
             return False
 
-        operation_note = tasks_cfg.get("operation_note", "Visited Tasks UI during receive")
-        self.screenshot_mgr.capture(
-            self.page,
-            "receive_tasks_ui",
-            operation_note,
-        )
-
-        focus_title = "RF Menu"
-        nav_mgr.close_active_windows(skip_titles=[focus_title])
-        if not nav_mgr.focus_window_by_title(focus_title):
-            rf_log("⚠️ Unable to bring RF Menu back to foreground after tasks detour.")
-            return False
-
-        rf_log(f"ℹ️ {operation_note}")
+        nav.close_active_windows(skip_titles=["RF Menu"])
+        nav.focus_window_by_title("RF Menu")
+        rf_log(f"ℹ️ {cfg.get('operation_note', 'Tasks UI visited')}")
         return True
 
-    def _assert_receive_screen_flow_hint(self, screen_state: dict[str, Any]) -> bool:
-        detected_flow = screen_state.get("detected_flow")
-        expected_flow = screen_state.get("expected_flow")
-        assert detected_flow is not None
-        assert expected_flow is not None
-        return detected_flow == expected_flow
-
-    def _handle_alternate_flow_after_qty(
-        self,
-        rf,
-        screen_state: dict[str, Any],
-        auto_handle: bool,
-    ) -> bool:
-        rf_log("⚠️ Receive screen guard triggered alternate flow helper.")
-        detected_flow = screen_state.get("detected_flow") or screen_state.get("flow")
-        expected_flow = screen_state.get("expected_flow") or detected_flow
-        rf_log(f"Detected flow: {detected_flow}")
-        rf_log(f"Expected flow: {expected_flow}")
-        # rf_log(f"Screen snapshot: {screen_state.get('screen', '')[:120]}")
-        meta = self._flow_metadata(detected_flow)
-        rf_log(f"Flow policy: {meta.get('description')}")
-        deviation_snippet = screen_state.get("screen", "").strip().replace("\n", " ")[:80]
-        screenshot_label = f"receive_flow_{detected_flow.lower()}"
-        screenshot_text = f"Flow {detected_flow} (auto_handle={auto_handle}): {deviation_snippet}"
+    def _capture_success(self, asn: str, item: str, qty: int):
+        """Capture success screenshot."""
+        unit = "Unit" if qty == 1 else "Units"
         self.screenshot_mgr.capture_rf_window(
-            self.page,
-            screenshot_label,
-            screenshot_text,
+            self.page, "receive_complete",
+            f"ASN {asn}: {qty} {unit} of {item}"
         )
-        if not auto_handle:
-            rf_log("⚠️ Flow policy signals abort; stopping receive.")
-            return False
-        handler_result = False
-        if detected_flow == "IB_RULE_EXCEPTION_BLIND_ILPN":
-            handler_result = self._handle_ib_rule_exception_blind_ilpn(rf)
-        else:
-            rf_log("⚠️ Auto-handler not implemented for this flow.")
-        return handler_result
 
-    def _flow_metadata(self, flow_name: str) -> dict[str, Any]:
-        flows = OperationConfig.RECEIVE_FLOW_METADATA
-        default = flows.get("UNKNOWN", {})
-        return flows.get(flow_name, default)
-
-    def _determine_flow_after_qty(self, screen_text: str, flow_hint: str | None) -> str:
-        lower_screen = screen_text.lower()
-        metadata = OperationConfig.RECEIVE_FLOW_METADATA
-        for flow_name, flow_meta in metadata.items():
-            if flow_name == "UNKNOWN":
-                continue
-            if self._matches_flow_meta(flow_meta, lower_screen):
-                return flow_name
-        return flow_hint or "UNKNOWN"
-
-    def _matches_flow_meta(self, meta: dict[str, Any], lower_screen: str) -> bool:
-        keywords = meta.get("keywords")
-        if keywords:
-            if not any(keyword in lower_screen for keyword in keywords):
-                return False
-        return True
-
-    def _handle_ib_rule_exception_blind_ilpn(self, rf) -> bool:
-        timestamp = _current_lpn_timestamp()
-        selectors = (
-            OperationConfig.RECEIVE_DEVIATION_SELECTORS.lpn_input,
-            OperationConfig.RECEIVE_DEVIATION_SELECTORS.lpn_input_name,
+    def _capture_deviation(self, flow: str, auto_handle: bool):
+        """Capture deviation screenshot."""
+        self.screenshot_mgr.capture_rf_window(
+            self.page, f"deviation_{flow.lower()}",
+            f"Flow: {flow} (auto_handle={auto_handle})"
         )
-        for selector in selectors:
-            try:
-                has_error, msg = rf.fill_and_submit(
-                    selector,
-                    timestamp,
-                    "receive_ib_rule_lpn",
-                    "Entered generated LPN for IB rule exception",
-                )
-            except Exception as exc:
-                rf_log(f"⚠️ Unable to interact with LPN input '{selector}': {exc}")
-                continue
-            if has_error:
-                rf_log(f"❌ IB rule blind ILPN handler failed for '{selector}': {msg or 'unknown error'}")
-                return False
-            self.screenshot_mgr.capture_rf_window(
-                self.page,
-                "receive_ib_rule_lpn_success",
-                "Entered generated LPN for IB rule exception"
-            )
-            return True
-        rf_log("⚠️ Searched selectors did not locate the IB rule blind ILPN input.")
-        return False
-
-
-def _current_lpn_timestamp() -> str:
-    """Use the local wall clock to generate the YYMMDDHHMMSS string for LPN prompts."""
-    try:
-        return datetime.now(timezone.utc).astimezone().strftime("%y%m%d%H%M%S")
-    except Exception:
-        return datetime.now().strftime("%y%m%d%H%M%S")
