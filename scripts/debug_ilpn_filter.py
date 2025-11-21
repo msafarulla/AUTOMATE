@@ -15,13 +15,16 @@ from operations import create_operation_services
 
 def _find_ilpn_frame(page):
     """Locate the frame that hosts the iLPNs UI."""
+    app_log("🔍 Scanning frames for iLPN content...")
     for frame in page.frames:
         try:
             url = frame.url or ""
         except Exception:
             url = ""
         if "LPNListInbound" in url or "lpn" in url.lower():
+            app_log(f"✅ Using frame with url: {url}")
             return frame
+        app_log(f"➖ Skipping frame url: {url}")
     return None
 
 
@@ -45,12 +48,23 @@ def _fill_ilpn_filter(page, ilpn: str) -> bool:
     ]
     input_field = None
     for sel in candidates:
+        app_log(f"🔎 Trying selector: {sel}")
         try:
             locator = target.locator(sel).first
             locator.wait_for(state="visible", timeout=3000)
             input_field = locator
+            state = locator.evaluate("""
+                el => ({
+                    display: getComputedStyle(el).display,
+                    visibility: getComputedStyle(el).visibility,
+                    disabled: el.disabled,
+                    readonly: el.readOnly
+                })
+            """)
+            app_log(f"✅ Selector matched: {sel} (state={state})")
             break
-        except Exception:
+        except Exception as exc:
+            app_log(f"➖ Selector not usable: {sel} ({exc})")
             continue
 
     if not input_field:
@@ -63,6 +77,7 @@ def _fill_ilpn_filter(page, ilpn: str) -> bool:
                     const val = String(ilpn);
                     const inputs = Array.from(document.querySelectorAll('input'));
                     if (!inputs.length) return false;
+                    console.log('debug_ilpn_filter: found inputs', inputs.length);
 
                     const score = (el) => {
                         const txt = [
@@ -79,11 +94,26 @@ def _fill_ilpn_filter(page, ilpn: str) -> bool:
                     };
 
                     const ranked = inputs
-                        .map(el => ({ el, s: score(el) }))
+                        .map(el => ({
+                            el,
+                            s: score(el),
+                            name: el.name,
+                            id: el.id,
+                            placeholder: el.placeholder,
+                            aria: el.getAttribute('aria-label'),
+                            type: el.type,
+                            display: getComputedStyle(el).display,
+                            visibility: getComputedStyle(el).visibility
+                        }))
                         .filter(entry => entry.s > 0)
                         .sort((a, b) => b.s - a.s);
 
-                    if (!ranked.length) return false;
+                    if (!ranked.length) {
+                        console.log('debug_ilpn_filter: no scored inputs');
+                        return false;
+                    }
+
+                    console.log('debug_ilpn_filter: top candidates', ranked.slice(0, 3));
 
                     const el = ranked[0].el;
                     try {
@@ -109,14 +139,17 @@ def _fill_ilpn_filter(page, ilpn: str) -> bool:
                     target.press("body", "Space")
                 except Exception:
                     pass
+                app_log("✅ Hidden candidate filled and keyboard events fired (Enter/Space).")
                 return True
         except Exception as exc:
             rf_log(f"❌ Hidden iLPN fill fallback failed: {exc}")
             return False
 
+        rf_log("❌ Hidden iLPN fill fallback did not find a candidate.")
         return False
 
     try:
+        app_log("✏️ Filling visible input and pressing Enter")
         input_field.click()
         input_field.fill(ilpn)
         input_field.press("Enter")
@@ -133,8 +166,10 @@ def _fill_ilpn_filter(page, ilpn: str) -> bool:
     for btn in apply_candidates:
         try:
             btn.first.click()
+            app_log("✅ Clicked Apply candidate")
             return True
-        except Exception:
+        except Exception as exc:
+            app_log(f"➖ Apply candidate not clickable: {exc}")
             continue
 
     # Keyboard fallback: Tab twice to focus quick filter, type, press Enter then Space for safety
@@ -144,13 +179,14 @@ def _fill_ilpn_filter(page, ilpn: str) -> bool:
         target.type("body", ilpn)
         target.press("body", "Enter")
         target.press("body", "Space")
+        app_log("⌨️ Used keyboard fallback (Tab Tab Enter Space)")
         return True
     except Exception as exc:
         rf_log(f"❌ Unable to click Apply in iLPNs UI (even with keyboard fallback): {exc}")
         return False
 
 
-def open_ilpns_and_filter(ilpn: str, search_term: str, match_text: str, wait: bool):
+def open_ilpns_and_filter(ilpn: str, search_term: str, match_text: str, wait: bool, hold_seconds: int):
     """Login, open iLPNs UI, and try filtering with the provided iLPN."""
     settings = Settings.from_env()
     success = False
@@ -166,13 +202,20 @@ def open_ilpns_and_filter(ilpn: str, search_term: str, match_text: str, wait: bo
                 app_log(f"🔎 Attempting to filter iLPN '{ilpn}'")
                 success = _fill_ilpn_filter(services.nav_mgr.page, ilpn)
                 if success:
-                    app_log("✅ iLPN filter interaction completed (check UI for results).")
-                else:
-                    app_log("❌ iLPN filter interaction failed.")
+                app_log("✅ iLPN filter interaction completed (check UI for results).")
+            else:
+                app_log("❌ iLPN filter interaction failed.")
         except Exception as exc:
             app_log(f"❌ Debug run failed: {exc}")
             success = False
         finally:
+            if hold_seconds > 0:
+                app_log(f"⏸️ Holding browser open for {hold_seconds}s (Ctrl+C to exit sooner). No close buttons will be clicked.")
+                try:
+                    services.nav_mgr.page.wait_for_timeout(hold_seconds * 1000)
+                except KeyboardInterrupt:
+                    app_log("⏹️ Hold interrupted by user.")
+
             if wait:
                 app_log("⏸️ Leaving browser open. Press Enter to close and exit.")
                 try:
@@ -188,9 +231,10 @@ def main():
     parser.add_argument("--search-term", default="ILPNS", help="Menu search keyword")
     parser.add_argument("--match-text", default="iLPNs (Distribution)", help="Menu item text to open")
     parser.add_argument("--wait", action="store_true", help="Keep the window open until Enter is pressed")
+    parser.add_argument("--hold-seconds", type=int, default=0, help="Keep UI open for N seconds (non-interactive environments)")
     args = parser.parse_args()
 
-    open_ilpns_and_filter(args.ilpn, args.search_term, args.match_text, args.wait)
+    open_ilpns_and_filter(args.ilpn, args.search_term, args.match_text, args.wait, args.hold_seconds)
 
 
 if __name__ == "__main__":
