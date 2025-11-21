@@ -203,11 +203,14 @@ class NavigationManager:
         item.click()
 
     def _post_selection_adjustments(self, match: str):
-        """Adjust window position/size after selection."""
+        """Adjust window position/size after selection (maximize non-RF windows)."""
+        if "rf menu" in match:
+            return
+
+        # Center specific windows first if needed, then maximize for more visibility.
         if "post message" in match:
             self._center_window('window[title*="Post Message"]', "Post Message")
-        elif "rf menu" not in match:
-            self._maximize_active_window()
+        self._maximize_active_window()
 
     # =========================================================================
     # WINDOW HELPERS
