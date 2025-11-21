@@ -9,6 +9,7 @@ from typing import Any
 
 from operations.base_operation import BaseOperation
 from operations.rf_primitives import RFMenuIntegration
+from ui.navigation import NavigationManager
 from config.operations_config import OperationConfig
 from core.logger import rf_log
 
@@ -99,6 +100,10 @@ class ReceiveOperation(BaseOperation):
         """Step 4: Handle post-quantity flow."""
         flow_hint = options.get("flow_hint")
         auto_handle = options.get("auto_handle", False)
+        tasks_cfg = options.get("tasks_cfg")
+
+        if not self._maybe_run_tasks_ui(tasks_cfg):
+            return False
 
         # Check current screen
         detected = self._detect_flow(flow_hint)
@@ -115,6 +120,40 @@ class ReceiveOperation(BaseOperation):
         location = self._read_location()
         self.workflows.confirm_location(self.selectors.location, location)
         self._capture_success(asn, item, quantity)
+        return True
+
+    # =========================================================================
+    # OPTIONAL TASKS UI DETOUR
+    # =========================================================================
+
+    def _maybe_run_tasks_ui(self, tasks_cfg: dict[str, Any] | None) -> bool:
+        """Open the Tasks UI mid-flow if configured."""
+        if not tasks_cfg or not bool(tasks_cfg.get("enabled", True)):
+            return True
+
+        nav_mgr = NavigationManager(self.page, self.screenshot_mgr)
+        search_term = tasks_cfg.get("search_term", "tasks")
+        match_text = tasks_cfg.get("match_text", "Tasks (Configuration)")
+        preserve_window = bool(tasks_cfg.get("preserve_window") or tasks_cfg.get("preserve"))
+        close_existing = not preserve_window
+        if not nav_mgr.open_tasks_ui(search_term, match_text, close_existing=close_existing):
+            rf_log("❌ Tasks UI detour failed during receive flow.")
+            return False
+
+        operation_note = tasks_cfg.get("operation_note", "Visited Tasks UI during receive")
+        self.screenshot_mgr.capture(
+            self.page,
+            "receive_tasks_ui",
+            operation_note,
+        )
+
+        focus_title = tasks_cfg.get("rf_focus_title", "RF Menu")
+        nav_mgr.close_active_windows(skip_titles=[focus_title])
+        if not nav_mgr.focus_window_by_title(focus_title):
+            rf_log("⚠️ Unable to bring RF Menu back to foreground after tasks detour.")
+            return False
+
+        rf_log(f"ℹ️ {operation_note}")
         return True
 
     # =========================================================================
