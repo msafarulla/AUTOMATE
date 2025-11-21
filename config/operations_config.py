@@ -143,6 +143,8 @@ class OperationConfig:
                                 'operation_note': 'Go to iLPNs UI',
                                 'rf_focus_title': 'RF Menu',
                                 'fill_ilpn': True,
+                                'preserve_window': True,
+                                'close_existing': False,
                             },
                             {
                                 'search_term': 'ILPNS',
@@ -150,6 +152,8 @@ class OperationConfig:
                                 'operation_note': 'Go to iLPNs UI',
                                 'rf_focus_title': 'RF Menu',
                                 'fill_ilpn': True,
+                                'preserve_window': True,
+                                'close_existing': False,
                             },
                         ],
                     },

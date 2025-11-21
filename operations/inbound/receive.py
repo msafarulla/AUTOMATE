@@ -170,13 +170,16 @@ class ReceiveOperation(BaseOperation):
         nav_mgr = NavigationManager(self.page, self.screenshot_mgr)
         focus_title = base_cfg.get("rf_focus_title", "RF Menu")
 
+        keep_ui_open = False
+
         for idx, entry in enumerate(entries, 1):
             if not entry or not bool(entry.get("enabled", True)):
                 continue
 
             search_term = entry.get("search_term") or base_cfg.get("search_term", "tasks")
             match_text = entry.get("match_text") or base_cfg.get("match_text", "Tasks (Configuration)")
-            if not nav_mgr.open_menu_item(search_term, match_text, close_existing=True):
+            close_existing = bool(entry.get("close_existing", base_cfg.get("close_existing", True)))
+            if not nav_mgr.open_menu_item(search_term, match_text, close_existing=close_existing):
                 rf_log(f"❌ UI detour #{idx} failed during receive flow.")
                 return False
 
@@ -202,13 +205,15 @@ class ReceiveOperation(BaseOperation):
 
             # Close the just-opened UI before moving to the next (unless caller wants to preserve)
             preserve = bool(entry.get("preserve_window") or entry.get("preserve"))
+            keep_ui_open = keep_ui_open or preserve
             if not preserve:
                 nav_mgr.close_active_windows(skip_titles=[focus_title])
 
-        nav_mgr.close_active_windows(skip_titles=[focus_title])
-        if not nav_mgr.focus_window_by_title(focus_title):
-            rf_log("⚠️ Unable to bring RF Menu back to foreground after UI detours.")
-            return False
+        if not keep_ui_open:
+            nav_mgr.close_active_windows(skip_titles=[focus_title])
+            if not nav_mgr.focus_window_by_title(focus_title):
+                rf_log("⚠️ Unable to bring RF Menu back to foreground after UI detours.")
+                return False
 
         return True
 
