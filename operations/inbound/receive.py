@@ -204,6 +204,12 @@ class ReceiveOperation(BaseOperation):
                 ilpn_val = self._screen_context.get("ilpn")
                 if not self._fill_ilpn_quick_filter(str(ilpn_val)):
                     return False
+                post_fill_wait = entry.get("post_fill_ms") or base_cfg.get("post_fill_ms")
+                if post_fill_wait:
+                    try:
+                        self.page.wait_for_timeout(int(post_fill_wait))
+                    except Exception:
+                        pass
 
             pause_ms = entry.get("pause_ms") or base_cfg.get("pause_ms")
             if pause_ms:

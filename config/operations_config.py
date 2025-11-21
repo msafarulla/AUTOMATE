@@ -146,9 +146,11 @@ class OperationConfig:
                                 'preserve_window': False,   # close after fill/screenshot
                                 'close_existing': False,    # keep RF window intact
                                 'refocus_rf': True,
+                                'post_fill_ms': 800,       # keep iLPN in view briefly after fill
                             },
                         ],
                         'refocus_rf': True,
+                        'post_fill_ms': 800,
                     },
                 },
             },
