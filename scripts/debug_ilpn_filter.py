@@ -150,7 +150,7 @@ def _fill_ilpn_filter(page, ilpn: str) -> bool:
         return False
 
 
-def open_ilpns_and_filter(ilpn: str, search_term: str, match_text: str):
+def open_ilpns_and_filter(ilpn: str, search_term: str, match_text: str, wait: bool):
     """Login, open iLPNs UI, and try filtering with the provided iLPN."""
     settings = Settings.from_env()
     with create_operation_services(settings) as services:
@@ -167,6 +167,13 @@ def open_ilpns_and_filter(ilpn: str, search_term: str, match_text: str):
             app_log("✅ iLPN filter interaction completed (check UI for results).")
         else:
             app_log("❌ iLPN filter interaction failed.")
+
+        if wait:
+            app_log("⏸️ Leaving browser open. Press Enter to close and exit.")
+            try:
+                input()
+            except KeyboardInterrupt:
+                pass
         return success
 
 
@@ -175,9 +182,10 @@ def main():
     parser.add_argument("--ilpn", required=True, help="iLPN value to filter by")
     parser.add_argument("--search-term", default="ILPNS", help="Menu search keyword")
     parser.add_argument("--match-text", default="iLPNs (Distribution)", help="Menu item text to open")
+    parser.add_argument("--wait", action="store_true", help="Keep the window open until Enter is pressed")
     args = parser.parse_args()
 
-    open_ilpns_and_filter(args.ilpn, args.search_term, args.match_text)
+    open_ilpns_and_filter(args.ilpn, args.search_term, args.match_text, args.wait)
 
 
 if __name__ == "__main__":
