@@ -100,7 +100,12 @@ class WorkflowStageExecutor:
         )
         if receive_quantity is None:
             receive_quantity = 1
-        tasks_cfg = stage_cfg.get("tasks")
+        # Support either legacy "tasks" detour or the newer "ilpns" config
+        open_ui_cfg = (
+            stage_cfg.get("open_ui")
+            or stage_cfg.get("tasks")
+            or stage_cfg.get("ilpns")
+        )
         receive_result = self.orchestrator.run_with_retry(
             self.stage_actions.receive,
             f"Receive (Workflow {workflow_idx})",
@@ -109,7 +114,7 @@ class WorkflowStageExecutor:
             quantity=receive_quantity,
             flow_hint=stage_cfg.get("flow"),
             auto_handle=stage_cfg.get("auto_handle_deviation", False),
-            tasks_cfg=tasks_cfg,
+            open_ui_cfg=open_ui_cfg,
         )
         if not receive_result.success:
             app_log(f"⏹️ Halting workflow {workflow_idx} due to receive failure")

@@ -135,13 +135,17 @@ class OperationConfig:
                     'quantity': 0,
                     'flow': 'HAPPY_PATH',
                     'auto_handle_deviation': True,
-                    'ilpns': {
+                    'open_ui': {
                         'enabled': True,
-                        'preserve_window': True,
-                        'search_term': 'ILPNS',
-                        'match_text': 'iLPNs (Distribution)',
-                        'operation_note': 'Go to iLPNs UI',
-                        'rf_focus_title': 'RF Menu',
+                        'entries': [
+                            {
+                                'preserve_window': True,
+                                'search_term': 'ILPNS',
+                                'match_text': 'iLPNs (Distribution)',
+                                'operation_note': 'Go to iLPNs UI',
+                                'rf_focus_title': 'RF Menu',
+                            },
+                        ],
                     },
                 },
             },

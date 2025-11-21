@@ -39,7 +39,7 @@ class ReceiveOperation(BaseOperation):
             asn: ASN number to receive
             item: Item barcode
             quantity: Quantity to receive
-            **options: flow_hint, auto_handle
+            **options: flow_hint, auto_handle, open_ui_cfg
         """
         steps = [
             (self._navigate, "Navigate to receive"),
@@ -100,8 +100,8 @@ class ReceiveOperation(BaseOperation):
         )
 
         if success:
-            tasks_cfg = options.get("tasks_cfg")
-            success = self._maybe_run_tasks_ui(tasks_cfg)
+            open_ui_cfg = options.get("open_ui_cfg")
+            success = self._maybe_run_open_ui(open_ui_cfg)
         return success
 
     def _complete(self, asn: str, item: str, quantity: int, options: dict) -> bool:
@@ -130,34 +130,69 @@ class ReceiveOperation(BaseOperation):
     # OPTIONAL TASKS UI DETOUR
     # =========================================================================
 
-    def _maybe_run_tasks_ui(self, tasks_cfg: dict[str, Any] | None) -> bool:
-        """Open the Tasks UI mid-flow if configured."""
-        if not tasks_cfg or not bool(tasks_cfg.get("enabled", True)):
+    def _maybe_run_open_ui(self, open_ui_cfg: dict[str, Any] | list[dict[str, Any]] | None) -> bool:
+        """Open one or more configured UIs mid-flow (e.g., Tasks or iLPNs)."""
+        if not open_ui_cfg:
+            return True
+
+        # Normalize to a list of entries
+        entries: list[dict[str, Any]] = []
+        base_cfg: dict[str, Any] = {}
+        if isinstance(open_ui_cfg, list):
+            entries = open_ui_cfg
+        elif isinstance(open_ui_cfg, dict):
+            if not bool(open_ui_cfg.get("enabled", True)):
+                return True
+            base_cfg = open_ui_cfg
+            entries = open_ui_cfg.get("entries") or [open_ui_cfg]
+        else:
             return True
 
         nav_mgr = NavigationManager(self.page, self.screenshot_mgr)
-        search_term = tasks_cfg.get("search_term", "tasks")
-        match_text = tasks_cfg.get("match_text", "Tasks (Configuration)")
-        preserve_window = bool(tasks_cfg.get("preserve_window") or tasks_cfg.get("preserve"))
-        close_existing = not preserve_window
-        if not nav_mgr.open_tasks_ui(search_term, match_text, close_existing=close_existing):
-            rf_log("❌ Tasks UI detour failed during receive flow.")
-            return False
+        focus_title = base_cfg.get("rf_focus_title", "RF Menu")
 
-        operation_note = tasks_cfg.get("operation_note", "Visited Tasks UI during receive")
-        self.screenshot_mgr.capture(
-            self.page,
-            "receive_tasks_ui",
-            operation_note,
-        )
+        for idx, entry in enumerate(entries, 1):
+            if not entry or not bool(entry.get("enabled", True)):
+                continue
 
-        focus_title = tasks_cfg.get("rf_focus_title", "RF Menu")
+            search_term = entry.get("search_term") or base_cfg.get("search_term", "tasks")
+            match_text = entry.get("match_text") or base_cfg.get("match_text", "Tasks (Configuration)")
+            preserve_window = bool(
+                entry.get("preserve_window")
+                or entry.get("preserve")
+                or base_cfg.get("preserve_window")
+                or base_cfg.get("preserve")
+            )
+            close_existing = not preserve_window
+
+            if not nav_mgr.open_menu_item(search_term, match_text, close_existing=close_existing):
+                rf_log(f"❌ UI detour #{idx} failed during receive flow.")
+                return False
+
+            operation_note = (
+                entry.get("operation_note")
+                or base_cfg.get("operation_note")
+                or f"Visited UI #{idx} during receive"
+            )
+            screenshot_tag = (
+                entry.get("screenshot_tag")
+                or base_cfg.get("screenshot_tag")
+                or f"receive_open_ui_{idx}"
+            )
+            self.screenshot_mgr.capture(self.page, screenshot_tag, operation_note)
+
+            focus_title = entry.get("rf_focus_title") or focus_title
+            rf_log(f"ℹ️ {operation_note}")
+
+            # Close the just-opened UI before moving to the next (unless preserved)
+            if not preserve_window:
+                nav_mgr.close_active_windows(skip_titles=[focus_title])
+
         nav_mgr.close_active_windows(skip_titles=[focus_title])
         if not nav_mgr.focus_window_by_title(focus_title):
-            rf_log("⚠️ Unable to bring RF Menu back to foreground after tasks detour.")
+            rf_log("⚠️ Unable to bring RF Menu back to foreground after UI detours.")
             return False
 
-        rf_log(f"ℹ️ {operation_note}")
         return True
 
     # =========================================================================
