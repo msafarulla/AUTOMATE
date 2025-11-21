@@ -210,7 +210,7 @@ class NavigationManager:
         # Center specific windows first if needed, then maximize for more visibility.
         if "post message" in match:
             self._center_window('window[title*="Post Message"]', "Post Message")
-        self._maximize_active_window()
+        self._maximize_non_rf_windows()
 
     # =========================================================================
     # WINDOW HELPERS
@@ -328,6 +328,29 @@ class NavigationManager:
                 return true;
             }
         """, description="maximize_window")
+
+    def _maximize_non_rf_windows(self):
+        """Maximize all visible non-RF windows for better capture."""
+        safe_page_evaluate(self.page, """
+            () => {
+                if (!window.Ext?.WindowManager?.getAll) return false;
+                const wins = Ext.WindowManager.getAll().items || [];
+                const w = Math.max(400, window.innerWidth * 0.92);
+                const h = Math.max(300, window.innerHeight * 0.9);
+                const x = Math.max(8, (window.innerWidth - w) / 2);
+                const y = Math.max(8, window.innerHeight * 0.04);
+                let changed = false;
+                wins.forEach(win => {
+                    const title = (win.title || '').toLowerCase();
+                    if (title.includes('rf menu') || title === 'rf') return;
+                    win.setSize?.(w, h);
+                    win.setPosition?.(x, y);
+                    win.toFront?.();
+                    changed = true;
+                });
+                return changed;
+            }
+        """, description="maximize_non_rf_windows")
 
     # =========================================================================
     # UTILITIES

@@ -377,17 +377,19 @@ class ReceiveOperation(BaseOperation):
 
     def _fill_ilpn_quick_filter(self, ilpn: str) -> bool:
         """Fill the iLPN quick filter input and click Apply in the iLPNs UI."""
+        frame = self.page.frame_locator("iframe[src*='LPNListInbound']")
         candidates = [
-            "//span[contains(.,'Quick filter')]/following::input[1]",
-            "//label[contains(.,'LPN')]/following::input[1]",
-            "input[id*='LPN']:visible",
+            "//label[contains(normalize-space(),'LPN')]/following::input[1]",
+            "//span[contains(normalize-space(),'Quick filter')]/following::input[1]",
+            "input[name*='lpn']:visible",
+            "input[id*='lpn']:visible",
             "input[type='text']:visible",
         ]
         input_field = None
         for sel in candidates:
             try:
-                locator = self.page.locator(sel).first
-                locator.wait_for(state="visible", timeout=2000)
+                locator = frame.locator(sel).first
+                locator.wait_for(state="visible", timeout=3000)
                 input_field = locator
                 break
             except Exception:
@@ -401,13 +403,13 @@ class ReceiveOperation(BaseOperation):
 
         # Click Apply
         try:
-            self.page.get_by_role("button", name="Apply").click()
+            frame.get_by_role("button", name="Apply").click()
             return True
         except Exception:
             pass
 
         try:
-            self.page.locator("//button[normalize-space()='Apply']|//span[normalize-space()='Apply']").first.click()
+            frame.locator("//button[normalize-space()='Apply']|//span[normalize-space()='Apply']").first.click()
             return True
         except Exception:
             rf_log("❌ Unable to click Apply in iLPNs UI.")
