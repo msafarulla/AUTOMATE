@@ -352,26 +352,31 @@ class NavigationManager:
 
     def _maximize_non_rf_windows(self):
         """Maximize all visible non-RF windows for better capture."""
-        safe_page_evaluate(self.page, """
+        resized = safe_page_evaluate(self.page, """
             () => {
-                if (!window.Ext?.WindowManager?.getAll) return false;
+                if (!window.Ext?.WindowManager?.getAll) return 0;
                 const wins = Ext.WindowManager.getAll().items || [];
                 const w = Math.max(400, window.innerWidth * 0.92);
                 const h = Math.max(300, window.innerHeight * 0.9);
                 const x = Math.max(8, (window.innerWidth - w) / 2);
                 const y = Math.max(8, window.innerHeight * 0.04);
-                let changed = false;
+                let changed = 0;
                 wins.forEach(win => {
                     const title = (win.title || '').toLowerCase();
                     if (title.includes('rf menu') || title === 'rf') return;
                     win.setSize?.(w, h);
                     win.setPosition?.(x, y);
                     win.toFront?.();
-                    changed = true;
+                    changed += 1;
                 });
                 return changed;
             }
         """, description="maximize_non_rf_windows")
+
+        if resized:
+            app_log(f"🪟 Maximized {resized} non-RF window(s)")
+        else:
+            app_log("ℹ️ No non-RF windows maximized (none found or already excluded)")
 
     # =========================================================================
     # UTILITIES
