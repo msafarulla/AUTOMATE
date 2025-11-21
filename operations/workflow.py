@@ -64,14 +64,18 @@ class WorkflowStageExecutor:
                 db_env,
             )
         else:
-            message_payload = stage_cfg.get("message") or self.settings.app.post_message_text
+            message_payload = (
+                stage_cfg.get("message") or self.settings.app.post_message_text
+            )
         if not message_payload:
             app_log(
                 f"❌ Unable to resolve post message payload for workflow {workflow_idx}; halting."
             )
             return metadata, False
         post_result = self.orchestrator.run_with_retry(
-            lambda payload=message_payload: self.stage_actions.run_post_message(payload),
+            lambda payload=message_payload: self.stage_actions.run_post_message(
+                payload
+            ),
             f"Post Message (Workflow {workflow_idx})",
         )
         if not post_result.success:
@@ -91,7 +95,9 @@ class WorkflowStageExecutor:
         receive_default = receive_items[0] if receive_items else {}
         receive_item = stage_cfg.get("item") or receive_default.get("item")
         quantity_cfg = stage_cfg.get("quantity", 0)
-        receive_quantity = quantity_cfg if quantity_cfg else receive_default.get("quantity")
+        receive_quantity = (
+            quantity_cfg if quantity_cfg else receive_default.get("quantity")
+        )
         if receive_quantity is None:
             receive_quantity = 1
         tasks_cfg = stage_cfg.get("tasks")
@@ -144,22 +150,22 @@ class WorkflowStageExecutor:
             return metadata, False
         return metadata, True
 
-        def handle_ilpns_stage(
-            self, stage_cfg: dict[str, Any], metadata: dict[str, Any], workflow_idx: int
-        ) -> Tuple[dict[str, Any], bool]:
-            if not bool(stage_cfg.get("enabled", True)):
-                return metadata, True
-            search_term = stage_cfg.get("search_term", "ilpns")
-            match_text = stage_cfg.get("match_text", "iLPNs (Distribution)")
-            in_place = bool(stage_cfg.get("preserve_window") or stage_cfg.get("preserve"))
-            if in_place:
-                success = self.stage_actions.run_tasks_ui_in_place(search_term, match_text)
-            else:
-                success = self.stage_actions.run_tasks_ui(search_term, match_text)
-            if not success:
-                app_log(f"❌ Unable to open iLPNs UI for workflow {workflow_idx}; halting.")
-                return metadata, False
+    def handle_ilpns_stage(
+        self, stage_cfg: dict[str, Any], metadata: dict[str, Any], workflow_idx: int
+    ) -> Tuple[dict[str, Any], bool]:
+        if not bool(stage_cfg.get("enabled", True)):
             return metadata, True
+        search_term = stage_cfg.get("search_term", "ilpns")
+        match_text = stage_cfg.get("match_text", "iLPNs (Distribution)")
+        in_place = bool(stage_cfg.get("preserve_window") or stage_cfg.get("preserve"))
+        if in_place:
+            success = self.stage_actions.run_tasks_ui_in_place(search_term, match_text)
+        else:
+            success = self.stage_actions.run_tasks_ui(search_term, match_text)
+        if not success:
+            app_log(f"❌ Unable to open iLPNs UI for workflow {workflow_idx}; halting.")
+            return metadata, False
+        return metadata, True
 
     def handle_rf_return_stage(
         self, stage_cfg: dict[str, Any], metadata: dict[str, Any], workflow_idx: int
@@ -172,7 +178,11 @@ class WorkflowStageExecutor:
         return metadata, True
 
     def run_stage(
-        self, stage_name: str, stage_cfg: dict[str, Any], metadata: dict[str, Any], workflow_idx: int
+        self,
+        stage_name: str,
+        stage_cfg: dict[str, Any],
+        metadata: dict[str, Any],
+        workflow_idx: int,
     ) -> Tuple[dict[str, Any], bool]:
         handler = self.stage_handlers.get(stage_name.lower())
         if handler:
