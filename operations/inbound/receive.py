@@ -27,6 +27,8 @@ class ReceiveOperation(BaseOperation):
         # Load config
         self.menu = OperationConfig.RECEIVE_MENU
         self.selectors = OperationConfig.RECEIVE_SELECTORS
+        self._shipped_qty: int | None = None
+        self._received_qty: int | None = None
 
     def execute(self, asn: str, item: str, quantity: int, **options) -> bool:
         """
@@ -77,10 +79,16 @@ class ReceiveOperation(BaseOperation):
                 rf_log(f"❌ {label} scan failed: {msg}")
                 return False
         shipped, received = self._log_quantities()
+        self._shipped_qty, self._received_qty = shipped, received
         return True
 
     def _enter_quantity(self, quantity: int, item: str) -> bool:
         """Step 3: Enter quantity."""
+        if self._shipped_qty is not None or self._received_qty is not None:
+            rf_log(
+                f"ℹ️ Entering qty with context shipped={self._shipped_qty} "
+                f"received={self._received_qty}"
+            )
         return self.workflows.enter_quantity(self.selectors.quantity, quantity, item)
 
     def _complete(self, asn: str, item: str, quantity: int, options: dict) -> bool:
