@@ -23,7 +23,6 @@ class WorkflowStageExecutor:
             "loading": self.handle_loading_stage,
             "tasks": self.handle_tasks_stage,
             "ilpns": self.handle_ilpns_stage,
-            "rf_return": self.handle_rf_return_stage,
         }
 
     def _confirm_prod_post(self, workflow_index: int) -> bool:
