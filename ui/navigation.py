@@ -143,6 +143,27 @@ class NavigationManager:
         except Exception:
             pass
 
+    def enable_context_menu(self):
+        """Allow right-click/inspect by disabling app-level contextmenu blockers."""
+        safe_page_evaluate(self.page, """
+            () => {
+                const allowContext = () => {
+                    const unblock = (ev) => {
+                        ev.stopPropagation();
+                        // Do not preventDefault so the browser menu shows.
+                    };
+                    document.addEventListener('contextmenu', unblock, true);
+                    window.addEventListener('contextmenu', unblock, true);
+                    document.querySelectorAll('[oncontextmenu]').forEach(el => {
+                        el.oncontextmenu = null;
+                    });
+                };
+                allowContext();
+                // Re-apply after a short delay in case framework rebinds handlers.
+                setTimeout(allowContext, 1000);
+            }
+        """, description="enable_context_menu")
+
     # =========================================================================
     # MENU HELPERS
     # =========================================================================

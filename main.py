@@ -38,6 +38,8 @@ def run_automation(settings: Settings, ops):
     # Login and setup
     ops.stage_actions.run_login()
     # ops.nav_mgr.close_menu_overlay_after_sign_on()
+    if getattr(settings.app, "force_enable_context_menu", False):
+        ops.nav_mgr.enable_context_menu()
     ops.stage_actions.run_change_warehouse()
 
     # Load workflows
