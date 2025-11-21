@@ -474,18 +474,31 @@ class RFWorkflows:
         self,
         selector: str,
         qty: int,
-        item_name: str = "",
+        item_name: str | None = None,
         timeout: int = 1000,
-        auto_accept_errors: Optional[bool] = None
+        auto_accept_errors: Optional[bool] = None,
+        context: Optional[dict[str, Any]] = None,
     ) -> bool:
-        label = f"qty_{item_name}_{qty}" if item_name else f"qty_{qty}"
+        item_label = item_name or getattr(self, "_item", "") or ""
+        label = f"qty_{item_label}_{qty}" if item_label else f"qty_{qty}"
         unit = "Unit" if qty == 1 else "Units"
+        context_note = ""
+        if context:
+            shipped = context.get("shipped")
+            received = context.get("received")
+            info_parts = []
+            if shipped is not None:
+                info_parts.append(f"shpd={shipped}")
+            if received is not None:
+                info_parts.append(f"rcvd={received}")
+            if info_parts:
+                context_note = " (" + ", ".join(info_parts) + ")"
 
         has_error, msg = self.rf.fill_and_submit(
             selector=selector,
             value=str(qty),
             screenshot_label=label,
-            screenshot_text=f"Entered {qty} {unit}",
+            screenshot_text=f"Entered {qty} {unit}{context_note}",
             timeout=timeout
         )
 
