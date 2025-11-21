@@ -16,9 +16,9 @@ def main():
     """Run warehouse automation workflows."""
     settings = Settings.from_env()
     
-    with create_operation_services(settings) as ops:
+    with create_operation_services(settings) as wmOps:
         try:
-            run_automation(settings, ops)
+            run_automation(settings, wmOps)
         except ConnectionResetDetected as e:
             app_log(f"❌ Connection lost: {e}")
         except KeyboardInterrupt:
@@ -28,7 +28,7 @@ def main():
             import traceback
             traceback.print_exc()
         finally:
-            ops.orchestrator.print_summary()
+            wmOps.orchestrator.print_summary()
 
 
 def run_automation(settings: Settings, ops):
@@ -37,7 +37,7 @@ def run_automation(settings: Settings, ops):
     
     # Login and setup
     ops.stage_actions.run_login()
-    ops.nav_mgr.close_menu_overlay_after_sign_on()
+    # ops.nav_mgr.close_menu_overlay_after_sign_on()
     ops.stage_actions.run_change_warehouse()
 
     # Load workflows
@@ -56,10 +56,10 @@ def run_automation(settings: Settings, ops):
         app_log("=" * 60)
 
         metadata = {}
-        for stage_name, stage_config in stages.items():
-            ops.screenshot_mgr.set_stage(stage_name)
+        for scenario_name, scenario_data_input in stages.items():
+            ops.screenshot_mgr.set_stage(scenario_name)
             metadata, should_continue = executor.run_stage(
-                stage_name, stage_config or {}, metadata, index
+                scenario_name, scenario_data_input, metadata, index
             )
             if not should_continue:
                 break
