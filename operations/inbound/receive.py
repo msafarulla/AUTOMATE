@@ -173,6 +173,8 @@ class ReceiveOperation(BaseOperation):
 
         keep_ui_open = False
         refocus_rf = bool(base_cfg.get("refocus_rf", True))
+        default_post_fill = base_cfg.get("post_fill_ms")
+        default_post_screenshot = base_cfg.get("post_screenshot_tag")
 
         for idx, entry in enumerate(entries, 1):
             if not entry or not bool(entry.get("enabled", True)):
@@ -204,12 +206,18 @@ class ReceiveOperation(BaseOperation):
                 ilpn_val = self._screen_context.get("ilpn")
                 if not self._fill_ilpn_quick_filter(str(ilpn_val)):
                     return False
-                post_fill_wait = entry.get("post_fill_ms") or base_cfg.get("post_fill_ms")
+                post_fill_wait = entry.get("post_fill_ms") or default_post_fill
                 if post_fill_wait:
                     try:
                         self.page.wait_for_timeout(int(post_fill_wait))
                     except Exception:
                         pass
+                post_screenshot_tag = (
+                    entry.get("post_screenshot_tag")
+                    or default_post_screenshot
+                )
+                if post_screenshot_tag:
+                    self.screenshot_mgr.capture(self.page, post_screenshot_tag, f"{operation_note} (after fill)")
 
             pause_ms = entry.get("pause_ms") or base_cfg.get("pause_ms")
             if pause_ms:
