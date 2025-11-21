@@ -422,8 +422,17 @@ class ReceiveOperation(BaseOperation):
             except Exception:
                 continue
 
-        rf_log("❌ Unable to click Apply in iLPNs UI.")
-        return False
+        # Keyboard fallback: Tab twice to focus quick filter, type, press Enter then Space for safety
+        try:
+            self.page.keyboard.press("Tab")
+            self.page.keyboard.press("Tab")
+            self.page.keyboard.type(ilpn)
+            self.page.keyboard.press("Enter")
+            self.page.keyboard.press("Space")
+            return True
+        except Exception as exc:
+            rf_log(f"❌ Unable to click Apply in iLPNs UI (even with keyboard fallback): {exc}")
+            return False
 
     # =========================================================================
     # HELPERS - Screenshots
