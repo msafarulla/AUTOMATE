@@ -153,27 +153,32 @@ def _fill_ilpn_filter(page, ilpn: str) -> bool:
 def open_ilpns_and_filter(ilpn: str, search_term: str, match_text: str, wait: bool):
     """Login, open iLPNs UI, and try filtering with the provided iLPN."""
     settings = Settings.from_env()
+    success = False
     with create_operation_services(settings) as services:
-        services.stage_actions.run_login()
-        services.stage_actions.run_change_warehouse()
+        try:
+            services.stage_actions.run_login()
+            services.stage_actions.run_change_warehouse()
 
-        if not services.nav_mgr.open_menu_item(search_term, match_text, close_existing=True):
-            app_log(f"❌ Could not open menu item '{match_text}'")
-            return False
-
-        app_log(f"🔎 Attempting to filter iLPN '{ilpn}'")
-        success = _fill_ilpn_filter(services.nav_mgr.page, ilpn)
-        if success:
-            app_log("✅ iLPN filter interaction completed (check UI for results).")
-        else:
-            app_log("❌ iLPN filter interaction failed.")
-
-        if wait:
-            app_log("⏸️ Leaving browser open. Press Enter to close and exit.")
-            try:
-                input()
-            except KeyboardInterrupt:
-                pass
+            if not services.nav_mgr.open_menu_item(search_term, match_text, close_existing=True):
+                app_log(f"❌ Could not open menu item '{match_text}'")
+                success = False
+            else:
+                app_log(f"🔎 Attempting to filter iLPN '{ilpn}'")
+                success = _fill_ilpn_filter(services.nav_mgr.page, ilpn)
+                if success:
+                    app_log("✅ iLPN filter interaction completed (check UI for results).")
+                else:
+                    app_log("❌ iLPN filter interaction failed.")
+        except Exception as exc:
+            app_log(f"❌ Debug run failed: {exc}")
+            success = False
+        finally:
+            if wait:
+                app_log("⏸️ Leaving browser open. Press Enter to close and exit.")
+                try:
+                    input()
+                except KeyboardInterrupt:
+                    pass
         return success
 
 
