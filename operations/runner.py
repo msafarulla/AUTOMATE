@@ -2,7 +2,6 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from functools import wraps
 from typing import Any, Callable, Generator
-
 from core.browser import BrowserManager
 from core.connection_guard import ConnectionResetGuard
 from core.logger import app_log
@@ -17,7 +16,6 @@ from ui.post_message import PostMessageManager
 from ui.rf_menu import RFMenuManager
 
 
-@dataclass
 @dataclass
 class StageActions:
     run_login: Callable[[], None]
