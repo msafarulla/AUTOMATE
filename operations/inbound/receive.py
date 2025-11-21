@@ -379,22 +379,25 @@ class ReceiveOperation(BaseOperation):
         """Fill the iLPN quick filter input and click Apply in the iLPNs UI."""
         # Locate the correct frame (the iLPNs window often runs in its own frame/window).
         target_frame = self._find_ilpn_frame()
+        target = target_frame or self.page
         if not target_frame:
-            rf_log("❌ Unable to locate iLPNs frame/window.")
-            return False
+            rf_log("⚠️ Could not locate dedicated iLPNs frame, using active page as fallback.")
 
         candidates = [
-            "//span[contains(normalize-space(),'Quick filter')]/following::input[1]",
-            "//label[contains(normalize-space(),'LPN')]/following::input[1]",
+            "//span[contains(translate(normalize-space(),'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz'),'quick filter')]/following::input[1]",
+            "//label[contains(translate(normalize-space(),'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz'),'lpn')]/following::input[1]",
+            "//input[contains(@placeholder,'ilter') and not(@type='hidden')]",
+            "//input[contains(@aria-label,'Quick filter') and not(@type='hidden')]",
             "//input[contains(@name,'lpn') and not(@type='hidden')]",
             "//input[contains(@id,'lpn') and not(@type='hidden')]",
+            "//input[contains(@name,'filter') and not(@type='hidden')]",
             "input.x-form-text:visible",
             "input[type='text']:visible",
         ]
         input_field = None
         for sel in candidates:
             try:
-                locator = target_frame.locator(sel).first
+                locator = target.locator(sel).first
                 locator.wait_for(state="visible", timeout=3000)
                 input_field = locator
                 break
@@ -406,16 +409,18 @@ class ReceiveOperation(BaseOperation):
             return False
 
         try:
+            input_field.click()
             input_field.fill(ilpn)
+            input_field.press("Enter")
         except Exception as exc:
             rf_log(f"❌ Unable to fill iLPN filter: {exc}")
             return False
 
         apply_candidates = [
-            target_frame.get_by_role("button", name="Apply"),
-            target_frame.locator("//a[.//span[normalize-space()='Apply']]"),
-            target_frame.locator("//button[normalize-space()='Apply']"),
-            target_frame.locator("//span[normalize-space()='Apply']"),
+            target.get_by_role("button", name="Apply"),
+            target.locator("//a[.//span[normalize-space()='Apply']]"),
+            target.locator("//button[normalize-space()='Apply']"),
+            target.locator("//span[normalize-space()='Apply']"),
         ]
         for btn in apply_candidates:
             try:
@@ -426,11 +431,11 @@ class ReceiveOperation(BaseOperation):
 
         # Keyboard fallback: Tab twice to focus quick filter, type, press Enter then Space for safety
         try:
-            target_frame.press("body", "Tab")
-            target_frame.press("body", "Tab")
-            target_frame.type("body", ilpn)
-            target_frame.press("body", "Enter")
-            target_frame.press("body", "Space")
+            target.press("body", "Tab")
+            target.press("body", "Tab")
+            target.type("body", ilpn)
+            target.press("body", "Enter")
+            target.press("body", "Space")
             return True
         except Exception as exc:
             rf_log(f"❌ Unable to click Apply in iLPNs UI (even with keyboard fallback): {exc}")
