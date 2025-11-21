@@ -146,7 +146,7 @@ class OperationConfig:
                                 'rf_focus_title': 'RF Menu',
                             },
                                                         {
-                                'preserve_window': True,
+                                'preserve_window': not True,
                                 'search_term': 'ILPNS',
                                 'match_text': 'iLPNs (Distribution)',
                                 'operation_note': 'Go to iLPNs UI',
