@@ -186,7 +186,15 @@ def _fill_ilpn_filter(page, ilpn: str) -> bool:
         return False
 
 
-def open_ilpns_and_filter(ilpn: str, search_term: str, match_text: str, wait: bool, hold_seconds: int, keep_open: bool):
+def open_ilpns_and_filter(
+    ilpn: str,
+    search_term: str,
+    match_text: str,
+    wait: bool,
+    hold_seconds: int,
+    keep_open: bool,
+    close_existing: bool,
+):
     """Login, open iLPNs UI, and try filtering with the provided iLPN."""
     settings = Settings.from_env()
     success = False
@@ -195,7 +203,7 @@ def open_ilpns_and_filter(ilpn: str, search_term: str, match_text: str, wait: bo
             services.stage_actions.run_login()
             services.stage_actions.run_change_warehouse()
 
-            if not services.nav_mgr.open_menu_item(search_term, match_text, close_existing=True):
+            if not services.nav_mgr.open_menu_item(search_term, match_text, close_existing=close_existing):
                 app_log(f"❌ Could not open menu item '{match_text}'")
                 success = False
             else:
@@ -242,12 +250,21 @@ def main():
     parser.add_argument("--wait", action="store_true", help="Keep the window open until Enter is pressed")
     parser.add_argument("--hold-seconds", type=int, default=0, help="Keep UI open for N seconds (non-interactive environments)")
     parser.add_argument("--keep-open", action="store_true", help="Keep browser session alive until Ctrl+C (overrides hold/wait timing)")
+    parser.add_argument("--keep-existing", action="store_true", help="Do not close existing windows when opening the iLPNs menu")
     args = parser.parse_args()
 
     if not args.wait and args.hold_seconds == 0 and not args.keep_open:
         app_log("ℹ️ Tip: add --hold-seconds 300 or --keep-open to inspect the UI; otherwise the session will close after filtering.")
 
-    open_ilpns_and_filter(args.ilpn, args.search_term, args.match_text, args.wait, args.hold_seconds, args.keep_open)
+    open_ilpns_and_filter(
+        args.ilpn,
+        args.search_term,
+        args.match_text,
+        args.wait,
+        args.hold_seconds,
+        args.keep_open,
+        close_existing=not args.keep_existing,
+    )
 
 
 if __name__ == "__main__":
