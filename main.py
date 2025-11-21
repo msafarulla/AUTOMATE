@@ -48,18 +48,18 @@ def run_automation(settings: Settings, ops):
     executor = WorkflowStageExecutor(settings, ops.orchestrator, ops.stage_actions)
 
     # Run each workflow
-    for index, (name, stages) in enumerate(workflows, 1):
-        ops.screenshot_mgr.set_scenario(name)
+    for index, (scenario_name, steps) in enumerate(workflows, 1):
+        ops.screenshot_mgr.set_scenario(scenario_name)
         
         app_log("\n" + "=" * 60)
-        app_log(f"📦 WORKFLOW {index}/{total}: {name}")
+        app_log(f"📦 WORKFLOW {index}/{total}: scenario_{scenario_name}")
         app_log("=" * 60)
 
         metadata = {}
-        for scenario_name, scenario_data_input in stages.items():
-            ops.screenshot_mgr.set_stage(scenario_name)
+        for step_name, step_data_input in steps.items():
+            ops.screenshot_mgr.set_stage(step_name)
             metadata, should_continue = executor.run_stage(
-                scenario_name, scenario_data_input, metadata, index
+                step_name, step_data_input, metadata, index
             )
             if not should_continue:
                 break
