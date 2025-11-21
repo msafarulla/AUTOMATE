@@ -79,7 +79,7 @@ class ReceiveOperation(BaseOperation):
             if has_error:
                 rf_log(f"❌ {label} scan failed: {msg}")
                 return False
-        shipped, received, ilpn = self._log_quantities()
+        shipped, received, ilpn = self._log_screen_values()
         self._ilpn = ilpn
         self._qty_context = {"shipped": shipped, "received": received, "ilpn": ilpn}
         return True
@@ -241,7 +241,7 @@ class ReceiveOperation(BaseOperation):
         rf_log("⚠️ Could not read suggested location")
         return ""
 
-    def _log_quantities(self):
+    def _log_screen_values(self):
         """Log shipped/received quantities (and iLPN) from screen."""
         shipped, received = self._parse_quantities()
         ilpn = self._parse_ilpn()
