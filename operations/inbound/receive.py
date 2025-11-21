@@ -405,7 +405,66 @@ class ReceiveOperation(BaseOperation):
                 continue
 
         if not input_field:
-            rf_log("❌ Could not locate iLPN quick filter input.")
+            rf_log("⚠️ Could not locate visible iLPN quick filter input, attempting hidden-fill fallback.")
+
+            try:
+                filled = target.evaluate(
+                    """
+                    (ilpn) => {
+                        const val = String(ilpn);
+                        const inputs = Array.from(document.querySelectorAll('input'));
+                        if (!inputs.length) return false;
+
+                        const score = (el) => {
+                            const txt = [
+                                el.name || '',
+                                el.id || '',
+                                el.placeholder || '',
+                                el.getAttribute('aria-label') || ''
+                            ].join(' ').toLowerCase();
+                            let s = 0;
+                            if (txt.includes('lpn')) s += 3;
+                            if (txt.includes('filter')) s += 2;
+                            if (el.type === 'hidden') s += 1;
+                            return s;
+                        };
+
+                        const ranked = inputs
+                            .map(el => ({ el, s: score(el) }))
+                            .filter(entry => entry.s > 0)
+                            .sort((a, b) => b.s - a.s);
+
+                        if (!ranked.length) return false;
+
+                        const el = ranked[0].el;
+                        try {
+                            el.removeAttribute('disabled');
+                            el.style.display = '';
+                            el.style.visibility = 'visible';
+                            el.style.opacity = '1';
+                        } catch (e) {}
+
+                        try { el.focus?.(); } catch (e) {}
+                        el.value = val;
+                        ['input', 'change', 'keyup', 'keydown', 'keypress'].forEach(evt => {
+                            try { el.dispatchEvent(new Event(evt, { bubbles: true, cancelable: true })); } catch (e) {}
+                        });
+                        return true;
+                    }
+                    """,
+                    ilpn,
+                )
+                if filled:
+                    try:
+                        target.press("body", "Enter")
+                        target.press("body", "Space")
+                    except Exception:
+                        pass
+                    return True
+            except Exception as exc:
+                rf_log(f"❌ Hidden iLPN fill fallback failed: {exc}")
+                return False
+
             return False
 
         try:
