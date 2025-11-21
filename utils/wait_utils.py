@@ -1,5 +1,11 @@
-from playwright.sync_api import Page, Frame
+# =============================================================================
+# utils/wait_utils.py
+# =============================================================================
+"""Wait utilities for screen change detection."""
+
 from typing import Callable, Union
+from playwright.sync_api import Frame
+
 from utils.hash_utils import HashUtils
 from utils.eval_utils import safe_page_evaluate, PageUnavailableError
 from core.logger import app_log
@@ -9,67 +15,80 @@ FrameProvider = Callable[[], Frame]
 
 
 class WaitUtils:
+    """Wait utilities."""
 
     @staticmethod
     def wait_for_screen_change(
-            frame_or_provider: Union[Frame, FrameProvider],
-            prev_snapshot: str,
-            timeout_ms: int = 25000,
-            check_interval_ms: int = 200,
-            warn_on_timeout: bool = True,
-            snapshot_length: int | None = None,
+        frame_or_provider: Union[Frame, FrameProvider],
+        prev_snapshot: str,
+        timeout_ms: int = 25000,
+        interval_ms: int = 200,
+        warn_on_timeout: bool = True,
     ) -> bool:
+        """
+        Wait until frame content changes from previous snapshot.
+        
+        Args:
+            frame_or_provider: Frame or callable that returns frame
+            prev_snapshot: Previous snapshot to compare against
+            timeout_ms: Maximum wait time
+            interval_ms: Poll interval
+            warn_on_timeout: Log warning if timeout reached
+        
+        Returns:
+            True if content changed, False if timeout
+        """
+        def get_frame() -> Frame:
+            if callable(frame_or_provider):
+                f = frame_or_provider()
+                if f is None:
+                    raise RuntimeError("Frame provider returned None")
+                return f
+            return frame_or_provider
 
         try:
-            def _get_frame() -> Frame:
-                if callable(frame_or_provider):
-                    frame_obj = frame_or_provider()
-                else:
-                    frame_obj = frame_or_provider
-                if frame_obj is None:
-                    raise RuntimeError("Frame provider returned None while waiting for screen change.")
-                return frame_obj
-
-            frame = _get_frame()
+            frame = get_frame()
             page = frame.page
-            start_time = safe_page_evaluate(page, "Date.now()", description="WaitUtils.timer")
-            normalized_prev = prev_snapshot or ""
-            target_length = snapshot_length or len(normalized_prev) or HashUtils.FRAME_SNAPSHOT_CHARS
+            start = safe_page_evaluate(page, "Date.now()", description="timer")
+            target_len = len(prev_snapshot or "") or HashUtils.SNAPSHOT_LEN
 
             while True:
-                page.wait_for_timeout(check_interval_ms)
+                page.wait_for_timeout(interval_ms)
+
+                # Get current snapshot
                 try:
-                    frame = _get_frame()
-                    current_snapshot = HashUtils.get_frame_snapshot(frame, target_length)
-                except Exception as exc:
-                    if WaitUtils._is_frame_context_error(exc):
-                        app_log("ℹ️ RF frame navigation detected while waiting; treating as screen change.")
+                    frame = get_frame()
+                    current = HashUtils.get_frame_snapshot(frame, target_len)
+                except Exception as e:
+                    if WaitUtils._is_navigation_error(e):
+                        app_log("ℹ️ Frame navigated - treating as change")
                         return True
                     raise
 
-                if current_snapshot != normalized_prev:
-                    app_log("✅ Screen content changed")
+                # Check if changed
+                if current != (prev_snapshot or ""):
+                    app_log("✅ Screen changed")
                     return True
 
-                elapsed = safe_page_evaluate(page, "Date.now()", description="WaitUtils.timer") - start_time
+                # Check timeout
+                elapsed = safe_page_evaluate(page, "Date.now()", description="timer") - start
                 if elapsed >= timeout_ms:
                     if warn_on_timeout:
-                        app_log(f"⚠️ Screen didn't change within {timeout_ms}ms")
+                        app_log(f"⚠️ No change after {timeout_ms}ms")
                     return False
+
         except Exception as e:
-            app_log(f"Error waiting for screen change: {e}")
+            app_log(f"Error waiting for change: {e}")
             return False
 
     @staticmethod
-    def _is_frame_context_error(exc: Exception) -> bool:
-        """Return True if the Playwright error indicates the frame was recreated during navigation."""
-        message = str(exc).lower()
-        transient_markers = (
+    def _is_navigation_error(exc: Exception) -> bool:
+        """Check if error indicates frame navigation."""
+        msg = str(exc).lower()
+        markers = (
             "execution context was destroyed",
-            "cannot find context with specified id",
+            "cannot find context",
             "frame was detached",
             "target closed",
         )
-        if any(marker in message for marker in transient_markers):
-            return True
-        return isinstance(exc, PageUnavailableError)
+        return any(m in msg for m in markers) or isinstance(exc, PageUnavailableError)

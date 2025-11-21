@@ -1,49 +1,51 @@
+"""Safe Playwright evaluate wrappers that handle closed pages gracefully."""
+
 from playwright.sync_api import Page, Locator
 from core.logger import app_log
 
 
 class PageUnavailableError(RuntimeError):
-    """Raised when Playwright loses the page/context during an evaluate call."""
+    """Page/context was closed during evaluation."""
+    pass
 
 
-_TRANSIENT_MARKERS = (
+_TRANSIENT_ERRORS = (
     "target closed",
     "execution context was destroyed",
-    "cannot find context with specified id",
+    "cannot find context",
     "page crashed",
     "browser has been closed",
     "frame was detached",
 )
 
 
-def _is_transient_error(exc: Exception) -> bool:
-    message = str(exc).lower()
-    return any(marker in message for marker in _TRANSIENT_MARKERS)
+def _is_transient(exc: Exception) -> bool:
+    """Check if error is due to page/context closing."""
+    msg = str(exc).lower()
+    return any(e in msg for e in _TRANSIENT_ERRORS)
 
 
-def safe_page_evaluate(page: Page, script: str, arg=None, description: str = "page.evaluate",
-                       *, suppress_transient_log: bool = False):
-    """Wrapper around page.evaluate that normalizes closed-page errors."""
+def safe_page_evaluate(page: Page, script: str, arg=None, 
+                       description: str = "evaluate", suppress_log: bool = False):
+    """Evaluate script on page, raising PageUnavailableError if page closed."""
     try:
-        if arg is not None:
-            return page.evaluate(script, arg)
-        return page.evaluate(script)
-    except Exception as exc:
-        if _is_transient_error(exc):
-            if not suppress_transient_log:
-                app_log(f"⚠️ {description} skipped because the page/context closed: {exc}")
-            raise PageUnavailableError(description) from exc
+        return page.evaluate(script, arg) if arg else page.evaluate(script)
+    except Exception as e:
+        if _is_transient(e):
+            if not suppress_log:
+                app_log(f"⚠️ {description} skipped - page closed")
+            raise PageUnavailableError(description) from e
         raise
 
 
-def safe_locator_evaluate(locator: Locator, script: str, description: str = "locator.evaluate",
-                          *, suppress_transient_log: bool = False):
-    """Wrapper around locator.evaluate with the same transient handling."""
+def safe_locator_evaluate(locator: Locator, script: str,
+                          description: str = "evaluate", suppress_log: bool = False):
+    """Evaluate script on locator, raising PageUnavailableError if page closed."""
     try:
         return locator.evaluate(script)
-    except Exception as exc:
-        if _is_transient_error(exc):
-            if not suppress_transient_log:
-                app_log(f"⚠️ {description} skipped because the page/context closed: {exc}")
-            raise PageUnavailableError(description) from exc
+    except Exception as e:
+        if _is_transient(e):
+            if not suppress_log:
+                app_log(f"⚠️ {description} skipped - page closed")
+            raise PageUnavailableError(description) from e
         raise
