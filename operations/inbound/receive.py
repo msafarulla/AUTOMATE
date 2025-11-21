@@ -377,9 +377,11 @@ class ReceiveOperation(BaseOperation):
 
     def _fill_ilpn_quick_filter(self, ilpn: str) -> bool:
         """Fill the iLPN quick filter input and click Apply in the iLPNs UI."""
-        # Scope to the iLPNs window if present
-        window = self.page.locator("div.x-window:has-text('iLPNs')").first
-        root = window if window.count() else self.page
+        # Locate the correct frame (the iLPNs window often runs in its own frame/window).
+        target_frame = self._find_ilpn_frame()
+        if not target_frame:
+            rf_log("❌ Unable to locate iLPNs frame/window.")
+            return False
 
         candidates = [
             "//span[contains(normalize-space(),'Quick filter')]/following::input[1]",
@@ -392,7 +394,7 @@ class ReceiveOperation(BaseOperation):
         input_field = None
         for sel in candidates:
             try:
-                locator = root.locator(sel).first
+                locator = target_frame.locator(sel).first
                 locator.wait_for(state="visible", timeout=3000)
                 input_field = locator
                 break
@@ -410,10 +412,10 @@ class ReceiveOperation(BaseOperation):
             return False
 
         apply_candidates = [
-            root.get_by_role("button", name="Apply"),
-            root.locator("//a[.//span[normalize-space()='Apply']]"),
-            root.locator("//button[normalize-space()='Apply']"),
-            root.locator("//span[normalize-space()='Apply']"),
+            target_frame.get_by_role("button", name="Apply"),
+            target_frame.locator("//a[.//span[normalize-space()='Apply']]"),
+            target_frame.locator("//button[normalize-space()='Apply']"),
+            target_frame.locator("//span[normalize-space()='Apply']"),
         ]
         for btn in apply_candidates:
             try:
@@ -424,15 +426,37 @@ class ReceiveOperation(BaseOperation):
 
         # Keyboard fallback: Tab twice to focus quick filter, type, press Enter then Space for safety
         try:
-            self.page.keyboard.press("Tab")
-            self.page.keyboard.press("Tab")
-            self.page.keyboard.type(ilpn)
-            self.page.keyboard.press("Enter")
-            self.page.keyboard.press("Space")
+            target_frame.press("body", "Tab")
+            target_frame.press("body", "Tab")
+            target_frame.type("body", ilpn)
+            target_frame.press("body", "Enter")
+            target_frame.press("body", "Space")
             return True
         except Exception as exc:
             rf_log(f"❌ Unable to click Apply in iLPNs UI (even with keyboard fallback): {exc}")
             return False
+
+    def _find_ilpn_frame(self):
+        """Find the frame/page that contains the iLPNs UI."""
+        # Check frames in the current page first
+        for frame in self.page.frames:
+            try:
+                url = frame.url or ""
+            except Exception:
+                url = ""
+            if "LPNListInbound" in url or "lpn" in url.lower():
+                return frame
+
+        # Check other pages in the context (in case iLPNs opened a new window)
+        try:
+            for p in self.page.context.pages:
+                for frame in p.frames:
+                    url = frame.url or ""
+                    if "LPNListInbound" in url or "lpn" in url.lower():
+                        return frame
+        except Exception:
+            pass
+        return None
 
     # =========================================================================
     # HELPERS - Screenshots
