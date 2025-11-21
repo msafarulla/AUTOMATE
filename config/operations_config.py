@@ -102,16 +102,6 @@ class OperationConfig:
         'location': r'^[A-Z0-9-]{4,}$',
     }
 
-    # DEFAULT_WORKFLOWS = {
-    #     'UI_Navigation': {
-    #         'tasksUI': {
-    #                 'Tasks': {
-    #                 'enabled': True,
-    #             },
-    #     }
-    #     }
-    # }
-
     DEFAULT_WORKFLOWS = {
         'inbound': {
             'receive_HAPPY_PATH': {
@@ -145,14 +135,8 @@ class OperationConfig:
                                 'fill_ilpn': True,
                                 'preserve_window': False,   # close after fill/screenshot
                                 'close_existing': False,    # keep RF window intact
-                                'refocus_rf': True,
-                                'post_fill_ms': 1200,       # keep iLPN visible briefly after fill/apply
-                                'post_screenshot_tag': 'ilpn_after_fill',
                             },
                         ],
-                        'refocus_rf': True,
-                        'post_fill_ms': 1200,
-                        'post_screenshot_tag': 'ilpn_after_fill',
                     },
                 },
             },
