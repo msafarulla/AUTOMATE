@@ -4,6 +4,7 @@ Receive Operation - Handles ASN receiving workflow in RF terminal.
 Flow: Navigate → Scan ASN → Scan Item → Enter Qty → Confirm Location
 """
 import re
+import time
 from datetime import datetime
 from typing import Any, Iterable
 
@@ -383,7 +384,7 @@ class ReceiveOperation(BaseOperation):
     def _fill_ilpn_quick_filter(self, ilpn: str) -> bool:
         """Fill the iLPN quick filter input and click Apply in the iLPNs UI."""
         # Locate the correct frame (the iLPNs window often runs in its own frame/window).
-        target_frame = self._find_ilpn_frame()
+        target_frame = self._find_ilpn_frame(timeout_ms=6000)
         target = target_frame or self.page
         if not target_frame:
             rf_log("⚠️ Could not locate dedicated iLPNs frame, using active page as fallback.")
@@ -505,26 +506,35 @@ class ReceiveOperation(BaseOperation):
             rf_log(f"❌ Unable to click Apply in iLPNs UI (even with keyboard fallback): {exc}")
             return False
 
-    def _find_ilpn_frame(self):
-        """Find the frame/page that contains the iLPNs UI."""
-        # Check frames in the current page first
-        for frame in self.page.frames:
-            try:
-                url = frame.url or ""
-            except Exception:
-                url = ""
-            if "LPNListInbound" in url or "lpn" in url.lower():
+    def _find_ilpn_frame(self, timeout_ms: int = 4000):
+        """Find the frame/page that contains the iLPNs UI (poll until timeout)."""
+
+        def _match(frames):
+            for frame in frames:
+                try:
+                    url = frame.url or ""
+                except Exception:
+                    url = ""
+                if "LPNListInbound" in url or "lpnlistinbound" in url.lower() or "/lpn" in url.lower():
+                    return frame
+            return None
+
+        deadline = time.time() + timeout_ms / 1000
+        while time.time() < deadline:
+            frame = _match(self.page.frames)
+            if frame:
                 return frame
 
-        # Check other pages in the context (in case iLPNs opened a new window)
-        try:
-            for p in self.page.context.pages:
-                for frame in p.frames:
-                    url = frame.url or ""
-                    if "LPNListInbound" in url or "lpn" in url.lower():
+            try:
+                for p in self.page.context.pages:
+                    frame = _match(p.frames)
+                    if frame:
                         return frame
-        except Exception:
-            pass
+            except Exception:
+                pass
+
+            self.page.wait_for_timeout(150)
+
         return None
 
     # =========================================================================
