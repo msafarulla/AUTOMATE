@@ -13,6 +13,8 @@ from operations.rf_primitives import RFMenuIntegration
 from ui.navigation import NavigationManager
 from config.operations_config import OperationConfig
 from core.logger import rf_log
+from utils.hash_utils import HashUtils
+from utils.wait_utils import WaitUtils
 
 
 class ReceiveOperation(BaseOperation):
@@ -576,20 +578,40 @@ class ReceiveOperation(BaseOperation):
 
     def _wait_for_ilpn_apply(self, timeout_ms: int, operation_note: str, entry: dict, default_screenshot: str | None):
         """Wait for iLPN apply to finish (mask cleared) then capture before close."""
-        deadline = time.time() + timeout_ms / 1000
-        mask = None
-        try:
-            mask = self.page.locator("div.x-mask:visible")
-        except Exception:
-            mask = None
-
-        while time.time() < deadline:
+        frame = self._find_ilpn_frame(timeout_ms=2000)
+        prev_snapshot = None
+        if frame:
             try:
-                if mask is None or mask.count() == 0:
-                    break
+                prev_snapshot = HashUtils.get_frame_snapshot(frame)
             except Exception:
-                break
-            self.page.wait_for_timeout(150)
+                prev_snapshot = None
+
+        if frame and prev_snapshot:
+            WaitUtils.wait_for_screen_change(
+                lambda: self._find_ilpn_frame(timeout_ms=500),
+                prev_snapshot,
+                timeout_ms=timeout_ms,
+                interval_ms=250,
+                warn_on_timeout=True,
+            )
+        else:
+            # Fallback: wait for masks or timeout
+            deadline = time.time() + timeout_ms / 1000
+            try:
+                mask = self.page.locator("div.x-mask:visible")
+            except Exception:
+                mask = None
+
+            if mask is None:
+                self.page.wait_for_timeout(timeout_ms)
+            else:
+                while time.time() < deadline:
+                    try:
+                        if mask.count() == 0:
+                            break
+                    except Exception:
+                        break
+                    self.page.wait_for_timeout(150)
 
         # Small settle delay
         self.page.wait_for_timeout(300)
