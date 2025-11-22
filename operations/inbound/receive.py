@@ -238,7 +238,7 @@ class ReceiveOperation(BaseOperation):
                 ilpn_val = self._screen_context.get("ilpn")
                 if not self._fill_ilpn_quick_filter(str(ilpn_val), page=use_page):
                     return False
-                wait_ms = entry.get("ilpn_wait_ms") or default_ilpn_wait or 4000
+                wait_ms = 4000
                 frame = self._find_ilpn_frame(timeout_ms=2000, page=use_page)
                 prev_snapshot = None
                 if frame:
