@@ -1,7 +1,7 @@
 from datetime import datetime
 from pathlib import Path
 from typing import Callable, Optional, Any
-from playwright.sync_api import Page
+from playwright.sync_api import Page, TimeoutError as PlaywrightTimeoutError
 from utils.eval_utils import safe_page_evaluate, safe_locator_evaluate, PageUnavailableError
 from core.logger import app_log
 
@@ -24,6 +24,7 @@ class ScreenshotManager:
         self.image_quality = image_quality if (fmt == "jpeg" and image_quality is not None) else None
         self._rf_pre_capture_hook: Optional[Callable[[], None]] = None
         self._rf_post_capture_hook: Optional[Callable[[], None]] = None
+        self._screenshot_timeout_ms = 15000
 
     def register_rf_capture_hooks(self,
                                   pre_hook: Optional[Callable[[], None]] = None,
@@ -54,6 +55,9 @@ class ScreenshotManager:
             page.screenshot(**self._screenshot_kwargs(filename))
         except PageUnavailableError:
             app_log("⚠️ Unable to capture screenshot because the page/context closed.")
+            return None
+        except PlaywrightTimeoutError:
+            app_log(f"⚠️ Screenshot timed out after {self._screenshot_timeout_ms}ms for {label}; skipping.")
             return None
         finally:
             if overlay_added:
@@ -101,6 +105,9 @@ class ScreenshotManager:
         except PageUnavailableError:
             app_log("⚠️ Unable to capture RF window because the page/context closed.")
             return None
+        except PlaywrightTimeoutError:
+            app_log(f"⚠️ RF screenshot timed out after {self._screenshot_timeout_ms}ms; skipping.")
+            return None
         except Exception as e:
             app_log(f"Failed to capture RF window: {e}")
             self._add_timestamp(page)
@@ -130,6 +137,7 @@ class ScreenshotManager:
         kwargs: dict[str, Any] = {"path": str(filename), "type": self.image_format}
         if self.image_quality is not None:
             kwargs["quality"] = self.image_quality
+        kwargs["timeout"] = self._screenshot_timeout_ms
         return kwargs
 
     def _run_rf_hook(self, hook: Optional[Callable[[], None]]):
