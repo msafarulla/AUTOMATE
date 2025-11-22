@@ -238,17 +238,15 @@ class ReceiveOperation(BaseOperation):
                 ilpn_val = self._screen_context.get("ilpn")
                 if not self._fill_ilpn_quick_filter(str(ilpn_val), page=use_page):
                     return False
-                frame = self._find_ilpn_frame(timeout_ms=2000, page=use_page)
                 prev_snapshot = None
-                if frame:
-                    try:
-                        prev_snapshot = HashUtils.get_frame_snapshot(frame)
-                    except Exception:
-                        prev_snapshot = None
-                if frame and prev_snapshot:
+                try:
+                    prev_snapshot = HashUtils.get_frame_snapshot(use_page.main_frame)
+                except Exception:
+                    prev_snapshot = None
+                if prev_snapshot:
                     try:
                         WaitUtils.wait_for_screen_change(
-                            lambda: self._find_ilpn_frame(timeout_ms=500, page=use_page),
+                            lambda: use_page.main_frame,
                             prev_snapshot,
                             timeout_ms=4000,
                             interval_ms=250,
@@ -439,105 +437,18 @@ class ReceiveOperation(BaseOperation):
             rf_log(f"❌ iLPN filter via helper failed: {exc}")
             return False
 
-    def _find_ilpn_frame(self, timeout_ms: int = 4000, page=None):
-        """Find the frame/page that contains the iLPNs UI (poll until timeout)."""
-        page = page or self.page
-
-        def _match(frames):
-            for frame in frames:
-                try:
-                    url = frame.url or ""
-                    name = frame.name or ""
-                except Exception:
-                    url = ""
-                    name = ""
-                if (
-                    "LPNListInbound" in url
-                    or "lpnlistinbound" in url.lower()
-                    or "/lpn" in url.lower()
-                    or "uxiframe-1144" in name
-                    or "uxiframe-1156" in name
-                ):
-                    return frame
-            return None
-
-        deadline = time.time() + timeout_ms / 1000
-        while time.time() < deadline:
-            # Direct name-based lookup first
-            for n in ("uxiframe-1156-frame", "uxiframe-1144-frame"):
-                try:
-                    f = page.frame(name=n)
-                    if f:
-                        return f
-                except Exception:
-                    pass
-
-            frame = _match(page.frames)
-            if frame:
-                return frame
-
-            try:
-                # Try explicit iframe lookup by id/name in current page (from console: uxiframe-1144/1156)
-                iframe = page.locator(
-                    "iframe#uxiframe-1144-iframeEl, iframe[name='uxiframe-1144-frame'], iframe#uxiframe-1156-iframeEl, iframe[name='uxiframe-1156-frame']"
-                ).first
-                if iframe.count() > 0:
-                    cf = iframe.content_frame()
-                    if cf:
-                        return cf
-            except Exception:
-                pass
-
-            try:
-                # Try explicit iframe lookup by src/name in current page
-                iframe = page.locator(
-                    "iframe[src*='LPNListInbound'], iframe[src*='/lpn'], iframe[name*='LPN'], iframe[id*='LPN']"
-                ).first
-                if iframe.count() > 0:
-                    cf = iframe.content_frame()
-                    if cf and ("lpn" in (cf.url or "").lower() or "lpnlistinbound" in (cf.url or "").lower()):
-                        return cf
-            except Exception:
-                pass
-
-            try:
-                # Try iframe inside a visible window (better for ExtJS windows)
-                win_iframe = (
-                    page.locator("div.x-window:visible iframe").first
-                )
-                if win_iframe.count() > 0:
-                    cf = win_iframe.content_frame()
-                    if cf and ("lpn" in (cf.url or "").lower() or "lpnlistinbound" in (cf.url or "").lower()):
-                        return cf
-            except Exception:
-                pass
-
-            try:
-                for p in page.context.pages:
-                    frame = _match(p.frames)
-                    if frame:
-                        return frame
-            except Exception:
-                pass
-
-            page.wait_for_timeout(150)
-
-        return None
-
     def _wait_for_ilpn_apply(self, timeout_ms: int, operation_note: str, entry: dict, default_screenshot: str | None, page=None):
         """Wait for iLPN apply to finish (mask cleared) then capture before close."""
         page = page or self.page
-        frame = self._find_ilpn_frame(timeout_ms=2000, page=page)
         prev_snapshot = None
-        if frame:
-            try:
-                prev_snapshot = HashUtils.get_frame_snapshot(frame)
-            except Exception:
-                prev_snapshot = None
+        try:
+            prev_snapshot = HashUtils.get_frame_snapshot(page.main_frame)
+        except Exception:
+            prev_snapshot = None
 
-        if frame and prev_snapshot:
+        if prev_snapshot:
             WaitUtils.wait_for_screen_change(
-                lambda: self._find_ilpn_frame(timeout_ms=500, page=page),
+                lambda: page.main_frame,
                 prev_snapshot,
                 timeout_ms=timeout_ms,
                 interval_ms=250,
