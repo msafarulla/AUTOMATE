@@ -187,7 +187,7 @@ class ReceiveOperation(BaseOperation):
             if not entry or not bool(entry.get("enabled", True)):
                 continue
 
-            use_detour = bool(entry.get("use_detour_page") or base_cfg.get("use_detour_page"))
+            use_detour = True  # Always use detour page when available
             use_nav = detour_nav if (use_detour and detour_nav) else nav_mgr_main
             use_page = self.detour_page if (use_detour and self.detour_page) else self.page
             skip_rest = False
@@ -197,8 +197,7 @@ class ReceiveOperation(BaseOperation):
 
             search_term = entry.get("search_term") or base_cfg.get("search_term", "tasks")
             match_text = entry.get("match_text") or base_cfg.get("match_text", "Tasks (Configuration)")
-            close_existing = bool(entry.get("close_existing", base_cfg.get("close_existing", True)))
-            if not use_nav.open_menu_item(search_term, match_text, close_existing=close_existing):
+            if not use_nav.open_menu_item(search_term, match_text, close_existing=True):
                 rf_log(f"❌ UI detour #{idx} failed during receive flow.")
                 return False
 
@@ -261,12 +260,10 @@ class ReceiveOperation(BaseOperation):
                     except Exception:
                         pass
 
-                # Close the just-opened UI before moving to the next (unless caller wants to preserve)
-                preserve = bool(entry.get("preserve_window") or entry.get("preserve"))
-                keep_ui_open = keep_ui_open or preserve
+                # Close the just-opened UI before moving to the next
+                keep_ui_open = keep_ui_open or False
             else:
-                preserve = bool(entry.get("preserve_window") or entry.get("preserve"))
-                keep_ui_open = keep_ui_open or preserve
+                keep_ui_open = keep_ui_open or False
         self.screenshot_mgr.capture(use_page, screenshot_tag, operation_note)
         return True
 
