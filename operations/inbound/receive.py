@@ -466,6 +466,13 @@ class ReceiveOperation(BaseOperation):
                         ['input', 'change', 'keyup', 'keydown', 'keypress'].forEach(evt => {
                             try { el.dispatchEvent(new Event(evt, { bubbles: true, cancelable: true })); } catch (e) {}
                         });
+
+                        const applyBtn = Array.from(document.querySelectorAll('button, a, span')).find(
+                            el => /apply/i.test(el.textContent || '')
+                        );
+                        if (applyBtn) {
+                            try { applyBtn.click(); } catch (e) {}
+                        }
                         return true;
                     }
                     """,
