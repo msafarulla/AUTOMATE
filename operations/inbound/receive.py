@@ -20,7 +20,7 @@ from utils.wait_utils import WaitUtils
 class ReceiveOperation(BaseOperation):
     """Handles ASN receiving workflow in RF terminal."""
 
-    def __init__(self, page, page_mgr, screenshot_mgr, rf_menu, detour_page=None):
+    def __init__(self, page, page_mgr, screenshot_mgr, rf_menu, detour_page=None, detour_nav=None):
         super().__init__(page, page_mgr, screenshot_mgr, rf_menu)
         
         # Setup RF integration
@@ -32,6 +32,7 @@ class ReceiveOperation(BaseOperation):
         self.menu = OperationConfig.RECEIVE_MENU
         self.selectors = OperationConfig.RECEIVE_SELECTORS
         self.detour_page = detour_page
+        self.detour_nav = detour_nav or (NavigationManager(detour_page, screenshot_mgr) if detour_page else None)
         self._ilpn: str | None = None
         self._screen_context: dict[str, int | None] | None = None
 
@@ -172,7 +173,7 @@ class ReceiveOperation(BaseOperation):
             return True
 
         nav_mgr_main = NavigationManager(self.page, self.screenshot_mgr)
-        detour_nav = NavigationManager(self.detour_page, self.screenshot_mgr) if self.detour_page else None
+        detour_nav = self.detour_nav or (NavigationManager(self.detour_page, self.screenshot_mgr) if self.detour_page else None)
         nav_mgr = nav_mgr_main
         focus_title = base_cfg.get("rf_focus_title", "RF Menu")
 
