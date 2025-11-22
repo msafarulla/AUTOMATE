@@ -116,6 +116,10 @@ class OperationRunner:
 
     def _run_post_message(self, payload: str | None = None) -> bool:
         self.nav_mgr.open_menu_item("POST", "Post Message (Integration)")
+        try:
+            self.nav_mgr.maximize_non_rf_windows()
+        except Exception:
+            pass
         message = payload or self.settings.app.post_message_text
         if not message:
             app_log("⚠️ No post message payload supplied.")
