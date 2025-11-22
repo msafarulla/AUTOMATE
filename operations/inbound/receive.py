@@ -401,6 +401,13 @@ class ReceiveOperation(BaseOperation):
 
         target = target_frame
 
+        # Wait for any in-frame loading mask to clear before interacting
+        try:
+            mask = target.locator("div.x-mask:visible")
+            mask.wait_for(state="hidden", timeout=4000)
+        except Exception:
+            pass
+
         candidates = [
             "//span[contains(translate(normalize-space(),'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz'),'quick filter')]/following::input[1]",
             "//label[contains(translate(normalize-space(),'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz'),'lpn')]/following::input[1]",
@@ -484,6 +491,21 @@ class ReceiveOperation(BaseOperation):
                         target.press("body", "Space")
                     except Exception:
                         pass
+
+                    # Also try clicking apply via Playwright locators after JS fill
+                    apply_candidates = [
+                        target.get_by_role("button", name="Apply"),
+                        target.locator("//a[.//span[normalize-space()='Apply']]"),
+                        target.locator("//button[normalize-space()='Apply']"),
+                        target.locator("//span[normalize-space()='Apply']"),
+                    ]
+                    for btn in apply_candidates:
+                        try:
+                            btn.first.click()
+                            return True
+                        except Exception:
+                            continue
+
                     return True
             except Exception as exc:
                 rf_log(f"❌ Hidden iLPN fill fallback failed: {exc}")
