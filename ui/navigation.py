@@ -356,28 +356,52 @@ class NavigationManager:
             self.page,
             """
             () => {
-                const ext = window.Ext;
-                if (!ext?.WindowManager?.getAll) return 0;
-                const wins = ext.WindowManager.getAll().items || [];
                 const w = Math.max(480, window.innerWidth * 0.95);
                 const h = Math.max(360, window.innerHeight * 0.95);
                 const x = Math.max(6, (window.innerWidth - w) / 2);
                 const y = Math.max(6, window.innerHeight * 0.03);
                 let changed = 0;
-                wins.forEach(win => {
-                    const title = (win.title || '').toLowerCase();
-                    if (title.includes('rf menu') || title === 'rf') return;
-                    try {
-                        win.setSize?.(w, h);
-                        win.setPosition?.(x, y);
-                        win.setPagePosition?.(x, y);
-                        win.setMinWidth?.(w);
-                        win.setMinHeight?.(h);
-                        win.updateLayout?.();
-                        win.toFront?.();
+
+                // ExtJS-aware path
+                const ext = window.Ext;
+                if (ext?.WindowManager?.getAll) {
+                    const wins = ext.WindowManager.getAll().items || [];
+                    wins.forEach(win => {
+                        const title = (win.title || '').toLowerCase();
+                        if (title.includes('rf menu') || title === 'rf') return;
+                        try {
+                            win.setSize?.(w, h);
+                            win.setPosition?.(x, y);
+                            win.setPagePosition?.(x, y);
+                            win.setMinWidth?.(w);
+                            win.setMinHeight?.(h);
+                            win.updateLayout?.();
+                            win.toFront?.();
+                            changed += 1;
+                        } catch (e) {}
+                    });
+                }
+
+                // DOM-only fallback for when Ext is unavailable
+                if (changed === 0) {
+                    const nodes = Array.from(document.querySelectorAll('div.x-window'));
+                    nodes.forEach(el => {
+                        const titleEl = el.querySelector('.x-window-header-text');
+                        const title = (titleEl?.textContent || '').toLowerCase();
+                        if (title.includes('rf menu') || title === 'rf') return;
+                        el.style.width = `${w}px`;
+                        el.style.height = `${h}px`;
+                        el.style.left = `${x}px`;
+                        el.style.top = `${y}px`;
+                        el.style.maxWidth = `${w}px`;
+                        el.style.maxHeight = `${h}px`;
+                        el.style.minWidth = `${w}px`;
+                        el.style.minHeight = `${h}px`;
+                        el.style.zIndex = '999999';
                         changed += 1;
-                    } catch (e) {}
-                });
+                    });
+                }
+
                 return changed;
             }
             """,
