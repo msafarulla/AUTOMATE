@@ -352,21 +352,26 @@ class NavigationManager:
 
     def _maximize_non_rf_windows(self):
         """Maximize all visible non-RF windows for better capture."""
+        # First, try the native maximize buttons on visible windows (if present).
         clicked = 0
         try:
             windows = self.page.locator("div.x-window:visible")
-            for i in range(windows.count()):
+            count = windows.count()
+            for i in range(count):
                 win = windows.nth(i)
                 try:
                     title = (win.locator(".x-window-header-text").inner_text(timeout=300) or "").lower()
+                    if "rf menu" in title or title == "rf":
+                        continue
                 except Exception:
                     title = ""
-                if "rf menu" in title or title == "rf":
-                    continue
+                    if title == "":
+                        # still try if we can't read title
+                        pass
                 try:
                     btn = win.locator(".x-tool-maximize:visible").first
                     if btn.count() > 0:
-                        btn.click(timeout=500)
+                        btn.click(timeout=800)
                         clicked += 1
                         continue
                 except Exception:
