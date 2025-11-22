@@ -178,9 +178,7 @@ class ReceiveOperation(BaseOperation):
         detour_nav = self.detour_nav or (NavigationManager(self.detour_page, self.screenshot_mgr) if self.detour_page else None)
         focus_title = base_cfg.get("rf_focus_title", "RF Menu")
 
-        default_post_fill = base_cfg.get("post_fill_ms")
         default_post_screenshot = base_cfg.get("post_screenshot_tag")
-        default_ilpn_wait = base_cfg.get("ilpn_wait_ms")
 
         for idx, entry in enumerate(entries, 1):
             if not entry or not bool(entry.get("enabled", True)):
@@ -240,7 +238,7 @@ class ReceiveOperation(BaseOperation):
                 ilpn_val = self._screen_context.get("ilpn")
                 if not self._fill_ilpn_quick_filter(str(ilpn_val), page=use_page):
                     return False
-                wait_ms = entry.get("ilpn_wait_ms") or default_ilpn_wait or 4000
+                wait_ms = 40000
                 self._wait_for_ilpn_apply(wait_ms, operation_note, entry, default_post_screenshot, page=use_page)
                 self.screenshot_mgr.capture(use_page, screenshot_tag, operation_note)
                 use_nav.focus_window_by_title(focus_title)
