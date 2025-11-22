@@ -160,7 +160,6 @@ class OperationRunner:
 def create_operation_services(settings: Any) -> Generator[OperationServices, None, None]:
     with BrowserManager(settings) as browser_mgr:
         page = browser_mgr.new_page()
-        detour_context = None
         detour_page = None
         screenshot_mgr = ScreenshotManager(
             settings.browser.screenshot_dir,
@@ -170,11 +169,8 @@ def create_operation_services(settings: Any) -> Generator[OperationServices, Non
         page_mgr = PageManager(page)
         auth_mgr = AuthManager(page, screenshot_mgr, settings)
         try:
-            # Dedicated detour context/page for an independent session.
-            detour_context = browser_mgr.new_context()
-            detour_page = detour_context.new_page()
-            detour_auth = AuthManager(detour_page, screenshot_mgr, settings)
-            detour_auth.login()
+            # Dedicated detour tab in the same context (shared session/login).
+            detour_page = browser_mgr.context.new_page()
             NavigationManager(detour_page, screenshot_mgr).change_warehouse(settings.app.change_warehouse)
         except Exception:
             detour_page = browser_mgr.new_page()
@@ -218,11 +214,4 @@ def create_operation_services(settings: Any) -> Generator[OperationServices, Non
                 run_focus_rf=runner.run_focus_rf,
             ),
         )
-        try:
-            yield services
-        finally:
-            if detour_context:
-                try:
-                    detour_context.close()
-                except Exception:
-                    pass
+        yield services
