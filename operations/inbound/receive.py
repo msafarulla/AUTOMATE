@@ -182,18 +182,18 @@ class ReceiveOperation(BaseOperation):
             if not entry or not bool(entry.get("enabled", True)):
                 continue
 
-            temp_context = None
+            temp_page = None
             use_page = self.page
             use_nav = nav_mgr_base
             skip_rest = False
 
             try:
-                # Optional: run this navigation in a fresh browser session to isolate state.
+                # Optional: run this navigation in a fresh browser page (same context) to isolate UI.
                 if bool(entry.get("use_new_session") or base_cfg.get("use_new_session")):
-                    browser = self.page.context.browser if self.page and self.page.context else None
-                    if browser:
-                        temp_context = browser.new_context()
-                        use_page = temp_context.new_page()
+                    context = self.page.context if self.page else None
+                    if context:
+                        temp_page = context.new_page()
+                        use_page = temp_page
                         use_nav = NavigationManager(use_page, self.screenshot_mgr)
 
                 search_term = entry.get("search_term") or base_cfg.get("search_term", "tasks")
@@ -259,13 +259,13 @@ class ReceiveOperation(BaseOperation):
                     preserve = bool(entry.get("preserve_window") or entry.get("preserve"))
                     keep_ui_open = keep_ui_open or preserve
             finally:
-                # Close the temporary session if we created one for this entry.
-                if temp_context:
+                # Close the temporary page if we created one for this entry.
+                if temp_page:
                     try:
-                        temp_context.close()
+                        temp_page.close()
                     except Exception:
                         pass
-                    temp_context = None
+                    temp_page = None
 
         return True
 
