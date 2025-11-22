@@ -31,7 +31,7 @@ def ensure_detour_page_ready(detour_page, main_page=None, settings=None, screens
         detour_page.wait_for_timeout(500)
         if settings and getattr(settings, "app", None) and getattr(settings.app, "change_warehouse", None):
             try:
-                NavigationManager(detour_page, screenshot_mgr).change_warehouse(settings.app.change_warehouse)
+                NavigationManager(detour_page, screenshot_mgr).change_warehouse(settings.app.change_warehouse, onDemand=False)
             except Exception:
                 pass
         return True

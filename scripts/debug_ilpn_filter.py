@@ -36,12 +36,12 @@ def _fill_ilpn_filter(page, ilpn: str) -> bool:
         rf_log("⚠️ Could not locate dedicated iLPNs frame, using active page as fallback.")
 
     candidates = [
-        "//span[contains(translate(normalize-space(),'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz'),'quick filter')]/following::input[1]",
-        "//label[contains(translate(normalize-space(),'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz'),'lpn')]/following::input[1]",
-        "//input[contains(@placeholder,'ilter') and not(@type='hidden')]",
-        "//input[contains(@aria-label,'Quick filter') and not(@type='hidden')]",
-        "//input[contains(@name,'lpn') and not(@type='hidden')]",
-        "//input[contains(@id,'lpn') and not(@type='hidden')]",
+        # "//span[contains(translate(normalize-space(),'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz'),'quick filter')]/following::input[1]",
+        # "//label[contains(translate(normalize-space(),'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz'),'lpn')]/following::input[1]",
+        # "//input[contains(@placeholder,'ilter') and not(@type='hidden')]",
+        # "//input[contains(@aria-label,'Quick filter') and not(@type='hidden')]",
+        # "//input[contains(@name,'lpn') and not(@type='hidden')]",
+        # "//input[contains(@id,'lpn') and not(@type='hidden')]",
         "//input[contains(@name,'filter') and not(@type='hidden')]",
         "input.x-form-text:visible",
         "input[type='text']:visible",
