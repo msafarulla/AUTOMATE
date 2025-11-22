@@ -238,7 +238,6 @@ class ReceiveOperation(BaseOperation):
                 ilpn_val = self._screen_context.get("ilpn")
                 if not self._fill_ilpn_quick_filter(str(ilpn_val), page=use_page):
                     return False
-                wait_ms = 40000
                 frame = self._find_ilpn_frame(timeout_ms=2000, page=use_page)
                 prev_snapshot = None
                 if frame:
@@ -251,7 +250,7 @@ class ReceiveOperation(BaseOperation):
                         WaitUtils.wait_for_screen_change(
                             lambda: self._find_ilpn_frame(timeout_ms=500, page=use_page),
                             prev_snapshot,
-                            timeout_ms=wait_ms,
+                            timeout_ms=4000,
                             interval_ms=250,
                             warn_on_timeout=True,
                         )
