@@ -404,17 +404,27 @@ class ReceiveOperation(BaseOperation):
 
     def _fill_ilpn_quick_filter(self, ilpn: str) -> bool:
         """Fill the iLPN quick filter input and click Apply in the iLPNs UI."""
-        # Locate the correct frame (the iLPNs window often runs in its own frame/window).
+        # Prefer the iLPN window container; fall back to iframe if present.
+        ilpn_window = self.page.locator("div.x-window:visible:has(.x-title-text:has-text('iLPNs'))").last
+        has_window = ilpn_window.count() > 0
+
         target_frame = self._find_ilpn_frame(timeout_ms=6000)
-        if not target_frame:
-            rf_log("❌ Unable to locate iLPNs frame/window; skipping iLPN fill to avoid typing into RF.")
+        target_scope = None
+        press_target = None
+
+        if has_window:
+            target_scope = ilpn_window
+            press_target = self.page
+        elif target_frame:
+            target_scope = target_frame
+            press_target = target_frame
+        else:
+            rf_log("❌ Unable to locate iLPNs window/frame; skipping iLPN fill to avoid typing into RF.")
             return False
 
-        target = target_frame
-
-        # Wait for any in-frame loading mask to clear before interacting
+        # Wait for any in-frame/window loading mask to clear before interacting
         try:
-            mask = target.locator("div.x-mask:visible")
+            mask = target_scope.locator("div.x-mask:visible")
             mask.wait_for(state="hidden", timeout=4000)
         except Exception:
             pass
@@ -432,7 +442,7 @@ class ReceiveOperation(BaseOperation):
         input_field = None
         for sel in candidates:
             try:
-                locator = target.locator(sel).first
+                locator = target_scope.locator(sel).first
                 locator.wait_for(state="visible", timeout=3000)
                 input_field = locator
                 break
@@ -443,7 +453,9 @@ class ReceiveOperation(BaseOperation):
             rf_log("⚠️ Could not locate visible iLPN quick filter input, attempting hidden-fill fallback.")
 
             try:
-                result = target.evaluate(
+                # Evaluate inside the window/frame
+                evaluator = target_scope
+                result = evaluator.evaluate(
                     """
                     (ilpn) => {
                         const val = String(ilpn);
@@ -519,17 +531,17 @@ class ReceiveOperation(BaseOperation):
                     if candidates:
                         rf_log(f"ℹ️ JS fallback candidates: {candidates}")
                     try:
-                        target.press("body", "Enter")
-                        target.press("body", "Space")
+                        press_target.press("body", "Enter")
+                        press_target.press("body", "Space")
                     except Exception:
                         pass
 
                     # Also try clicking apply via Playwright locators after JS fill
                     apply_candidates = [
-                        target.get_by_role("button", name="Apply"),
-                        target.locator("//a[.//span[normalize-space()='Apply']]"),
-                        target.locator("//button[normalize-space()='Apply']"),
-                        target.locator("//span[normalize-space()='Apply']"),
+                        target_scope.get_by_role("button", name="Apply"),
+                        target_scope.locator("//a[.//span[normalize-space()='Apply']]"),
+                        target_scope.locator("//button[normalize-space()='Apply']"),
+                        target_scope.locator("//span[normalize-space()='Apply']"),
                     ]
                     for btn in apply_candidates:
                         try:
@@ -554,10 +566,10 @@ class ReceiveOperation(BaseOperation):
             return False
 
         apply_candidates = [
-            target.get_by_role("button", name="Apply"),
-            target.locator("//a[.//span[normalize-space()='Apply']]"),
-            target.locator("//button[normalize-space()='Apply']"),
-            target.locator("//span[normalize-space()='Apply']"),
+            target_scope.get_by_role("button", name="Apply"),
+            target_scope.locator("//a[.//span[normalize-space()='Apply']]"),
+            target_scope.locator("//button[normalize-space()='Apply']"),
+            target_scope.locator("//span[normalize-space()='Apply']"),
         ]
         for btn in apply_candidates:
             try:
@@ -568,11 +580,11 @@ class ReceiveOperation(BaseOperation):
 
         # Keyboard fallback: Tab twice to focus quick filter, type, press Enter then Space for safety
         try:
-            target.press("body", "Tab")
-            target.press("body", "Tab")
-            target.type("body", ilpn)
-            target.press("body", "Enter")
-            target.press("body", "Space")
+            press_target.press("body", "Tab")
+            press_target.press("body", "Tab")
+            press_target.type("body", ilpn)
+            press_target.press("body", "Enter")
+            press_target.press("body", "Space")
             return True
         except Exception as exc:
             rf_log(f"❌ Unable to click Apply in iLPNs UI (even with keyboard fallback): {exc}")
