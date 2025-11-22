@@ -159,6 +159,7 @@ class OperationRunner:
 @contextmanager
 def create_operation_services(settings: Any) -> Generator[OperationServices, None, None]:
     with BrowserManager(settings) as browser_mgr:
+        # Main tab
         page = browser_mgr.new_page()
         detour_page = None
         screenshot_mgr = ScreenshotManager(
@@ -168,12 +169,11 @@ def create_operation_services(settings: Any) -> Generator[OperationServices, Non
         )
         page_mgr = PageManager(page)
         auth_mgr = AuthManager(page, screenshot_mgr, settings)
+        # Create detour tab after main tab is ready; ignore failures silently.
         try:
-            # Dedicated detour tab in the same context (shared session/login).
             detour_page = browser_mgr.context.new_page()
-            NavigationManager(detour_page, screenshot_mgr).change_warehouse(settings.app.change_warehouse)
         except Exception:
-            detour_page = browser_mgr.new_page()
+            detour_page = None
 
         nav_mgr = NavigationManager(page, screenshot_mgr)
         post_message_mgr = PostMessageManager(page, screenshot_mgr)
