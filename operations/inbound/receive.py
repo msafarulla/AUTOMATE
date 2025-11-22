@@ -20,7 +20,7 @@ from utils.wait_utils import WaitUtils
 class ReceiveOperation(BaseOperation):
     """Handles ASN receiving workflow in RF terminal."""
 
-    def __init__(self, page, page_mgr, screenshot_mgr, rf_menu, detour_page=None, detour_nav=None):
+    def __init__(self, page, page_mgr, screenshot_mgr, rf_menu):
         super().__init__(page, page_mgr, screenshot_mgr, rf_menu)
         
         # Setup RF integration
@@ -31,8 +31,6 @@ class ReceiveOperation(BaseOperation):
         # Load config
         self.menu = OperationConfig.RECEIVE_MENU
         self.selectors = OperationConfig.RECEIVE_SELECTORS
-        self.detour_page = detour_page
-        self.detour_nav = detour_nav or (NavigationManager(detour_page, screenshot_mgr) if detour_page else None)
         self._ilpn: str | None = None
         self._screen_context: dict[str, int | None] | None = None
 
@@ -172,9 +170,7 @@ class ReceiveOperation(BaseOperation):
         else:
             return True
 
-        nav_mgr_main = NavigationManager(self.page, self.screenshot_mgr)
-        detour_nav = self.detour_nav or (NavigationManager(self.detour_page, self.screenshot_mgr) if self.detour_page else None)
-        nav_mgr = nav_mgr_main
+        nav_mgr = NavigationManager(self.page, self.screenshot_mgr)
         focus_title = base_cfg.get("rf_focus_title", "RF Menu")
 
         keep_ui_open = False
@@ -186,15 +182,10 @@ class ReceiveOperation(BaseOperation):
             if not entry or not bool(entry.get("enabled", True)):
                 continue
 
-            # Optional detour page (separate tab) to avoid stealing focus from RF
-            use_detour = bool(entry.get("use_detour_page"))
-            use_nav = detour_nav if (use_detour and detour_nav) else nav_mgr_main
-            use_page = self.detour_page if (use_detour and self.detour_page) else self.page
-
             search_term = entry.get("search_term") or base_cfg.get("search_term", "tasks")
             match_text = entry.get("match_text") or base_cfg.get("match_text", "Tasks (Configuration)")
             close_existing = bool(entry.get("close_existing", base_cfg.get("close_existing", True)))
-            if not use_nav.open_menu_item(search_term, match_text, close_existing=close_existing):
+            if not nav_mgr.open_menu_item(search_term, match_text, close_existing=close_existing):
                 rf_log(f"❌ UI detour #{idx} failed during receive flow.")
                 return False
 
@@ -214,17 +205,17 @@ class ReceiveOperation(BaseOperation):
 
             if entry.get("close_after_open"):
                 try:
-                    windows = use_page.locator("div.x-window:visible")
+                    windows = self.page.locator("div.x-window:visible")
                     if windows.count() > 0:
                         win = windows.last
                         try:
                             win.locator(".x-tool-close").first.click()
                         except Exception:
                             try:
-                                use_page.keyboard.press("Escape")
+                                self.page.keyboard.press("Escape")
                             except Exception:
                                 pass
-                    NavigationManager(use_page, self.screenshot_mgr).close_active_windows(skip_titles=[])
+                    NavigationManager(self.page, self.screenshot_mgr).close_active_windows(skip_titles=[])
                 except Exception:
                     pass
                 continue
