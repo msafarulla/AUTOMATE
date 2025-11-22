@@ -94,6 +94,7 @@ class AppConfig:
     verify_tran_id_marker: bool = False
     auto_close_post_login_windows: bool = False
     force_enable_context_menu: bool = True
+    app_server: str = ""
     app_server_user: str = ""
     app_server_pass: str = ""
 
@@ -138,10 +139,6 @@ class Settings:
         )
         set_general_verbose(cls.app.app_verbose_logging)
         set_rf_verbose(cls.app.rf_verbose_logging)
-        base_url_lower = cls.app.app_server.lower()
-        cls.app.requires_prod_confirmation = any(
-            marker in base_url_lower for marker in ("prod", "prd")
-        )
         try:
             credentials = DB.get_credentials("qa")
         except Exception as exc:
@@ -158,5 +155,9 @@ class Settings:
         cls.app.app_server_pass = os.getenv(
             "APP_SERVER_PASS",
             credentials.get("app_server_pass", cls.app.app_server_pass),
+        )
+        app_server_lower = cls.app.app_server.lower()
+        cls.app.requires_prod_confirmation = any(
+            marker in app_server_lower for marker in ("prod", "prd")
         )
         return cls
