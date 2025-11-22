@@ -506,17 +506,15 @@ class ReceiveOperation(BaseOperation):
     def _wait_for_ilpn_apply(self, timeout_ms: int, operation_note: str, entry: dict, default_screenshot: str | None, page=None):
         """Wait for iLPN apply to finish (mask cleared) then capture before close."""
         page = page or self.page
-        frame = self._find_ilpn_frame(timeout_ms=2000, page=page)
         prev_snapshot = None
-        if frame:
-            try:
-                prev_snapshot = HashUtils.get_frame_snapshot(frame)
-            except Exception:
-                prev_snapshot = None
+        try:
+            prev_snapshot = HashUtils.get_frame_snapshot(page.main_frame)
+        except Exception:
+            prev_snapshot = None
 
-        if frame and prev_snapshot:
+        if prev_snapshot:
             WaitUtils.wait_for_screen_change(
-                lambda: self._find_ilpn_frame(timeout_ms=500, page=page),
+                lambda: page.main_frame,
                 prev_snapshot,
                 timeout_ms=timeout_ms,
                 interval_ms=250,

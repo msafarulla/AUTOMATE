@@ -50,7 +50,6 @@ class WaitUtils:
             frame = get_frame()
             page = frame.page
             start = safe_page_evaluate(page, "Date.now()", description="timer")
-            target_len = len(prev_snapshot or "") or HashUtils.SNAPSHOT_LEN
 
             while True:
                 page.wait_for_timeout(interval_ms)
@@ -58,7 +57,7 @@ class WaitUtils:
                 # Get current snapshot
                 try:
                     frame = get_frame()
-                    current = HashUtils.get_frame_snapshot(frame, target_len)
+                    current = HashUtils.get_frame_snapshot(frame)
                 except Exception as e:
                     if WaitUtils._is_navigation_error(e):
                         app_log("ℹ️ Frame navigated - treating as change")
