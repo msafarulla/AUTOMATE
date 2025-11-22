@@ -222,18 +222,18 @@ class ReceiveOperation(BaseOperation):
 
             if entry.get("fill_ilpn") and self._screen_context and self._screen_context.get("ilpn"):
                 ilpn_val = self._screen_context.get("ilpn")
-                if not self._fill_ilpn_quick_filter(str(ilpn_val), page=use_page):
+                if not self._fill_ilpn_quick_filter(str(ilpn_val), page=self.page):
                     return False
                 wait_ms = entry.get("ilpn_wait_ms") or default_ilpn_wait or 4000
-                self._wait_for_ilpn_apply(wait_ms, operation_note, entry, default_post_screenshot, page=use_page)
+                self._wait_for_ilpn_apply(wait_ms, operation_note, entry, default_post_screenshot, page=self.page)
                 # Close iLPN window after apply to return focus to RF
-                use_nav.close_active_windows(skip_titles=["rf menu"])
-                use_nav.focus_window_by_title(focus_title)
+                nav_mgr.close_active_windows(skip_titles=["rf menu"])
+                nav_mgr.focus_window_by_title(focus_title)
 
             pause_ms = entry.get("pause_ms") or base_cfg.get("pause_ms")
             if pause_ms:
                 try:
-                    use_page.wait_for_timeout(int(pause_ms))
+                    self.page.wait_for_timeout(int(pause_ms))
                 except Exception:
                     pass
 
