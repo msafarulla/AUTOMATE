@@ -254,7 +254,7 @@ class ReceiveOperation(BaseOperation):
                         )
                     except Exception:
                         pass
-                self._wait_for_ilpn_apply(wait_ms, operation_note, entry, default_post_screenshot, page=use_page)
+                self._wait_for_ilpn_apply(4000, operation_note, entry, default_post_screenshot, page=use_page)
                 self.screenshot_mgr.capture(use_page, screenshot_tag, operation_note)
                 use_nav.focus_window_by_title(focus_title)
         return True
