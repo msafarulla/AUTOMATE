@@ -204,7 +204,7 @@ class ReceiveOperation(BaseOperation):
 
             # Expand the detour window for better visibility/capture.
             try:
-                use_page.wait_for_timeout(300)
+                use_page.wait_for_timeout(5000)
                 use_nav.maximize_non_rf_windows()
             except Exception:
                 pass
@@ -219,7 +219,6 @@ class ReceiveOperation(BaseOperation):
                 or base_cfg.get("screenshot_tag")
                 or f"receive_open_ui_{idx}"
             )
-            self.screenshot_mgr.capture(use_page, screenshot_tag, operation_note)
 
             rf_log(f"ℹ️ {operation_note}")
 
@@ -268,7 +267,7 @@ class ReceiveOperation(BaseOperation):
             else:
                 preserve = bool(entry.get("preserve_window") or entry.get("preserve"))
                 keep_ui_open = keep_ui_open or preserve
-
+        self.screenshot_mgr.capture(use_page, screenshot_tag, operation_note)
         return True
 
     # =========================================================================
