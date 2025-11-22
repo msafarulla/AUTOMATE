@@ -203,7 +203,20 @@ class ReceiveOperation(BaseOperation):
             rf_log(f"ℹ️ {operation_note}")
 
             if entry.get("close_after_open"):
-                NavigationManager(self.page, self.screenshot_mgr).close_active_windows(skip_titles=[])
+                try:
+                    windows = self.page.locator("div.x-window:visible")
+                    if windows.count() > 0:
+                        win = windows.last
+                        try:
+                            win.locator(".x-tool-close").first.click()
+                        except Exception:
+                            try:
+                                self.page.keyboard.press("Escape")
+                            except Exception:
+                                pass
+                    NavigationManager(self.page, self.screenshot_mgr).close_active_windows(skip_titles=[])
+                except Exception:
+                    pass
                 continue
 
             if entry.get("fill_ilpn") and self._screen_context and self._screen_context.get("ilpn"):
