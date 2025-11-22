@@ -352,7 +352,29 @@ class NavigationManager:
 
     def _maximize_non_rf_windows(self):
         """Maximize all visible non-RF windows for better capture."""
-        resized = safe_page_evaluate(self.page, """
+        clicked = 0
+        try:
+            windows = self.page.locator("div.x-window:visible")
+            for i in range(windows.count()):
+                win = windows.nth(i)
+                try:
+                    title = (win.locator(".x-window-header-text").inner_text(timeout=300) or "").lower()
+                except Exception:
+                    title = ""
+                if "rf menu" in title or title == "rf":
+                    continue
+                try:
+                    btn = win.locator(".x-tool-maximize:visible").first
+                    if btn.count() > 0:
+                        btn.click(timeout=500)
+                        clicked += 1
+                        continue
+                except Exception:
+                    pass
+        except Exception:
+            pass
+
+        ext_resized = safe_page_evaluate(self.page, """
             () => {
                 if (!window.Ext?.WindowManager?.getAll) return 0;
                 const wins = Ext.WindowManager.getAll().items || [];
@@ -361,11 +383,9 @@ class NavigationManager:
                     const title = (win.title || '').toLowerCase();
                     if (title.includes('rf menu') || title === 'rf') return;
                     try {
-                        // Prefer native maximize if available so it mimics the UI button.
                         if (typeof win.maximize === 'function') {
                             win.maximize();
                         } else {
-                            // Fallback to sizing near full viewport.
                             const w = Math.max(400, window.innerWidth * 0.95);
                             const h = Math.max(300, window.innerHeight * 0.95);
                             const x = Math.max(4, (window.innerWidth - w) / 2);
@@ -382,6 +402,8 @@ class NavigationManager:
                 return changed;
             }
         """, description="maximize_non_rf_windows")
+
+        resized = clicked + (ext_resized or 0)
 
         if resized:
             app_log(f"🪟 Maximized {resized} non-RF window(s)")
