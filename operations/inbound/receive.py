@@ -239,6 +239,24 @@ class ReceiveOperation(BaseOperation):
                 if not self._fill_ilpn_quick_filter(str(ilpn_val), page=use_page):
                     return False
                 wait_ms = 40000
+                frame = self._find_ilpn_frame(timeout_ms=2000, page=use_page)
+                prev_snapshot = None
+                if frame:
+                    try:
+                        prev_snapshot = HashUtils.get_frame_snapshot(frame)
+                    except Exception:
+                        prev_snapshot = None
+                if frame and prev_snapshot:
+                    try:
+                        WaitUtils.wait_for_screen_change(
+                            lambda: self._find_ilpn_frame(timeout_ms=500, page=use_page),
+                            prev_snapshot,
+                            timeout_ms=wait_ms,
+                            interval_ms=250,
+                            warn_on_timeout=True,
+                        )
+                    except Exception:
+                        pass
                 self._wait_for_ilpn_apply(wait_ms, operation_note, entry, default_post_screenshot, page=use_page)
                 self.screenshot_mgr.capture(use_page, screenshot_tag, operation_note)
                 use_nav.focus_window_by_title(focus_title)
