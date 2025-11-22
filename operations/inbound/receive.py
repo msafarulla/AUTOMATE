@@ -178,8 +178,6 @@ class ReceiveOperation(BaseOperation):
         detour_nav = self.detour_nav or (NavigationManager(self.detour_page, self.screenshot_mgr) if self.detour_page else None)
         focus_title = base_cfg.get("rf_focus_title", "RF Menu")
 
-        default_post_screenshot = base_cfg.get("post_screenshot_tag")
-
         for idx, entry in enumerate(entries, 1):
             if not entry or not bool(entry.get("enabled", True)):
                 continue
