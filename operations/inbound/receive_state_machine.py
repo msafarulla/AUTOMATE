@@ -139,6 +139,7 @@ class ReceiveStateMachine:
         quantity: int,
         flow_hint: Optional[str] = None,
         auto_handle: bool = False,
+        post_qty_hook: Optional[Callable[['ReceiveStateMachine'], None]] = None,
         post_location_hook: Optional[Callable[['ReceiveStateMachine'], None]] = None,
     ) -> bool:
         """
@@ -157,6 +158,8 @@ class ReceiveStateMachine:
         self.state = ReceiveState.INIT
         self._post_qty_hook_called = False
         # Allow override of hooks per run (mainly for tests)
+        if post_qty_hook is not None:
+            self.post_qty_hook = post_qty_hook
         if post_location_hook is not None:
             self.post_location_hook = post_location_hook
         self._post_location_hook_called = False
