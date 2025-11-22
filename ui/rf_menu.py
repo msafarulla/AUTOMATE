@@ -68,7 +68,7 @@ class RFMenuManager:
         self.screenshot_mgr.capture_rf_window(self.page, "RF_HOME", "RF Home")
 
     def maximize_window(self):
-        """Increase the RF Menu window height by ~2 inches without repositioning."""
+        """Increase the RF Menu window height with a fixed target per screen size."""
         rf_window = self.page.locator("div.x-window:has-text('RF Menu')").first
         try:
             rf_window.wait_for(state="visible", timeout=4000)
@@ -79,41 +79,56 @@ class RFMenuManager:
         if handle is None:
             return False
 
+        target_height = None
         try:
-            handle.evaluate(
+            # Pick a fixed height based on the current viewport bucket.
+            target_height = handle.evaluate(
                 """
             (el) => {
                 const rect = el.getBoundingClientRect();
-                const extraHeight = 192;
-                const viewportHeight = window.innerHeight;
-                const maxAllowed = viewportHeight - rect.top - 12;
-                const newHeight = Math.min(maxAllowed, rect.height + extraHeight);
+                const viewportHeight = window.innerHeight || document.documentElement?.clientHeight || window.screen?.height || 900;
+                const topMargin = Math.max(8, rect.top);
+                let desired;
+                if (viewportHeight >= 1200) {
+                    desired = 1050;
+                } else if (viewportHeight >= 1080) {
+                    desired = 950;
+                } else if (viewportHeight >= 900) {
+                    desired = 820;
+                } else {
+                    desired = 700;
+                }
+
+                const maxAllowed = Math.max(200, viewportHeight - topMargin - 8);
+                const newHeight = Math.min(maxAllowed, desired);
                 el.style.setProperty("height", `${newHeight}px`, "important");
                 el.style.setProperty("min-height", `${newHeight}px`, "important");
+                return newHeight;
             }
                 """,
             )
         except Exception:
-            pass
+            target_height = None
         finally:
             handle.dispose()
 
-        try:
-            safe_page_evaluate(
-                self.page,
-                """
-            () => {
-                const win = Ext.ComponentQuery.query('window[title~="RF"]')[0];
-                if (!win || !win.setHeight) return;
-                const currentHeight = win.getHeight?.() || (win.getSize?.()[1] || 0);
-                win.setHeight(currentHeight + 192);
-                win.updateLayout?.();
-            }
-                """,
-                description="RFMenuManager.maximize_window_adjust",
-            )
-        except Exception:
-            pass
+        if target_height:
+            try:
+                safe_page_evaluate(
+                    self.page,
+                    """
+                ({ targetHeight }) => {
+                    const win = Ext.ComponentQuery.query('window[title~="RF"]')[0];
+                    if (!win || !win.setHeight || !targetHeight) return;
+                    win.setHeight(targetHeight);
+                    win.updateLayout?.();
+                }
+                    """,
+                    {"targetHeight": target_height},
+                    description="RFMenuManager.maximize_window_adjust",
+                )
+            except Exception:
+                pass
 
         self._maximized = True
         return True
