@@ -49,6 +49,7 @@ class OperationRunner:
         post_message_mgr: PostMessageManager,
         rf_menu: RFMenuManager,
         conn_guard: ConnectionResetGuard,
+        settings: Any,
     ):
         self.settings = settings
         self.page = page
@@ -98,6 +99,7 @@ class OperationRunner:
             self.screenshot_mgr,
             self.rf_menu,
             detour_page=self.detour_page,
+            settings=self.settings,
         )
         return receive_op.execute(
             asn,
@@ -190,6 +192,7 @@ def create_operation_services(settings: Any) -> Generator[OperationServices, Non
             post_message_mgr,
             rf_menu,
             conn_guard,
+            settings,
         )
         services = OperationServices(
             screenshot_mgr=screenshot_mgr,

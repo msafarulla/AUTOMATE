@@ -20,7 +20,7 @@ from utils.wait_utils import WaitUtils
 class ReceiveOperation(BaseOperation):
     """Handles ASN receiving workflow in RF terminal."""
 
-    def __init__(self, page, page_mgr, screenshot_mgr, rf_menu, detour_page=None, detour_nav=None):
+    def __init__(self, page, page_mgr, screenshot_mgr, rf_menu, detour_page=None, detour_nav=None, settings=None):
         super().__init__(page, page_mgr, screenshot_mgr, rf_menu)
         
         # Setup RF integration
@@ -33,6 +33,7 @@ class ReceiveOperation(BaseOperation):
         self.selectors = OperationConfig.RECEIVE_SELECTORS
         self.detour_page = detour_page
         self.detour_nav = detour_nav or (NavigationManager(detour_page, screenshot_mgr) if detour_page else None)
+        self.settings = settings
         self._ilpn: str | None = None
         self._screen_context: dict[str, int | None] | None = None
 
@@ -46,16 +47,25 @@ class ReceiveOperation(BaseOperation):
         if current and current != "about:blank" and "chrome-error" not in current:
             return True
 
-        try:
-            base_url = self.page.url
-        except Exception:
-            base_url = None
+        base_url = None
+        if self.settings and getattr(self.settings, "app", None):
+            base_url = getattr(self.settings.app, "base_url", None)
+        if not base_url:
+            try:
+                base_url = self.page.url
+            except Exception:
+                base_url = None
 
         if not base_url or base_url.startswith("about:blank") or "chrome-error" in base_url:
             return False
 
         try:
             detour_page.goto(base_url, wait_until="domcontentloaded", timeout=15000)
+            if self.settings and getattr(self.settings, "app", None) and getattr(self.settings.app, "change_warehouse", None):
+                try:
+                    NavigationManager(detour_page, self.screenshot_mgr).change_warehouse(self.settings.app.change_warehouse)
+                except Exception:
+                    pass
             return True
         except Exception:
             return False
