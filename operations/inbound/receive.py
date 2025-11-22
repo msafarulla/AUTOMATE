@@ -404,25 +404,15 @@ class ReceiveOperation(BaseOperation):
 
     def _fill_ilpn_quick_filter(self, ilpn: str) -> bool:
         """Fill the iLPN quick filter input and click Apply in the iLPNs UI."""
-        # Prefer the iLPN window container; fall back to iframe if present.
-        ilpn_window = self.page.locator("div.x-window:visible:has(.x-title-text:has-text('iLPNs'))").last
-        has_window = ilpn_window.count() > 0
-
         target_frame = self._find_ilpn_frame(timeout_ms=6000)
-        target_scope = None
-        press_target = None
-
-        if has_window:
-            target_scope = ilpn_window
-            press_target = self.page
-        elif target_frame:
-            target_scope = target_frame
-            press_target = target_frame
-        else:
-            rf_log("❌ Unable to locate iLPNs window/frame; skipping iLPN fill to avoid typing into RF.")
+        if not target_frame:
+            rf_log("❌ Unable to locate iLPNs frame; skipping iLPN fill to avoid typing into RF.")
             return False
 
-        # Wait for any in-frame/window loading mask to clear before interacting
+        target_scope = target_frame
+        press_target = target_frame
+
+        # Wait for any in-frame loading mask to clear before interacting
         try:
             mask = target_scope.locator("div.x-mask:visible")
             mask.wait_for(state="hidden", timeout=4000)
