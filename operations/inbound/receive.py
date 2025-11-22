@@ -36,6 +36,30 @@ class ReceiveOperation(BaseOperation):
         self._ilpn: str | None = None
         self._screen_context: dict[str, int | None] | None = None
 
+    def _ensure_detour_page_ready(self, detour_page) -> bool:
+        """Make sure the detour page is navigated to the app so menu search works."""
+        try:
+            current = detour_page.url or ""
+        except Exception:
+            return False
+
+        if current and current != "about:blank" and "chrome-error" not in current:
+            return True
+
+        try:
+            base_url = self.page.url
+        except Exception:
+            base_url = None
+
+        if not base_url or base_url.startswith("about:blank") or "chrome-error" in base_url:
+            return False
+
+        try:
+            detour_page.goto(base_url, wait_until="domcontentloaded", timeout=15000)
+            return True
+        except Exception:
+            return False
+
     def execute(
         self,
         asn: str,
@@ -189,6 +213,9 @@ class ReceiveOperation(BaseOperation):
             use_nav = detour_nav if (use_detour and detour_nav) else nav_mgr_main
             use_page = self.detour_page if (use_detour and self.detour_page) else self.page
             skip_rest = False
+
+            if use_detour and self.detour_page:
+                self._ensure_detour_page_ready(self.detour_page)
 
             search_term = entry.get("search_term") or base_cfg.get("search_term", "tasks")
             match_text = entry.get("match_text") or base_cfg.get("match_text", "Tasks (Configuration)")
