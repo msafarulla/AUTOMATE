@@ -564,7 +564,7 @@ class ReceiveOperation(BaseOperation):
 
         try:
             input_field.click()
-            input_field.fill(ilpn)
+            input_field.type(ilpn, delay=50)
             input_field.press("Enter")
         except Exception as exc:
             rf_log(f"❌ Unable to fill iLPN filter: {exc}")
@@ -618,6 +618,15 @@ class ReceiveOperation(BaseOperation):
 
         deadline = time.time() + timeout_ms / 1000
         while time.time() < deadline:
+            # Direct name-based lookup first
+            for n in ("uxiframe-1156-frame", "uxiframe-1144-frame"):
+                try:
+                    f = self.page.frame(name=n)
+                    if f:
+                        return f
+                except Exception:
+                    pass
+
             frame = _match(self.page.frames)
             if frame:
                 return frame
