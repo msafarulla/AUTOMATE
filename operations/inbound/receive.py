@@ -50,6 +50,7 @@ class ReceiveOperation(BaseOperation):
             flow_hint=flow_hint,
             auto_handle=auto_handle,
         )
+        self._cache_screen_context()
         
         # Handle post-receive UI detours if configured
         if success and open_ui_cfg:
@@ -155,3 +156,21 @@ class ReceiveOperation(BaseOperation):
 
     def _handle_open_ui(self, cfg: dict):
         self._maybe_run_open_ui(cfg)
+
+    def _cache_screen_context(self):
+        """Pull key values from the state machine for later detour use (i.e., iLPN fill)."""
+        ctx = getattr(self.state_machine, "context", None)
+        if not ctx:
+            self._screen_context = None
+            return
+
+        self._screen_context = {
+            "asn": ctx.asn,
+            "item": ctx.item,
+            "quantity": ctx.quantity,
+            "shipped_qty": ctx.shipped_qty,
+            "received_qty": ctx.received_qty,
+            "ilpn": ctx.ilpn,
+            "suggested_location": ctx.suggested_location,
+            "flow_hint": ctx.flow_hint,
+        }
