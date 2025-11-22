@@ -378,6 +378,10 @@ class NavigationManager:
         else:
             app_log("ℹ️ No non-RF windows maximized (none found or already excluded)")
 
+    def maximize_non_rf_windows(self):
+        """Public wrapper to maximize non-RF windows."""
+        return self._maximize_non_rf_windows()
+
     # =========================================================================
     # UTILITIES
     # =========================================================================

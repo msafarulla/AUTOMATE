@@ -11,6 +11,7 @@ from typing import Any, Iterable
 from operations.base_operation import BaseOperation
 from operations.rf_primitives import RFMenuIntegration
 from ui.navigation import NavigationManager
+from core.detour import ensure_detour_page_ready
 from config.operations_config import OperationConfig
 from core.logger import rf_log
 from utils.hash_utils import HashUtils
@@ -36,43 +37,6 @@ class ReceiveOperation(BaseOperation):
         self.settings = settings
         self._ilpn: str | None = None
         self._screen_context: dict[str, int | None] | None = None
-
-    def _ensure_detour_page_ready(self, detour_page) -> bool:
-        """Make sure the detour page is navigated to the app so menu search works."""
-        try:
-            current = detour_page.url or ""
-        except Exception:
-            return False
-
-        if current and current != "about:blank" and "chrome-error" not in current:
-            return True
-
-        source_url = None
-        # Prefer the current main page URL (already authenticated), fallback to configured base_url.
-        try:
-            if self.page and self.page.url and "about:blank" not in self.page.url and "chrome-error" not in self.page.url:
-                source_url = self.page.url
-        except Exception:
-            source_url = None
-
-        if not source_url and self.settings and getattr(self.settings, "app", None):
-            source_url = getattr(self.settings.app, "base_url", None)
-
-        if not source_url or source_url.startswith("about:blank") or "chrome-error" in source_url:
-            return False
-
-        try:
-            detour_page.goto(source_url, wait_until="networkidle", timeout=20000)
-            # Give ExtJS a moment to hydrate before we start querying menus.
-            detour_page.wait_for_timeout(500)
-            if self.settings and getattr(self.settings, "app", None) and getattr(self.settings.app, "change_warehouse", None):
-                try:
-                    NavigationManager(detour_page, self.screenshot_mgr).change_warehouse(self.settings.app.change_warehouse)
-                except Exception:
-                    pass
-            return True
-        except Exception:
-            return False
 
     def execute(
         self,
@@ -229,7 +193,7 @@ class ReceiveOperation(BaseOperation):
             skip_rest = False
 
             if use_detour and self.detour_page:
-                self._ensure_detour_page_ready(self.detour_page)
+                ensure_detour_page_ready(self.detour_page, self.page, self.settings, self.screenshot_mgr)
 
             search_term = entry.get("search_term") or base_cfg.get("search_term", "tasks")
             match_text = entry.get("match_text") or base_cfg.get("match_text", "Tasks (Configuration)")
@@ -237,6 +201,12 @@ class ReceiveOperation(BaseOperation):
             if not use_nav.open_menu_item(search_term, match_text, close_existing=close_existing):
                 rf_log(f"❌ UI detour #{idx} failed during receive flow.")
                 return False
+
+            # Expand the detour window for better visibility/capture.
+            try:
+                use_nav.maximize_non_rf_windows()
+            except Exception:
+                pass
 
             operation_note = (
                 entry.get("operation_note")
