@@ -178,6 +178,7 @@ class ReceiveOperation(BaseOperation):
         detour_nav = self.detour_nav or (NavigationManager(self.detour_page, self.screenshot_mgr) if self.detour_page else None)
         focus_title = base_cfg.get("rf_focus_title", "RF Menu")
 
+        default_post_fill = base_cfg.get("post_fill_ms")
         default_post_screenshot = base_cfg.get("post_screenshot_tag")
         default_ilpn_wait = base_cfg.get("ilpn_wait_ms")
 
@@ -187,10 +188,11 @@ class ReceiveOperation(BaseOperation):
 
             use_nav = detour_nav if detour_nav else nav_mgr_main
             use_page = self.detour_page if self.detour_page else self.page
-            skip_rest = False
 
             if self.detour_page:
                 ensure_detour_page_ready(self.detour_page, self.page, self.settings, self.screenshot_mgr)
+                use_nav.close_active_windows(skip_titles=["rf menu"])
+
 
             search_term = entry.get("search_term") or base_cfg.get("search_term", "tasks")
             match_text = entry.get("match_text") or base_cfg.get("match_text", "Tasks (Configuration)")
@@ -235,16 +237,13 @@ class ReceiveOperation(BaseOperation):
                     pass
 
             if entry.get("fill_ilpn") and self._screen_context and self._screen_context.get("ilpn"):
-                use_nav.close_active_windows(skip_titles=["rf menu"])
                 ilpn_val = self._screen_context.get("ilpn")
                 if not self._fill_ilpn_quick_filter(str(ilpn_val), page=use_page):
                     return False
                 wait_ms = entry.get("ilpn_wait_ms") or default_ilpn_wait or 4000
                 self._wait_for_ilpn_apply(wait_ms, operation_note, entry, default_post_screenshot, page=use_page)
-                # Close iLPN window after apply to return focus to RF
                 self.screenshot_mgr.capture(use_page, screenshot_tag, operation_note)
                 use_nav.focus_window_by_title(focus_title)
-
         return True
 
     # =========================================================================
