@@ -238,8 +238,7 @@ class ReceiveOperation(BaseOperation):
                 ilpn_val = self._screen_context.get("ilpn")
                 if not self._fill_ilpn_quick_filter(str(ilpn_val), page=use_page):
                     return False
-
-                self._wait_for_ilpn_apply(4000, operation_note, entry, default_post_screenshot, page=use_page)
+                use_page.wait_for_timeout(5000)
                 self.screenshot_mgr.capture(use_page, screenshot_tag, operation_note)
                 use_nav.focus_window_by_title(focus_title)
         return True
