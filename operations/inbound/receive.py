@@ -410,7 +410,6 @@ class ReceiveOperation(BaseOperation):
             "//input[contains(@id,'lpn') and not(@type='hidden')]",
             "//input[contains(@name,'filter') and not(@type='hidden')]",
             "input.x-form-text:visible",
-            "input[type='text']:visible",
         ]
         input_field = None
         for sel in candidates:
@@ -522,7 +521,6 @@ class ReceiveOperation(BaseOperation):
         """Find the frame/page that contains the iLPNs UI (poll until timeout)."""
 
         def _match(frames):
-            best = None
             for frame in frames:
                 try:
                     url = frame.url or ""
@@ -530,9 +528,7 @@ class ReceiveOperation(BaseOperation):
                     url = ""
                 if "LPNListInbound" in url or "lpnlistinbound" in url.lower() or "/lpn" in url.lower():
                     return frame
-                if url:
-                    best = best or frame
-            return best
+            return None
 
         deadline = time.time() + timeout_ms / 1000
         while time.time() < deadline:
@@ -543,11 +539,11 @@ class ReceiveOperation(BaseOperation):
             try:
                 # Try explicit iframe lookup by src/name in current page
                 iframe = self.page.locator(
-                    "iframe[src*='LPNListInbound'], iframe[src*='/lpn'], iframe[name*='lpn'], iframe[id*='lpn']"
+                    "iframe[src*='LPNListInbound'], iframe[src*='/lpn'], iframe[name*='LPN'], iframe[id*='LPN']"
                 ).first
                 if iframe.count() > 0:
                     cf = iframe.content_frame()
-                    if cf:
+                    if cf and ("lpn" in (cf.url or "").lower() or "lpnlistinbound" in (cf.url or "").lower()):
                         return cf
             except Exception:
                 pass
@@ -559,7 +555,7 @@ class ReceiveOperation(BaseOperation):
                 )
                 if win_iframe.count() > 0:
                     cf = win_iframe.content_frame()
-                    if cf:
+                    if cf and ("lpn" in (cf.url or "").lower() or "lpnlistinbound" in (cf.url or "").lower()):
                         return cf
             except Exception:
                 pass
