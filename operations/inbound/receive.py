@@ -225,6 +225,9 @@ class ReceiveOperation(BaseOperation):
                     return False
                 wait_ms = entry.get("ilpn_wait_ms") or default_ilpn_wait or 4000
                 self._wait_for_ilpn_apply(wait_ms, operation_note, entry, default_post_screenshot)
+                # Close iLPN window after apply to return focus to RF
+                nav_mgr.close_active_windows(skip_titles=["rf menu"])
+                nav_mgr.focus_window_by_title(focus_title)
 
             pause_ms = entry.get("pause_ms") or base_cfg.get("pause_ms")
             if pause_ms:
