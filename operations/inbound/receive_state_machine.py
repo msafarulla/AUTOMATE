@@ -94,18 +94,21 @@ class ReceiveStateMachine:
         selectors: OperationConfig.RECEIVE_SELECTORS.__class__,
         deviation_selectors: Optional[Any] = None,
         post_qty_hook: Optional[Callable[['ReceiveStateMachine'], None]] = None,
+        post_location_hook: Optional[Callable[['ReceiveStateMachine'], None]] = None,
     ):
         self.rf = rf
         self.screenshot_mgr = screenshot_mgr
         self.selectors = selectors
         self.deviation_selectors = deviation_selectors or OperationConfig.RECEIVE_DEVIATION_SELECTORS
         self.post_qty_hook = post_qty_hook
+        self.post_location_hook = post_location_hook
         
         self.state = ReceiveState.INIT
         self.context = ReceiveContext()
         self.handlers: dict[ReceiveState, StateHandler] = {}
         self.detectors: list[StateHandler] = []
         self._post_qty_hook_called = False
+        self._post_location_hook_called = False
         
         self._register_handlers()
     
@@ -136,6 +139,7 @@ class ReceiveStateMachine:
         quantity: int,
         flow_hint: Optional[str] = None,
         auto_handle: bool = False,
+        post_location_hook: Optional[Callable[['ReceiveStateMachine'], None]] = None,
     ) -> bool:
         """
         Execute the complete receive flow.
@@ -152,6 +156,10 @@ class ReceiveStateMachine:
         )
         self.state = ReceiveState.INIT
         self._post_qty_hook_called = False
+        # Allow override of hooks per run (mainly for tests)
+        if post_location_hook is not None:
+            self.post_location_hook = post_location_hook
+        self._post_location_hook_called = False
         
         rf_log(f"🚀 Starting receive: ASN={asn}, Item={item}, Qty={quantity}")
         
@@ -227,6 +235,16 @@ class ReceiveStateMachine:
         except Exception as exc:
             rf_log(f"⚠️ post_qty_hook failed: {exc}")
         self._post_qty_hook_called = True
+
+    def invoke_post_location_hook(self):
+        """Run optional post-location hook exactly once."""
+        if not self.post_location_hook or self._post_location_hook_called:
+            return
+        try:
+            self.post_location_hook(self)
+        except Exception as exc:
+            rf_log(f"⚠️ post_location_hook failed: {exc}")
+        self._post_location_hook_called = True
     
     def _transition_to(self, new_state: ReceiveState, reason: str = ""):
         """Record state transition."""
@@ -412,6 +430,7 @@ class AwaitingLocationHandler(StateHandler):
     def execute(self, m: ReceiveStateMachine) -> ReceiveState:
         location = _read_suggested_location(m)
         m.context.suggested_location = location
+        m.invoke_post_location_hook()
         
         if not location:
             m.context.error_message = "Could not read suggested location"

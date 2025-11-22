@@ -43,6 +43,7 @@ class ReceiveOperation(BaseOperation):
     ) -> bool:
         """Execute receive operation via state machine."""
         post_qty_hook = (lambda machine: self._on_qty_entered(open_ui_cfg)) if open_ui_cfg else None
+        post_location_hook = (lambda machine: self._on_suggested_location(open_ui_cfg)) if open_ui_cfg else None
 
         success = self.state_machine.run(
             asn=asn,
@@ -51,6 +52,7 @@ class ReceiveOperation(BaseOperation):
             flow_hint=flow_hint,
             auto_handle=auto_handle,
             post_qty_hook=post_qty_hook,
+            post_location_hook=post_location_hook,
         )
         self._cache_screen_context()
         return success
@@ -175,6 +177,13 @@ class ReceiveOperation(BaseOperation):
 
     def _on_qty_entered(self, cfg: dict | None):
         """Hook invoked immediately after quantity entry to run configured detours."""
+        if not cfg:
+            return
+        self._cache_screen_context()
+        self._handle_open_ui(cfg)
+
+    def _on_suggested_location(self, cfg: dict | None):
+        """Hook invoked once suggested location is read."""
         if not cfg:
             return
         self._cache_screen_context()
