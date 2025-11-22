@@ -28,7 +28,12 @@ class BrowserManager:
     def _create_browser(self) -> Browser:
         cfg = self.settings.browser
         scale = max(cfg.device_scale_factor, 1.0)
-        window_width = int(cfg.width / scale)
+        # Widen RF window: add 2" on 5k+ screens, otherwise 1"
+        px_per_inch = 96 * scale
+        extra_inches = 2 if cfg.width >= 5000 else 1
+        adjusted_width = cfg.width + int(extra_inches * px_per_inch)
+
+        window_width = int(adjusted_width / scale)
         window_height = int(cfg.height / scale)
 
         launch_args = [
@@ -52,12 +57,16 @@ class BrowserManager:
         # Keep viewport math aligned with working standalone script: provide CSS pixels,
         # let Playwright handle device_scale_factor instead of mixing both layers.
         scale = max(cfg.device_scale_factor, 1.0)
-        viewport_width = int(cfg.width / scale)
+        px_per_inch = 96 * scale
+        extra_inches = 2 if cfg.width >= 5000 else 1
+        adjusted_width = cfg.width + int(extra_inches * px_per_inch)
+
+        viewport_width = int(adjusted_width / scale)
         viewport_height = int((cfg.height - 300) / scale)
 
         app_log(
             f"[BrowserManager] viewport={viewport_width}x{viewport_height} "
-            f"(raw={cfg.width}x{cfg.height}, scale={cfg.device_scale_factor})"
+            f"(raw={cfg.width}x{cfg.height}, scale={cfg.device_scale_factor}, extra_in={extra_inches})"
         )
 
         # Explicit type annotation for type checkers, no runtime cast needed
