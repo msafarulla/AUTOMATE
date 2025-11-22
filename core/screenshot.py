@@ -33,7 +33,10 @@ class ScreenshotManager:
         self._rf_pre_capture_hook = pre_hook
         self._rf_post_capture_hook = post_hook
 
-    def capture(self, page: Page, label: str, overlay_text: str = None):
+    def capture(self, page: Page, label: str, overlay_text: str = None, onDemand: bool = True) -> Optional[Path]:
+        if not onDemand:
+            app_log("⚠️ Screenshot capture skipped due to onDemand=False.")
+            return None
         """Capture full page screenshot"""
         self.sequence += 1
         filename = self._build_filename(label)

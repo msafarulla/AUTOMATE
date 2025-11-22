@@ -28,7 +28,7 @@ class NavigationManager:
     # PUBLIC METHODS
     # =========================================================================
 
-    def change_warehouse(self, warehouse: str):
+    def change_warehouse(self, warehouse: str, onDemand: bool = True):
         """Change to specified warehouse if not already selected."""
         current_el = self.page.locator(":text-matches('- SOA')").first
         current = current_el.inner_text().strip()
@@ -49,7 +49,7 @@ class NavigationManager:
         self.page.get_by_text("Apply", exact=True).click()
         WaitUtils.wait_for_screen_change(lambda: self.page.main_frame, prev)
 
-        self.screenshot_mgr.capture(self.page, f"warehouse_{warehouse}", f"Changed to {warehouse}")
+        self.screenshot_mgr.capture(self.page, f"warehouse_{warehouse}", f"Changed to {warehouse}", onDemand)
         app_log(f"✅ Changed to {warehouse}")
 
     def open_menu_item(self, search_term: str, match_text: str, 
