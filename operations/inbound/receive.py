@@ -171,7 +171,6 @@ class ReceiveOperation(BaseOperation):
             return True
 
         nav_mgr = NavigationManager(self.page, self.screenshot_mgr)
-        focus_title = base_cfg.get("rf_focus_title", "RF Menu")
 
         keep_ui_open = False
         default_post_fill = base_cfg.get("post_fill_ms")
@@ -201,7 +200,6 @@ class ReceiveOperation(BaseOperation):
             )
             self.screenshot_mgr.capture(self.page, screenshot_tag, operation_note)
 
-            focus_title = entry.get("rf_focus_title") or focus_title
             rf_log(f"ℹ️ {operation_note}")
 
             if entry.get("fill_ilpn") and self._screen_context and self._screen_context.get("ilpn"):
@@ -221,10 +219,6 @@ class ReceiveOperation(BaseOperation):
             # Close the just-opened UI before moving to the next (unless caller wants to preserve)
             preserve = bool(entry.get("preserve_window") or entry.get("preserve"))
             keep_ui_open = keep_ui_open or preserve
-            if not preserve:
-                nav_mgr.close_active_windows(skip_titles=[focus_title])
-        if not keep_ui_open:
-            nav_mgr.close_active_windows(skip_titles=[focus_title])
 
         return True
 
