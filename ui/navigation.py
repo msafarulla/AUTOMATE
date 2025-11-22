@@ -356,20 +356,28 @@ class NavigationManager:
             () => {
                 if (!window.Ext?.WindowManager?.getAll) return 0;
                 const wins = Ext.WindowManager.getAll().items || [];
-                const w = Math.max(400, window.innerWidth * 0.92);
-                const h = Math.max(300, window.innerHeight * 0.9);
-                const x = Math.max(8, (window.innerWidth - w) / 2);
-                const y = Math.max(8, window.innerHeight * 0.04);
                 let changed = 0;
                 wins.forEach(win => {
                     const title = (win.title || '').toLowerCase();
                     if (title.includes('rf menu') || title === 'rf') return;
-                    win.setSize?.(w, h);
-                    win.setPosition?.(x, y);
-                    win.setPagePosition?.(x, y);
-                    win.toFront?.();
-                    win.updateLayout?.();
-                    changed += 1;
+                    try {
+                        // Prefer native maximize if available so it mimics the UI button.
+                        if (typeof win.maximize === 'function') {
+                            win.maximize();
+                        } else {
+                            // Fallback to sizing near full viewport.
+                            const w = Math.max(400, window.innerWidth * 0.95);
+                            const h = Math.max(300, window.innerHeight * 0.95);
+                            const x = Math.max(4, (window.innerWidth - w) / 2);
+                            const y = Math.max(4, window.innerHeight * 0.03);
+                            win.setSize?.(w, h);
+                            win.setPosition?.(x, y);
+                            win.setPagePosition?.(x, y);
+                        }
+                        win.toFront?.();
+                        win.updateLayout?.();
+                        changed += 1;
+                    } catch (e) {}
                 });
                 return changed;
             }
