@@ -202,6 +202,10 @@ class ReceiveOperation(BaseOperation):
 
             rf_log(f"ℹ️ {operation_note}")
 
+            if entry.get("close_after_open"):
+                NavigationManager(self.page, self.screenshot_mgr).close_active_windows(skip_titles=[])
+                continue
+
             if entry.get("fill_ilpn") and self._screen_context and self._screen_context.get("ilpn"):
                 ilpn_val = self._screen_context.get("ilpn")
                 if not self._fill_ilpn_quick_filter(str(ilpn_val)):

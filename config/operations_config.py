@@ -132,9 +132,10 @@ class OperationConfig:
                                 'match_text': 'iLPNs (Distribution)',
                                 'operation_note': 'Go to iLPNs UI',
                                 'rf_focus_title': 'RF Menu',
-                                'fill_ilpn': True,
-                                'preserve_window': False,   # close after fill/screenshots
-                                'close_existing': False,    # keep RF window intact
+                                'fill_ilpn': False,
+                                'preserve_window': False,
+                                'close_existing': False,
+                                'close_after_open': True,
                             },
                         ],
                     },
@@ -142,4 +143,3 @@ class OperationConfig:
             },
         },
     }
-
