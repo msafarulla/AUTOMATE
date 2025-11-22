@@ -404,7 +404,19 @@ class ReceiveOperation(BaseOperation):
 
     def _fill_ilpn_quick_filter(self, ilpn: str) -> bool:
         """Fill the iLPN quick filter input and click Apply in the iLPNs UI."""
-        target_frame = self._find_ilpn_frame(timeout_ms=6000)
+        # Look for known iLPN frames first to avoid falling back to RF
+        target_frame = None
+        for fname in ("uxiframe-1156-frame", "uxiframe-1144-frame"):
+            try:
+                f = self.page.frame(name=fname)
+                if f:
+                    target_frame = f
+                    break
+            except Exception:
+                continue
+
+        if not target_frame:
+            target_frame = self._find_ilpn_frame(timeout_ms=6000)
         if not target_frame:
             rf_log("❌ Unable to locate iLPNs frame; skipping iLPN fill to avoid typing into RF.")
             return False
@@ -419,23 +431,23 @@ class ReceiveOperation(BaseOperation):
         except Exception:
             pass
 
-        candidates = [
+        # Hard-target the known input first
+        selectors = [
+            "input#dataForm\\:locn",
+            "input[name='dataForm:locn']",
+            "input#dataForm\\:LPNListInOutboundMain_lv\\:LPNList_Inbound_filterId1\\:field10value1",
+            "input[name='dataForm:LPNListInOutboundMain_lv:LPNList_Inbound_filterId1:field10value1']",
             "//span[contains(translate(normalize-space(),'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz'),'quick filter')]/following::input[1]",
             "//label[contains(translate(normalize-space(),'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz'),'lpn')]/following::input[1]",
             "//td[contains(.,'LPN')]/following::input[1]",
             "//tr[.//span[contains(translate(normalize-space(),'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz'),'quick filter')]]//input",
-            "input#dataForm\\:locn",
-            "input[name='dataForm:locn']",
-            "//input[contains(@placeholder,'ilter') and not(@type='hidden')]",
-            "//input[contains(@aria-label,'Quick filter') and not(@type='hidden')]",
-            "//input[contains(@name,'lpn') and not(@type='hidden')]",
-            "//input[contains(@id,'lpn') and not(@type='hidden')]",
-            "//input[contains(@name,'filter') and not(@type='hidden')]",
             "input.x-form-text:visible",
             "input.x-form-field:visible",
+            "input[type='text']:visible",
         ]
+
         input_field = None
-        for sel in candidates:
+        for sel in selectors:
             try:
                 locator = target_scope.locator(sel).first
                 locator.wait_for(state="visible", timeout=3000)
@@ -443,16 +455,6 @@ class ReceiveOperation(BaseOperation):
                 break
             except Exception:
                 continue
-
-        if not input_field:
-            try:
-                # As a last-resort, pick the first visible text input in the iLPN window
-                locator = target_scope.locator("input[type='text']:visible").first
-                locator.wait_for(state="visible", timeout=1500)
-                input_field = locator
-                rf_log("ℹ️ Falling back to first visible text input in iLPN window.")
-            except Exception:
-                input_field = None
 
         if not input_field:
             rf_log("⚠️ Could not locate visible iLPN quick filter input, attempting hidden-fill fallback.")
@@ -547,6 +549,10 @@ class ReceiveOperation(BaseOperation):
                         target_scope.locator("//a[.//span[normalize-space()='Apply']]"),
                         target_scope.locator("//button[normalize-space()='Apply']"),
                         target_scope.locator("//span[normalize-space()='Apply']"),
+                        target_scope.locator("button#dataForm\\:applyButton"),
+                        target_scope.locator("button[name='dataForm:applyButton']"),
+                        target_scope.locator(\"//button[contains(@id,'LPNList_Inbound_filterId1apply')]\"), 
+                        target_scope.locator(\"//button[contains(@name,'LPNList_Inbound_filterId1apply')]\")
                     ]
                     for btn in apply_candidates:
                         try:
