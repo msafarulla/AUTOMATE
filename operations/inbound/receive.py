@@ -187,12 +187,11 @@ class ReceiveOperation(BaseOperation):
             if not entry or not bool(entry.get("enabled", True)):
                 continue
 
-            use_detour = True  # Always use detour page when available
-            use_nav = detour_nav if (use_detour and detour_nav) else nav_mgr_main
-            use_page = self.detour_page if (use_detour and self.detour_page) else self.page
+            use_nav = detour_nav if detour_nav else nav_mgr_main
+            use_page = self.detour_page if self.detour_page else self.page
             skip_rest = False
 
-            if use_detour and self.detour_page:
+            if self.detour_page:
                 ensure_detour_page_ready(self.detour_page, self.page, self.settings, self.screenshot_mgr)
 
             search_term = entry.get("search_term") or base_cfg.get("search_term", "tasks")
