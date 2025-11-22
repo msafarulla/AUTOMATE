@@ -530,7 +530,6 @@ class ReceiveOperation(BaseOperation):
                     url = ""
                 if "LPNListInbound" in url or "lpnlistinbound" in url.lower() or "/lpn" in url.lower():
                     return frame
-                # Prefer any frame with non-empty URL if nothing matches
                 if url:
                     best = best or frame
             return best
@@ -542,10 +541,24 @@ class ReceiveOperation(BaseOperation):
                 return frame
 
             try:
-                # Try explicit iframe lookup by src
-                iframe = self.page.locator("iframe[src*='LPNListInbound'], iframe[src*='/lpn']").first
+                # Try explicit iframe lookup by src/name in current page
+                iframe = self.page.locator(
+                    "iframe[src*='LPNListInbound'], iframe[src*='/lpn'], iframe[name*='lpn'], iframe[id*='lpn']"
+                ).first
                 if iframe.count() > 0:
                     cf = iframe.content_frame()
+                    if cf:
+                        return cf
+            except Exception:
+                pass
+
+            try:
+                # Try iframe inside a visible window (better for ExtJS windows)
+                win_iframe = (
+                    self.page.locator("div.x-window:visible iframe").first
+                )
+                if win_iframe.count() > 0:
+                    cf = win_iframe.content_frame()
                     if cf:
                         return cf
             except Exception:
