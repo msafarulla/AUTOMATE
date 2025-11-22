@@ -551,8 +551,8 @@ class ReceiveOperation(BaseOperation):
                         target_scope.locator("//span[normalize-space()='Apply']"),
                         target_scope.locator("button#dataForm\\:applyButton"),
                         target_scope.locator("button[name='dataForm:applyButton']"),
-                        target_scope.locator(\"//button[contains(@id,'LPNList_Inbound_filterId1apply')]\"), 
-                        target_scope.locator(\"//button[contains(@name,'LPNList_Inbound_filterId1apply')]\")
+                        target_scope.locator("//button[contains(@id,'LPNList_Inbound_filterId1apply')]"),
+                        target_scope.locator("//button[contains(@name,'LPNList_Inbound_filterId1apply')]"),
                     ]
                     for btn in apply_candidates:
                         try:
