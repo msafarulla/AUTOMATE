@@ -15,7 +15,7 @@ class AuthManager:
         self.settings = settings
 
     def login(self):
-        base_url = self.settings.app.base_url
+        base_url = self.settings.app.app_server
         self.page.goto(base_url, wait_until="networkidle")
         self.page.wait_for_selector("#username", timeout=5000)
 

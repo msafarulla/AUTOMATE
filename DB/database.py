@@ -81,6 +81,7 @@ class DB:
         data = cls._load_config(where, whse)
         section = data["config"][data["where"]]
         return {
+            "app_server": section["app_server"],
             "app_server_user": section["app_server_user"],
             "app_server_pass": section["app_server_pass"],
         }

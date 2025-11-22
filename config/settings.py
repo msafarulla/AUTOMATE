@@ -82,7 +82,6 @@ class BrowserConfig:
 
 @dataclass
 class AppConfig:
-    base_url: str = "https://wmqa.subaru1.com/manh/index.html?i=102"
     change_warehouse: str = "ONT"
     timeout_default: int = 5000
     check_interval: int = 200
@@ -110,7 +109,6 @@ class Settings:
     @classmethod
     def from_env(cls):
         """Load settings from environment variables"""
-        cls.app.base_url = os.getenv("APP_URL", cls.app.base_url)
         cls.app.change_warehouse = os.getenv(
             "DEFAULT_WAREHOUSE", cls.app.change_warehouse
         )
@@ -140,7 +138,7 @@ class Settings:
         )
         set_general_verbose(cls.app.app_verbose_logging)
         set_rf_verbose(cls.app.rf_verbose_logging)
-        base_url_lower = cls.app.base_url.lower()
+        base_url_lower = cls.app.app_server.lower()
         cls.app.requires_prod_confirmation = any(
             marker in base_url_lower for marker in ("prod", "prd")
         )
@@ -149,6 +147,10 @@ class Settings:
         except Exception as exc:
             app_log(f"⚠️ Failed to load App logon credentials from config in dev: {exc}")
             credentials = {}
+        cls.app.app_server = os.getenv(
+            "APP_SERVER",
+            credentials.get("app_server", cls.app.app_server),
+        )
         cls.app.app_server_user = os.getenv(
             "APP_SERVER_USER",
             credentials.get("app_server_user", cls.app.app_server_user),
