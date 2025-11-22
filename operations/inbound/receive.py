@@ -432,12 +432,17 @@ class ReceiveOperation(BaseOperation):
         candidates = [
             "//span[contains(translate(normalize-space(),'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz'),'quick filter')]/following::input[1]",
             "//label[contains(translate(normalize-space(),'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz'),'lpn')]/following::input[1]",
+            "//td[contains(.,'LPN')]/following::input[1]",
+            "//tr[.//span[contains(translate(normalize-space(),'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz'),'quick filter')]]//input",
+            "input#dataForm\\:locn",
+            "input[name='dataForm:locn']",
             "//input[contains(@placeholder,'ilter') and not(@type='hidden')]",
             "//input[contains(@aria-label,'Quick filter') and not(@type='hidden')]",
             "//input[contains(@name,'lpn') and not(@type='hidden')]",
             "//input[contains(@id,'lpn') and not(@type='hidden')]",
             "//input[contains(@name,'filter') and not(@type='hidden')]",
             "input.x-form-text:visible",
+            "input.x-form-field:visible",
         ]
         input_field = None
         for sel in candidates:
@@ -448,6 +453,16 @@ class ReceiveOperation(BaseOperation):
                 break
             except Exception:
                 continue
+
+        if not input_field:
+            try:
+                # As a last-resort, pick the first visible text input in the iLPN window
+                locator = target_scope.locator("input[type='text']:visible").first
+                locator.wait_for(state="visible", timeout=1500)
+                input_field = locator
+                rf_log("ℹ️ Falling back to first visible text input in iLPN window.")
+            except Exception:
+                input_field = None
 
         if not input_field:
             rf_log("⚠️ Could not locate visible iLPN quick filter input, attempting hidden-fill fallback.")
