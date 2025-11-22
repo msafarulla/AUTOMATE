@@ -574,9 +574,17 @@ class ReceiveOperation(BaseOperation):
             for frame in frames:
                 try:
                     url = frame.url or ""
+                    name = frame.name or ""
                 except Exception:
                     url = ""
-                if "LPNListInbound" in url or "lpnlistinbound" in url.lower() or "/lpn" in url.lower():
+                    name = ""
+                if (
+                    "LPNListInbound" in url
+                    or "lpnlistinbound" in url.lower()
+                    or "/lpn" in url.lower()
+                    or "uxiframe-1144" in name
+                    or "uxiframe-1156" in name
+                ):
                     return frame
             return None
 
@@ -585,6 +593,18 @@ class ReceiveOperation(BaseOperation):
             frame = _match(self.page.frames)
             if frame:
                 return frame
+
+            try:
+                # Try explicit iframe lookup by id/name in current page (from console: uxiframe-1144/1156)
+                iframe = self.page.locator(
+                    "iframe#uxiframe-1144-iframeEl, iframe[name='uxiframe-1144-frame'], iframe#uxiframe-1156-iframeEl, iframe[name='uxiframe-1156-frame']"
+                ).first
+                if iframe.count() > 0:
+                    cf = iframe.content_frame()
+                    if cf:
+                        return cf
+            except Exception:
+                pass
 
             try:
                 # Try explicit iframe lookup by src/name in current page
