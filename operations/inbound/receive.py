@@ -399,35 +399,6 @@ class ReceiveOperation(BaseOperation):
         if not target_frame:
             rf_log("⚠️ Could not locate dedicated iLPNs frame, using active page as fallback.")
 
-        # Bring the iLPN window to the front and clear masks/overlays that can block clicks
-        try:
-            self.page.evaluate(
-                """
-                (frameName) => {
-                    const isIlpn = (src = "") =>
-                        src.toLowerCase().includes("lpnlistinbound") || src.toLowerCase().includes("/lpn");
-                    const iframe = Array.from(document.querySelectorAll("iframe")).find(
-                        f => (frameName && f.name === frameName) || isIlpn(f.src)
-                    );
-                    if (iframe) {
-                        const win = iframe.closest("div.x-window");
-                        if (win) {
-                            win.style.zIndex = "9999999";
-                            win.style.display = "";
-                            win.style.visibility = "visible";
-                        }
-                    }
-                    document.querySelectorAll("div.x-mask").forEach(m => {
-                        m.style.display = "none";
-                        m.style.visibility = "hidden";
-                    });
-                }
-                """,
-                target_frame.name if target_frame else None,
-            )
-        except Exception:
-            pass
-
         candidates = [
             "//span[contains(translate(normalize-space(),'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz'),'quick filter')]/following::input[1]",
             "//label[contains(translate(normalize-space(),'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz'),'lpn')]/following::input[1]",
