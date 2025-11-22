@@ -53,7 +53,7 @@ class NavigationManager:
         app_log(f"✅ Changed to {warehouse}")
 
     def open_menu_item(self, search_term: str, match_text: str, 
-                       max_attempts: int = 1, close_existing: bool = True) -> bool:
+                       max_attempts: int = 1, close_existing: bool = True, onDemand: bool = True) -> bool:
         """Open a menu item by searching and selecting exact match."""
         normalized_match = self._normalize(match_text)
 
@@ -82,7 +82,7 @@ class NavigationManager:
                 
                 if text == normalized_match:
                     app_log(f"✅ Match found: '{match_text}'")
-                    self.screenshot_mgr.capture(self.page, f"select_{text}", f"Selecting {match_text}")
+                    self.screenshot_mgr.capture(self.page, f"select_{text}", f"Selecting {match_text}", onDemand)
                     
                     try:
                         self._click_menu_item(item, "rf menu" in normalized_match)
@@ -91,7 +91,7 @@ class NavigationManager:
                         break
 
                     self._post_selection_adjustments(normalized_match)
-                    self.page.wait_for_timeout(3000)
+                    self.page.wait_for_timeout(4000)
                     return True
 
             app_log("⚠️ No exact match found, retrying...")

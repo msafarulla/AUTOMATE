@@ -130,7 +130,7 @@ class OperationConfig:
                             {
                                 'search_term': 'ILPNS',
                                 'match_text': 'iLPNs (Distribution)',
-                                'operation_note': 'Go to iLPNs UI',
+                                'operation_note': 'verify iLPNs from the UI',
                                 'rf_focus_title': 'RF Menu',
                                 'fill_ilpn': True,
                             },
