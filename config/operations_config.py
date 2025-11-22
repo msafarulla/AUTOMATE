@@ -135,7 +135,7 @@ class OperationConfig:
                                 'fill_ilpn': True,
                                 'preserve_window': False,
                                 'close_existing': False,
-                                'use_new_session': True,
+                                'use_detour_page': True,
                             },
                         ],
                     },

@@ -20,7 +20,7 @@ from utils.wait_utils import WaitUtils
 class ReceiveOperation(BaseOperation):
     """Handles ASN receiving workflow in RF terminal."""
 
-    def __init__(self, page, page_mgr, screenshot_mgr, rf_menu):
+    def __init__(self, page, page_mgr, screenshot_mgr, rf_menu, detour_page=None, detour_nav=None):
         super().__init__(page, page_mgr, screenshot_mgr, rf_menu)
         
         # Setup RF integration
@@ -31,6 +31,8 @@ class ReceiveOperation(BaseOperation):
         # Load config
         self.menu = OperationConfig.RECEIVE_MENU
         self.selectors = OperationConfig.RECEIVE_SELECTORS
+        self.detour_page = detour_page
+        self.detour_nav = detour_nav or (NavigationManager(detour_page, screenshot_mgr) if detour_page else None)
         self._ilpn: str | None = None
         self._screen_context: dict[str, int | None] | None = None
 
@@ -170,7 +172,8 @@ class ReceiveOperation(BaseOperation):
         else:
             return True
 
-        nav_mgr_base = NavigationManager(self.page, self.screenshot_mgr)
+        nav_mgr_main = NavigationManager(self.page, self.screenshot_mgr)
+        detour_nav = self.detour_nav or (NavigationManager(self.detour_page, self.screenshot_mgr) if self.detour_page else None)
         focus_title = base_cfg.get("rf_focus_title", "RF Menu")
 
         keep_ui_open = False
@@ -182,90 +185,73 @@ class ReceiveOperation(BaseOperation):
             if not entry or not bool(entry.get("enabled", True)):
                 continue
 
-            temp_page = None
-            use_page = self.page
-            use_nav = nav_mgr_base
+            use_detour = bool(entry.get("use_detour_page") or base_cfg.get("use_detour_page"))
+            use_nav = detour_nav if (use_detour and detour_nav) else nav_mgr_main
+            use_page = self.detour_page if (use_detour and self.detour_page) else self.page
             skip_rest = False
 
-            try:
-                # Optional: run this navigation in a fresh browser page (same context) to isolate UI.
-                if bool(entry.get("use_new_session") or base_cfg.get("use_new_session")):
-                    context = self.page.context if self.page else None
-                    if context:
-                        temp_page = context.new_page()
-                        use_page = temp_page
-                        use_nav = NavigationManager(use_page, self.screenshot_mgr)
+            search_term = entry.get("search_term") or base_cfg.get("search_term", "tasks")
+            match_text = entry.get("match_text") or base_cfg.get("match_text", "Tasks (Configuration)")
+            close_existing = bool(entry.get("close_existing", base_cfg.get("close_existing", True)))
+            if not use_nav.open_menu_item(search_term, match_text, close_existing=close_existing):
+                rf_log(f"❌ UI detour #{idx} failed during receive flow.")
+                return False
 
-                search_term = entry.get("search_term") or base_cfg.get("search_term", "tasks")
-                match_text = entry.get("match_text") or base_cfg.get("match_text", "Tasks (Configuration)")
-                close_existing = bool(entry.get("close_existing", base_cfg.get("close_existing", True)))
-                if not use_nav.open_menu_item(search_term, match_text, close_existing=close_existing):
-                    rf_log(f"❌ UI detour #{idx} failed during receive flow.")
-                    return False
+            operation_note = (
+                entry.get("operation_note")
+                or base_cfg.get("operation_note")
+                or f"Visited UI #{idx} during receive"
+            )
+            screenshot_tag = (
+                entry.get("screenshot_tag")
+                or base_cfg.get("screenshot_tag")
+                or f"receive_open_ui_{idx}"
+            )
+            self.screenshot_mgr.capture(use_page, screenshot_tag, operation_note)
 
-                operation_note = (
-                    entry.get("operation_note")
-                    or base_cfg.get("operation_note")
-                    or f"Visited UI #{idx} during receive"
-                )
-                screenshot_tag = (
-                    entry.get("screenshot_tag")
-                    or base_cfg.get("screenshot_tag")
-                    or f"receive_open_ui_{idx}"
-                )
-                self.screenshot_mgr.capture(use_page, screenshot_tag, operation_note)
+            rf_log(f"ℹ️ {operation_note}")
 
-                rf_log(f"ℹ️ {operation_note}")
-
-                if entry.get("close_after_open"):
-                    try:
-                        windows = use_page.locator("div.x-window:visible")
-                        if windows.count() > 0:
-                            win = windows.last
-                            try:
-                                win.locator(".x-tool-close").first.click()
-                            except Exception:
-                                try:
-                                    use_page.keyboard.press("Escape")
-                                except Exception:
-                                    pass
-                        NavigationManager(use_page, self.screenshot_mgr).close_active_windows(skip_titles=[])
-                    except Exception:
-                        pass
-                    skip_rest = True
-
-                if not skip_rest and entry.get("fill_ilpn") and self._screen_context and self._screen_context.get("ilpn"):
-                    ilpn_val = self._screen_context.get("ilpn")
-                    if not self._fill_ilpn_quick_filter(str(ilpn_val), page=use_page):
-                        return False
-                    wait_ms = entry.get("ilpn_wait_ms") or default_ilpn_wait or 4000
-                    self._wait_for_ilpn_apply(wait_ms, operation_note, entry, default_post_screenshot, page=use_page)
-                    # Close iLPN window after apply to return focus to RF
-                    use_nav.close_active_windows(skip_titles=["rf menu"])
-                    use_nav.focus_window_by_title(focus_title)
-
-                if not skip_rest:
-                    pause_ms = entry.get("pause_ms") or base_cfg.get("pause_ms")
-                    if pause_ms:
+            if entry.get("close_after_open"):
+                try:
+                    windows = use_page.locator("div.x-window:visible")
+                    if windows.count() > 0:
+                        win = windows.last
                         try:
-                            use_page.wait_for_timeout(int(pause_ms))
+                            win.locator(".x-tool-close").first.click()
                         except Exception:
-                            pass
+                            try:
+                                use_page.keyboard.press("Escape")
+                            except Exception:
+                                pass
+                    NavigationManager(use_page, self.screenshot_mgr).close_active_windows(skip_titles=[])
+                except Exception:
+                    pass
+                skip_rest = True
 
-                    # Close the just-opened UI before moving to the next (unless caller wants to preserve)
-                    preserve = bool(entry.get("preserve_window") or entry.get("preserve"))
-                    keep_ui_open = keep_ui_open or preserve
-                else:
-                    preserve = bool(entry.get("preserve_window") or entry.get("preserve"))
-                    keep_ui_open = keep_ui_open or preserve
-            finally:
-                # Close the temporary page if we created one for this entry.
-                if temp_page:
+            if not skip_rest and entry.get("fill_ilpn") and self._screen_context and self._screen_context.get("ilpn"):
+                ilpn_val = self._screen_context.get("ilpn")
+                if not self._fill_ilpn_quick_filter(str(ilpn_val), page=use_page):
+                    return False
+                wait_ms = entry.get("ilpn_wait_ms") or default_ilpn_wait or 4000
+                self._wait_for_ilpn_apply(wait_ms, operation_note, entry, default_post_screenshot, page=use_page)
+                # Close iLPN window after apply to return focus to RF
+                use_nav.close_active_windows(skip_titles=["rf menu"])
+                use_nav.focus_window_by_title(focus_title)
+
+            if not skip_rest:
+                pause_ms = entry.get("pause_ms") or base_cfg.get("pause_ms")
+                if pause_ms:
                     try:
-                        temp_page.close()
+                        use_page.wait_for_timeout(int(pause_ms))
                     except Exception:
                         pass
-                    temp_page = None
+
+                # Close the just-opened UI before moving to the next (unless caller wants to preserve)
+                preserve = bool(entry.get("preserve_window") or entry.get("preserve"))
+                keep_ui_open = keep_ui_open or preserve
+            else:
+                preserve = bool(entry.get("preserve_window") or entry.get("preserve"))
+                keep_ui_open = keep_ui_open or preserve
 
         return True
 
