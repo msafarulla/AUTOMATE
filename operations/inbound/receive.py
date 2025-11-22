@@ -182,11 +182,27 @@ class ReceiveOperation(BaseOperation):
             if not entry or not bool(entry.get("enabled", True)):
                 continue
 
+            # Optional detour page (separate tab) to avoid stealing focus from RF
+            detour_page = None
+            detour_nav = None
+            try:
+                if entry.get("use_detour_page"):
+                    detour_page = self.page.context.new_page()
+                    detour_nav = NavigationManager(detour_page, self.screenshot_mgr)
+            except Exception:
+                detour_page = None
+                detour_nav = None
+
+            use_nav = detour_nav or nav_mgr
+            use_page = detour_page or self.page
+
             search_term = entry.get("search_term") or base_cfg.get("search_term", "tasks")
             match_text = entry.get("match_text") or base_cfg.get("match_text", "Tasks (Configuration)")
             close_existing = bool(entry.get("close_existing", base_cfg.get("close_existing", True)))
-            if not nav_mgr.open_menu_item(search_term, match_text, close_existing=close_existing):
+            if not use_nav.open_menu_item(search_term, match_text, close_existing=close_existing):
                 rf_log(f"❌ UI detour #{idx} failed during receive flow.")
+                if detour_page:
+                    detour_page.close()
                 return False
 
             operation_note = (
@@ -205,41 +221,56 @@ class ReceiveOperation(BaseOperation):
 
             if entry.get("close_after_open"):
                 try:
-                    windows = self.page.locator("div.x-window:visible")
+                    windows = use_page.locator("div.x-window:visible")
                     if windows.count() > 0:
                         win = windows.last
                         try:
                             win.locator(".x-tool-close").first.click()
                         except Exception:
                             try:
-                                self.page.keyboard.press("Escape")
+                                use_page.keyboard.press("Escape")
                             except Exception:
                                 pass
-                    NavigationManager(self.page, self.screenshot_mgr).close_active_windows(skip_titles=[])
+                    NavigationManager(use_page, self.screenshot_mgr).close_active_windows(skip_titles=[])
                 except Exception:
                     pass
+                if detour_page:
+                    detour_page.close()
                 continue
 
             if entry.get("fill_ilpn") and self._screen_context and self._screen_context.get("ilpn"):
                 ilpn_val = self._screen_context.get("ilpn")
-                if not self._fill_ilpn_quick_filter(str(ilpn_val)):
+                if not self._fill_ilpn_quick_filter(str(ilpn_val), page=use_page):
+                    if detour_page:
+                        detour_page.close()
                     return False
                 wait_ms = entry.get("ilpn_wait_ms") or default_ilpn_wait or 4000
                 self._wait_for_ilpn_apply(wait_ms, operation_note, entry, default_post_screenshot)
                 # Close iLPN window after apply to return focus to RF
-                nav_mgr.close_active_windows(skip_titles=["rf menu"])
-                nav_mgr.focus_window_by_title(focus_title)
+                use_nav.close_active_windows(skip_titles=["rf menu"])
+                use_nav.focus_window_by_title(focus_title)
 
             pause_ms = entry.get("pause_ms") or base_cfg.get("pause_ms")
             if pause_ms:
                 try:
-                    self.page.wait_for_timeout(int(pause_ms))
+                    use_page.wait_for_timeout(int(pause_ms))
                 except Exception:
                     pass
 
             # Close the just-opened UI before moving to the next (unless caller wants to preserve)
             preserve = bool(entry.get("preserve_window") or entry.get("preserve"))
             keep_ui_open = keep_ui_open or preserve
+            if detour_page and not preserve:
+                detour_page.close()
+                detour_page = None
+                detour_nav = None
+
+        # If we created a detour page and haven't closed it yet, close now
+        try:
+            if detour_page:
+                detour_page.close()
+        except Exception:
+            pass
 
         return True
 
@@ -406,13 +437,15 @@ class ReceiveOperation(BaseOperation):
     # UI HELPERS
     # =========================================================================
 
-    def _fill_ilpn_quick_filter(self, ilpn: str) -> bool:
+    def _fill_ilpn_quick_filter(self, ilpn: str, page=None) -> bool:
         """Fill the iLPN quick filter input and click Apply in the iLPNs UI."""
         # Look for known iLPN frames first to avoid falling back to RF
         target_frame = None
+        page = page or self.page
+
         for fname in ("uxiframe-1156-frame", "uxiframe-1144-frame"):
             try:
-                f = self.page.frame(name=fname)
+                f = page.frame(name=fname)
                 if f:
                     target_frame = f
                     break
@@ -420,7 +453,7 @@ class ReceiveOperation(BaseOperation):
                 continue
 
         if not target_frame:
-            target_frame = self._find_ilpn_frame(timeout_ms=6000)
+            target_frame = self._find_ilpn_frame(timeout_ms=6000, page=page)
         if not target_frame:
             rf_log("❌ Unable to locate iLPNs frame; skipping iLPN fill to avoid typing into RF.")
             return False
@@ -605,8 +638,9 @@ class ReceiveOperation(BaseOperation):
             rf_log(f"❌ Unable to click Apply in iLPNs UI (even with keyboard fallback): {exc}")
             return False
 
-    def _find_ilpn_frame(self, timeout_ms: int = 4000):
+    def _find_ilpn_frame(self, timeout_ms: int = 4000, page=None):
         """Find the frame/page that contains the iLPNs UI (poll until timeout)."""
+        page = page or self.page
 
         def _match(frames):
             for frame in frames:
@@ -631,19 +665,19 @@ class ReceiveOperation(BaseOperation):
             # Direct name-based lookup first
             for n in ("uxiframe-1156-frame", "uxiframe-1144-frame"):
                 try:
-                    f = self.page.frame(name=n)
+                    f = page.frame(name=n)
                     if f:
                         return f
                 except Exception:
                     pass
 
-            frame = _match(self.page.frames)
+            frame = _match(page.frames)
             if frame:
                 return frame
 
             try:
                 # Try explicit iframe lookup by id/name in current page (from console: uxiframe-1144/1156)
-                iframe = self.page.locator(
+                iframe = page.locator(
                     "iframe#uxiframe-1144-iframeEl, iframe[name='uxiframe-1144-frame'], iframe#uxiframe-1156-iframeEl, iframe[name='uxiframe-1156-frame']"
                 ).first
                 if iframe.count() > 0:
@@ -655,7 +689,7 @@ class ReceiveOperation(BaseOperation):
 
             try:
                 # Try explicit iframe lookup by src/name in current page
-                iframe = self.page.locator(
+                iframe = page.locator(
                     "iframe[src*='LPNListInbound'], iframe[src*='/lpn'], iframe[name*='LPN'], iframe[id*='LPN']"
                 ).first
                 if iframe.count() > 0:
@@ -668,7 +702,7 @@ class ReceiveOperation(BaseOperation):
             try:
                 # Try iframe inside a visible window (better for ExtJS windows)
                 win_iframe = (
-                    self.page.locator("div.x-window:visible iframe").first
+                    page.locator("div.x-window:visible iframe").first
                 )
                 if win_iframe.count() > 0:
                     cf = win_iframe.content_frame()
@@ -678,7 +712,7 @@ class ReceiveOperation(BaseOperation):
                 pass
 
             try:
-                for p in self.page.context.pages:
+                for p in page.context.pages:
                     frame = _match(p.frames)
                     if frame:
                         return frame
