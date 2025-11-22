@@ -191,7 +191,7 @@ class ReceiveOperation(BaseOperation):
 
             search_term = entry.get("search_term") or base_cfg.get("search_term", "tasks")
             match_text = entry.get("match_text") or base_cfg.get("match_text", "Tasks (Configuration)")
-            if not use_nav.open_menu_item(search_term, match_text, close_existing=True):
+            if not use_nav.open_menu_item(search_term, match_text, close_existing=True, onDemand=False):
                 rf_log(f"❌ UI detour #{idx} failed during receive flow.")
                 return False
 
