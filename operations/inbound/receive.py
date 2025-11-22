@@ -238,7 +238,6 @@ class ReceiveOperation(BaseOperation):
                     return False
                 use_page.wait_for_timeout(5000)
                 self.screenshot_mgr.capture(use_page, screenshot_tag, operation_note)
-                use_nav.focus_window_by_title(focus_title)
         return True
 
     # =========================================================================
