@@ -395,9 +395,11 @@ class ReceiveOperation(BaseOperation):
         """Fill the iLPN quick filter input and click Apply in the iLPNs UI."""
         # Locate the correct frame (the iLPNs window often runs in its own frame/window).
         target_frame = self._find_ilpn_frame(timeout_ms=6000)
-        target = target_frame or self.page
         if not target_frame:
-            rf_log("⚠️ Could not locate dedicated iLPNs frame, using active page as fallback.")
+            rf_log("❌ Unable to locate iLPNs frame/window; skipping iLPN fill to avoid typing into RF.")
+            return False
+
+        target = target_frame
 
         candidates = [
             "//span[contains(translate(normalize-space(),'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz'),'quick filter')]/following::input[1]",
@@ -520,6 +522,7 @@ class ReceiveOperation(BaseOperation):
         """Find the frame/page that contains the iLPNs UI (poll until timeout)."""
 
         def _match(frames):
+            best = None
             for frame in frames:
                 try:
                     url = frame.url or ""
@@ -527,13 +530,26 @@ class ReceiveOperation(BaseOperation):
                     url = ""
                 if "LPNListInbound" in url or "lpnlistinbound" in url.lower() or "/lpn" in url.lower():
                     return frame
-            return None
+                # Prefer any frame with non-empty URL if nothing matches
+                if url:
+                    best = best or frame
+            return best
 
         deadline = time.time() + timeout_ms / 1000
         while time.time() < deadline:
             frame = _match(self.page.frames)
             if frame:
                 return frame
+
+            try:
+                # Try explicit iframe lookup by src
+                iframe = self.page.locator("iframe[src*='LPNListInbound'], iframe[src*='/lpn']").first
+                if iframe.count() > 0:
+                    cf = iframe.content_frame()
+                    if cf:
+                        return cf
+            except Exception:
+                pass
 
             try:
                 for p in self.page.context.pages:
