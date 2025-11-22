@@ -352,26 +352,37 @@ class NavigationManager:
 
     def _maximize_non_rf_windows(self):
         """Maximize all visible non-RF windows for better capture."""
-        resized = safe_page_evaluate(self.page, """
+        resized = safe_page_evaluate(
+            self.page,
+            """
             () => {
-                if (!window.Ext?.WindowManager?.getAll) return 0;
-                const wins = Ext.WindowManager.getAll().items || [];
-                const w = Math.max(400, window.innerWidth * 0.92);
-                const h = Math.max(300, window.innerHeight * 0.9);
-                const x = Math.max(8, (window.innerWidth - w) / 2);
-                const y = Math.max(8, window.innerHeight * 0.04);
+                const ext = window.Ext;
+                if (!ext?.WindowManager?.getAll) return 0;
+                const wins = ext.WindowManager.getAll().items || [];
+                const w = Math.max(480, window.innerWidth * 0.95);
+                const h = Math.max(360, window.innerHeight * 0.95);
+                const x = Math.max(6, (window.innerWidth - w) / 2);
+                const y = Math.max(6, window.innerHeight * 0.03);
                 let changed = 0;
                 wins.forEach(win => {
                     const title = (win.title || '').toLowerCase();
                     if (title.includes('rf menu') || title === 'rf') return;
-                    win.setSize?.(w, h);
-                    win.setPosition?.(x, y);
-                    win.toFront?.();
-                    changed += 1;
+                    try {
+                        win.setSize?.(w, h);
+                        win.setPosition?.(x, y);
+                        win.setPagePosition?.(x, y);
+                        win.setMinWidth?.(w);
+                        win.setMinHeight?.(h);
+                        win.updateLayout?.();
+                        win.toFront?.();
+                        changed += 1;
+                    } catch (e) {}
                 });
                 return changed;
             }
-        """, description="maximize_non_rf_windows")
+            """,
+            description="maximize_non_rf_windows",
+        )
 
         if resized:
             app_log(f"🪟 Maximized {resized} non-RF window(s)")
