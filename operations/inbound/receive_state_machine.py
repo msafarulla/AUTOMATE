@@ -433,7 +433,6 @@ class AwaitingLocationHandler(StateHandler):
     def execute(self, m: ReceiveStateMachine) -> ReceiveState:
         location = _read_suggested_location(m)
         m.context.suggested_location = location
-        m.invoke_post_location_hook()
         
         if not location:
             m.context.error_message = "Could not read suggested location"
@@ -444,6 +443,7 @@ class AwaitingLocationHandler(StateHandler):
             m.context.error_message = msg
             return ReceiveState.ERROR
         
+        m.invoke_post_location_hook()
         m.capture("complete", f"Location confirmed: {location}")
         return ReceiveState.COMPLETE
     
