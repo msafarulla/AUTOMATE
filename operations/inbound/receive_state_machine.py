@@ -93,16 +93,19 @@ class ReceiveStateMachine:
         screenshot_mgr: ScreenshotManager,
         selectors: OperationConfig.RECEIVE_SELECTORS.__class__,
         deviation_selectors: Optional[Any] = None,
+        post_qty_hook: Optional[Callable[['ReceiveStateMachine'], None]] = None,
     ):
         self.rf = rf
         self.screenshot_mgr = screenshot_mgr
         self.selectors = selectors
         self.deviation_selectors = deviation_selectors or OperationConfig.RECEIVE_DEVIATION_SELECTORS
+        self.post_qty_hook = post_qty_hook
         
         self.state = ReceiveState.INIT
         self.context = ReceiveContext()
         self.handlers: dict[ReceiveState, StateHandler] = {}
         self.detectors: list[StateHandler] = []
+        self._post_qty_hook_called = False
         
         self._register_handlers()
     
@@ -148,6 +151,7 @@ class ReceiveStateMachine:
             auto_handle_deviation=auto_handle,
         )
         self.state = ReceiveState.INIT
+        self._post_qty_hook_called = False
         
         rf_log(f"🚀 Starting receive: ASN={asn}, Item={item}, Qty={quantity}")
         
@@ -213,6 +217,16 @@ class ReceiveStateMachine:
             f"{self.state.name.lower()}_{label}",
             overlay
         )
+    
+    def invoke_post_qty_hook(self):
+        """Run optional post-quantity hook exactly once."""
+        if not self.post_qty_hook or self._post_qty_hook_called:
+            return
+        try:
+            self.post_qty_hook(self)
+        except Exception as exc:
+            rf_log(f"⚠️ post_qty_hook failed: {exc}")
+        self._post_qty_hook_called = True
     
     def _transition_to(self, new_state: ReceiveState, reason: str = ""):
         """Record state transition."""
@@ -340,6 +354,7 @@ class QtyEnteredHandler(StateHandler):
     ]
     
     def execute(self, m: ReceiveStateMachine) -> ReceiveState:
+        m.invoke_post_qty_hook()
         screen_text = m.read_screen_text()
         
         for next_state, detector_name in self.BRANCH_DETECTORS:

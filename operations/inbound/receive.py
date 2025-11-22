@@ -42,19 +42,17 @@ class ReceiveOperation(BaseOperation):
         open_ui_cfg: dict | None = None,
     ) -> bool:
         """Execute receive operation via state machine."""
-        
+        post_qty_hook = (lambda machine: self._on_qty_entered(open_ui_cfg)) if open_ui_cfg else None
+
         success = self.state_machine.run(
             asn=asn,
             item=item,
             quantity=quantity,
             flow_hint=flow_hint,
             auto_handle=auto_handle,
+            post_qty_hook=post_qty_hook,
         )
         self._cache_screen_context()
-        
-        # Handle post-receive UI detours if configured
-        if success and open_ui_cfg:
-            self._handle_open_ui(open_ui_cfg)
         return success
 
     def _fill_ilpn_quick_filter(self, ilpn: str, page=None) -> bool:
@@ -174,3 +172,10 @@ class ReceiveOperation(BaseOperation):
             "suggested_location": ctx.suggested_location,
             "flow_hint": ctx.flow_hint,
         }
+
+    def _on_qty_entered(self, cfg: dict | None):
+        """Hook invoked immediately after quantity entry to run configured detours."""
+        if not cfg:
+            return
+        self._cache_screen_context()
+        self._handle_open_ui(cfg)
