@@ -69,5 +69,19 @@ class BrowserManager:
             ignore_https_errors=True
         )
 
+    def new_context(self) -> BrowserContext:
+        """Create an additional browser context using the configured viewport and scale."""
+        cfg = self.settings.browser
+        scale = max(cfg.device_scale_factor, 1.0)
+        viewport_width = int(cfg.width / scale)
+        viewport_height = int((cfg.height - 300) / scale)
+        viewport: ViewportSize = {"width": viewport_width, "height": viewport_height}
+
+        return self.browser.new_context(
+            viewport=viewport,
+            device_scale_factor=cfg.device_scale_factor,
+            ignore_https_errors=True
+        )
+
     def new_page(self) -> Page:
         return self.context.new_page()
