@@ -204,6 +204,7 @@ class ReceiveOperation(BaseOperation):
 
             # Expand the detour window for better visibility/capture.
             try:
+                use_page.wait_for_timeout(300)
                 use_nav.maximize_non_rf_windows()
             except Exception:
                 pass
@@ -248,6 +249,10 @@ class ReceiveOperation(BaseOperation):
                 # Close iLPN window after apply to return focus to RF
                 use_nav.close_active_windows(skip_titles=["rf menu"])
                 use_nav.focus_window_by_title(focus_title)
+                try:
+                    use_nav.maximize_non_rf_windows()
+                except Exception:
+                    pass
 
             if not skip_rest:
                 pause_ms = entry.get("pause_ms") or base_cfg.get("pause_ms")
