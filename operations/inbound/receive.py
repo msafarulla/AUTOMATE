@@ -47,20 +47,24 @@ class ReceiveOperation(BaseOperation):
         if current and current != "about:blank" and "chrome-error" not in current:
             return True
 
-        base_url = None
-        if self.settings and getattr(self.settings, "app", None):
-            base_url = getattr(self.settings.app, "base_url", None)
-        if not base_url:
-            try:
-                base_url = self.page.url
-            except Exception:
-                base_url = None
+        source_url = None
+        # Prefer the current main page URL (already authenticated), fallback to configured base_url.
+        try:
+            if self.page and self.page.url and "about:blank" not in self.page.url and "chrome-error" not in self.page.url:
+                source_url = self.page.url
+        except Exception:
+            source_url = None
 
-        if not base_url or base_url.startswith("about:blank") or "chrome-error" in base_url:
+        if not source_url and self.settings and getattr(self.settings, "app", None):
+            source_url = getattr(self.settings.app, "base_url", None)
+
+        if not source_url or source_url.startswith("about:blank") or "chrome-error" in source_url:
             return False
 
         try:
-            detour_page.goto(base_url, wait_until="domcontentloaded", timeout=15000)
+            detour_page.goto(source_url, wait_until="networkidle", timeout=20000)
+            # Give ExtJS a moment to hydrate before we start querying menus.
+            detour_page.wait_for_timeout(500)
             if self.settings and getattr(self.settings, "app", None) and getattr(self.settings.app, "change_warehouse", None):
                 try:
                     NavigationManager(detour_page, self.screenshot_mgr).change_warehouse(self.settings.app.change_warehouse)
