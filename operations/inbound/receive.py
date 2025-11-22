@@ -432,12 +432,12 @@ class ReceiveOperation(BaseOperation):
             rf_log("⚠️ Could not locate visible iLPN quick filter input, attempting hidden-fill fallback.")
 
             try:
-                filled = target.evaluate(
+                result = target.evaluate(
                     """
                     (ilpn) => {
                         const val = String(ilpn);
                         const inputs = Array.from(document.querySelectorAll('input'));
-                        if (!inputs.length) return false;
+                        if (!inputs.length) return {filled:false, candidates:[]};
 
                         const score = (el) => {
                             const txt = [
@@ -454,11 +454,21 @@ class ReceiveOperation(BaseOperation):
                         };
 
                         const ranked = inputs
-                            .map(el => ({ el, s: score(el) }))
+                            .map(el => ({
+                                el,
+                                s: score(el),
+                                name: el.name,
+                                id: el.id,
+                                placeholder: el.placeholder,
+                                aria: el.getAttribute('aria-label'),
+                                type: el.type,
+                                display: getComputedStyle(el).display,
+                                visibility: getComputedStyle(el).visibility
+                            }))
                             .filter(entry => entry.s > 0)
                             .sort((a, b) => b.s - a.s);
 
-                        if (!ranked.length) return false;
+                        if (!ranked.length) return {filled:false, candidates:[]};
 
                         const el = ranked[0].el;
                         try {
@@ -480,12 +490,23 @@ class ReceiveOperation(BaseOperation):
                         if (applyBtn) {
                             try { applyBtn.click(); } catch (e) {}
                         }
-                        return true;
+
+                        return {
+                            filled:true,
+                            candidates: ranked.slice(0,3).map(r => ({
+                                name:r.name, id:r.id, placeholder:r.placeholder, aria:r.aria,
+                                type:r.type, display:r.display, visibility:r.visibility, score:r.s
+                            }))
+                        };
                     }
                     """,
                     ilpn,
                 )
+                filled = bool(result and result.get("filled"))
                 if filled:
+                    candidates = result.get("candidates") or []
+                    if candidates:
+                        rf_log(f"ℹ️ JS fallback candidates: {candidates}")
                     try:
                         target.press("body", "Enter")
                         target.press("body", "Space")
