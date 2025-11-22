@@ -45,6 +45,7 @@ class OperationRunner:
         screenshot_mgr: ScreenshotManager,
         auth_mgr: AuthManager,
         nav_mgr: NavigationManager,
+        detour_page: Any,
         post_message_mgr: PostMessageManager,
         rf_menu: RFMenuManager,
         conn_guard: ConnectionResetGuard,
@@ -55,6 +56,7 @@ class OperationRunner:
         self.screenshot_mgr = screenshot_mgr
         self.auth_mgr = auth_mgr
         self.nav_mgr = nav_mgr
+        self.detour_page = detour_page
         self.post_message_mgr = post_message_mgr
         self.rf_menu = rf_menu
         self.conn_guard = conn_guard
@@ -90,7 +92,13 @@ class OperationRunner:
         open_ui_cfg: dict[str, Any] | None = None,
     ) -> bool:
         self.nav_mgr.open_menu_item("RF MENU", "RF Menu (Distribution)")
-        receive_op = ReceiveOperation(self.page, self.page_mgr, self.screenshot_mgr, self.rf_menu)
+        receive_op = ReceiveOperation(
+            self.page,
+            self.page_mgr,
+            self.screenshot_mgr,
+            self.rf_menu,
+            detour_page=self.detour_page,
+        )
         return receive_op.execute(
             asn,
             item,
@@ -151,6 +159,7 @@ class OperationRunner:
 def create_operation_services(settings: Any) -> Generator[OperationServices, None, None]:
     with BrowserManager(settings) as browser_mgr:
         page = browser_mgr.new_page()
+        detour_page = browser_mgr.new_page()
         screenshot_mgr = ScreenshotManager(
             settings.browser.screenshot_dir,
             image_format=settings.browser.screenshot_format,
@@ -177,6 +186,7 @@ def create_operation_services(settings: Any) -> Generator[OperationServices, Non
             screenshot_mgr,
             auth_mgr,
             nav_mgr,
+            detour_page,
             post_message_mgr,
             rf_menu,
             conn_guard,

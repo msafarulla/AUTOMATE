@@ -20,7 +20,7 @@ from utils.wait_utils import WaitUtils
 class ReceiveOperation(BaseOperation):
     """Handles ASN receiving workflow in RF terminal."""
 
-    def __init__(self, page, page_mgr, screenshot_mgr, rf_menu):
+    def __init__(self, page, page_mgr, screenshot_mgr, rf_menu, detour_page=None):
         super().__init__(page, page_mgr, screenshot_mgr, rf_menu)
         
         # Setup RF integration
@@ -31,6 +31,7 @@ class ReceiveOperation(BaseOperation):
         # Load config
         self.menu = OperationConfig.RECEIVE_MENU
         self.selectors = OperationConfig.RECEIVE_SELECTORS
+        self.detour_page = detour_page
         self._ilpn: str | None = None
         self._screen_context: dict[str, int | None] | None = None
 
@@ -170,7 +171,9 @@ class ReceiveOperation(BaseOperation):
         else:
             return True
 
-        nav_mgr = NavigationManager(self.page, self.screenshot_mgr)
+        nav_mgr_main = NavigationManager(self.page, self.screenshot_mgr)
+        detour_nav = NavigationManager(self.detour_page, self.screenshot_mgr) if self.detour_page else None
+        nav_mgr = nav_mgr_main
         focus_title = base_cfg.get("rf_focus_title", "RF Menu")
 
         keep_ui_open = False
@@ -183,26 +186,15 @@ class ReceiveOperation(BaseOperation):
                 continue
 
             # Optional detour page (separate tab) to avoid stealing focus from RF
-            detour_page = None
-            detour_nav = None
-            try:
-                if entry.get("use_detour_page"):
-                    detour_page = self.page.context.new_page()
-                    detour_nav = NavigationManager(detour_page, self.screenshot_mgr)
-            except Exception:
-                detour_page = None
-                detour_nav = None
-
-            use_nav = detour_nav or nav_mgr
-            use_page = detour_page or self.page
+            use_detour = bool(entry.get("use_detour_page"))
+            use_nav = detour_nav if (use_detour and detour_nav) else nav_mgr_main
+            use_page = self.detour_page if (use_detour and self.detour_page) else self.page
 
             search_term = entry.get("search_term") or base_cfg.get("search_term", "tasks")
             match_text = entry.get("match_text") or base_cfg.get("match_text", "Tasks (Configuration)")
             close_existing = bool(entry.get("close_existing", base_cfg.get("close_existing", True)))
             if not use_nav.open_menu_item(search_term, match_text, close_existing=close_existing):
                 rf_log(f"❌ UI detour #{idx} failed during receive flow.")
-                if detour_page:
-                    detour_page.close()
                 return False
 
             operation_note = (
@@ -234,18 +226,14 @@ class ReceiveOperation(BaseOperation):
                     NavigationManager(use_page, self.screenshot_mgr).close_active_windows(skip_titles=[])
                 except Exception:
                     pass
-                if detour_page:
-                    detour_page.close()
                 continue
 
             if entry.get("fill_ilpn") and self._screen_context and self._screen_context.get("ilpn"):
                 ilpn_val = self._screen_context.get("ilpn")
                 if not self._fill_ilpn_quick_filter(str(ilpn_val), page=use_page):
-                    if detour_page:
-                        detour_page.close()
                     return False
                 wait_ms = entry.get("ilpn_wait_ms") or default_ilpn_wait or 4000
-                self._wait_for_ilpn_apply(wait_ms, operation_note, entry, default_post_screenshot)
+                self._wait_for_ilpn_apply(wait_ms, operation_note, entry, default_post_screenshot, page=use_page)
                 # Close iLPN window after apply to return focus to RF
                 use_nav.close_active_windows(skip_titles=["rf menu"])
                 use_nav.focus_window_by_title(focus_title)
@@ -260,17 +248,6 @@ class ReceiveOperation(BaseOperation):
             # Close the just-opened UI before moving to the next (unless caller wants to preserve)
             preserve = bool(entry.get("preserve_window") or entry.get("preserve"))
             keep_ui_open = keep_ui_open or preserve
-            if detour_page and not preserve:
-                detour_page.close()
-                detour_page = None
-                detour_nav = None
-
-        # If we created a detour page and haven't closed it yet, close now
-        try:
-            if detour_page:
-                detour_page.close()
-        except Exception:
-            pass
 
         return True
 
@@ -719,13 +696,14 @@ class ReceiveOperation(BaseOperation):
             except Exception:
                 pass
 
-            self.page.wait_for_timeout(150)
+            page.wait_for_timeout(150)
 
         return None
 
-    def _wait_for_ilpn_apply(self, timeout_ms: int, operation_note: str, entry: dict, default_screenshot: str | None):
+    def _wait_for_ilpn_apply(self, timeout_ms: int, operation_note: str, entry: dict, default_screenshot: str | None, page=None):
         """Wait for iLPN apply to finish (mask cleared) then capture before close."""
-        frame = self._find_ilpn_frame(timeout_ms=2000)
+        page = page or self.page
+        frame = self._find_ilpn_frame(timeout_ms=2000, page=page)
         prev_snapshot = None
         if frame:
             try:
@@ -735,7 +713,7 @@ class ReceiveOperation(BaseOperation):
 
         if frame and prev_snapshot:
             WaitUtils.wait_for_screen_change(
-                lambda: self._find_ilpn_frame(timeout_ms=500),
+                lambda: self._find_ilpn_frame(timeout_ms=500, page=page),
                 prev_snapshot,
                 timeout_ms=timeout_ms,
                 interval_ms=250,
@@ -745,12 +723,12 @@ class ReceiveOperation(BaseOperation):
             # Fallback: wait for masks or timeout
             deadline = time.time() + timeout_ms / 1000
             try:
-                mask = self.page.locator("div.x-mask:visible")
+                mask = page.locator("div.x-mask:visible")
             except Exception:
                 mask = None
 
             if mask is None:
-                self.page.wait_for_timeout(timeout_ms)
+                page.wait_for_timeout(timeout_ms)
             else:
                 while time.time() < deadline:
                     try:
@@ -758,14 +736,14 @@ class ReceiveOperation(BaseOperation):
                             break
                     except Exception:
                         break
-                    self.page.wait_for_timeout(150)
+                    page.wait_for_timeout(150)
 
         # Small settle delay
-        self.page.wait_for_timeout(300)
+        page.wait_for_timeout(300)
 
         tag = entry.get("post_screenshot_tag") or default_screenshot
         if tag:
-            self.screenshot_mgr.capture(self.page, tag, f"{operation_note} (after fill)")
+            self.screenshot_mgr.capture(page, tag, f"{operation_note} (after fill)")
 
     # =========================================================================
     # HELPERS - Screenshots
