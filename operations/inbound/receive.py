@@ -178,8 +178,6 @@ class ReceiveOperation(BaseOperation):
         detour_nav = self.detour_nav or (NavigationManager(self.detour_page, self.screenshot_mgr) if self.detour_page else None)
         focus_title = base_cfg.get("rf_focus_title", "RF Menu")
 
-        keep_ui_open = False
-        default_post_fill = base_cfg.get("post_fill_ms")
         default_post_screenshot = base_cfg.get("post_screenshot_tag")
         default_ilpn_wait = base_cfg.get("ilpn_wait_ms")
 
@@ -235,35 +233,18 @@ class ReceiveOperation(BaseOperation):
                     NavigationManager(use_page, self.screenshot_mgr).close_active_windows(skip_titles=[])
                 except Exception:
                     pass
-                skip_rest = True
 
-            if not skip_rest and entry.get("fill_ilpn") and self._screen_context and self._screen_context.get("ilpn"):
+            if entry.get("fill_ilpn") and self._screen_context and self._screen_context.get("ilpn"):
+                use_nav.close_active_windows(skip_titles=["rf menu"])
                 ilpn_val = self._screen_context.get("ilpn")
                 if not self._fill_ilpn_quick_filter(str(ilpn_val), page=use_page):
                     return False
                 wait_ms = entry.get("ilpn_wait_ms") or default_ilpn_wait or 4000
                 self._wait_for_ilpn_apply(wait_ms, operation_note, entry, default_post_screenshot, page=use_page)
                 # Close iLPN window after apply to return focus to RF
-                use_nav.close_active_windows(skip_titles=["rf menu"])
+                self.screenshot_mgr.capture(use_page, screenshot_tag, operation_note)
                 use_nav.focus_window_by_title(focus_title)
-                try:
-                    use_nav.maximize_non_rf_windows()
-                except Exception:
-                    pass
 
-            if not skip_rest:
-                pause_ms = entry.get("pause_ms") or base_cfg.get("pause_ms")
-                if pause_ms:
-                    try:
-                        use_page.wait_for_timeout(int(pause_ms))
-                    except Exception:
-                        pass
-
-                # Close the just-opened UI before moving to the next
-                keep_ui_open = keep_ui_open or False
-            else:
-                keep_ui_open = keep_ui_open or False
-        self.screenshot_mgr.capture(use_page, screenshot_tag, operation_note)
         return True
 
     # =========================================================================
