@@ -171,6 +171,7 @@ class ReceiveOperation(BaseOperation):
             return True
 
         nav_mgr = NavigationManager(self.page, self.screenshot_mgr)
+        focus_title = base_cfg.get("rf_focus_title", "RF Menu")
 
         keep_ui_open = False
         default_post_fill = base_cfg.get("post_fill_ms")
