@@ -17,16 +17,6 @@ class FlowType(Enum):
     UNKNOWN = "UNKNOWN"
 
 
-class StageType(Enum):
-    """Workflow stage types."""
-    POST = "post"
-    RECEIVE = "receive"
-    LOADING = "loading"
-    TASKS = "tasks"
-    ILPNS = "ilpns"
-    RF_RETURN = "rf_return"
-
-
 @dataclass
 class ASNItem:
     """Single item in an ASN."""
@@ -126,7 +116,9 @@ class ReceiveStage:
             "auto_handle_deviation": self.auto_handle_deviation,
         }
         if self.open_ui:
-            result["open_ui"] = self.open_ui.to_dict()
+            open_ui_cfg = self.open_ui.to_dict()
+            if open_ui_cfg:
+                result["open_ui"] = open_ui_cfg
         return result
 
 
@@ -264,7 +256,7 @@ def create_default_workflows() -> list[Workflow]:
                 OpenUIEntry(
                     search_term="ILPNS",
                     match_text="iLPNs (Distribution)",
-                    operation_note="verify iLPNs from the UI",
+                    operation_note="verify iLPN from the UI",
                     fill_ilpn=True,
                 ),
             ]),
