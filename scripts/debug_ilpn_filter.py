@@ -252,9 +252,17 @@ def _dom_open_ilpn_row(target, ilpn: str) -> bool:
 
 
 def _open_single_filtered_ilpn_row(target, ilpn: str) -> bool:
-    """Open the single filtered iLPN row (if exactly one is present)."""
-    app_log("🔍 Waiting for filtered iLPN results...")
-    _wait_for_ext_mask(target, timeout_ms=8000)
+    """
+    Open the filtered iLPN row quickly.
+    - First try DOM fallback immediately (no long waits)
+    - Then a few short retries for Ext/locator detection if needed
+    """
+    app_log("🔍 Checking filtered iLPN results (no long wait)...")
+    _wait_for_ext_mask(target, timeout_ms=3000)
+
+    # Fast path: DOM scan across all iframe docs
+    if _dom_open_ilpn_row(target, ilpn):
+        return True
 
     selectors = [
         "div.x-grid-view:visible",
@@ -265,7 +273,7 @@ def _open_single_filtered_ilpn_row(target, ilpn: str) -> bool:
 
     rows_locator = None
     row_count = 0
-    for attempt in range(12):
+    for attempt in range(4):
         # Prefer ExtJS store count when available
         ext_count = _ext_store_count(target)
         if isinstance(ext_count, int):
@@ -295,15 +303,15 @@ def _open_single_filtered_ilpn_row(target, ilpn: str) -> bool:
         if row_count == 1:
             break
         if row_count > 1:
-            app_log(f"ℹ️ Filter shows {row_count} rows; waiting for single result...")
-        target.wait_for_timeout(600)
+            app_log(f"ℹ️ Filter shows {row_count} rows; retrying quickly...")
+        target.wait_for_timeout(300)
 
     # Try ExtJS-native open first when we detect a single row
     if row_count == 1 and _ext_open_first_row(target):
         app_log("✅ Opened single iLPN row via ExtJS API")
         return True
 
-    # DOM fallback inside nested uxiframe/table
+    # DOM fallback inside nested uxiframe/table (retry after quick checks)
     if _dom_open_ilpn_row(target, ilpn):
         return True
 
