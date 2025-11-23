@@ -38,3 +38,12 @@ htmlcov/
 # Assets
 screenshots/
 
+
+# pytest
+.pytest_cache/
+
+# Path files
+*.pth
+
+# JDBC drivers
+drivers/*.jar
