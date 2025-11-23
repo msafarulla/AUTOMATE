@@ -154,7 +154,88 @@ def _statusbar_count(target) -> int | None:
     return None
 
 
-def _open_single_filtered_ilpn_row(target) -> bool:
+def _dom_open_ilpn_row(target, ilpn: str) -> bool:
+    """DOM fallback: search nested uxiframe tables for the ILPN and open it."""
+    try:
+        result = target.evaluate(
+            """
+            (ilpn) => {
+                const norm = (s) => (s || '').replace(/\\s+/g, ' ').trim();
+                const digits = (s) => (s || '').replace(/\\D+/g, '');
+                const containsIlpn = (txt) => {
+                    const t = norm(txt);
+                    if (!t) return false;
+                    return t.includes(ilpn) || digits(t).includes(digits(ilpn));
+                };
+
+                const frames = Array.from(document.querySelectorAll('iframe'));
+                const uxiframe =
+                    frames.find(f => (f.id || '').includes('uxiframe')) ||
+                    frames.find(f => (f.src || '').toLowerCase().includes('uxiframe')) ||
+                    frames.find(f => (f.src || '').toLowerCase().includes('lpn')) ||
+                    frames[0] ||
+                    null;
+
+                const doc = uxiframe?.contentDocument || document;
+                if (!doc) return { ok: false, reason: 'no_doc' };
+
+                const tables = Array.from(doc.querySelectorAll('table'));
+                let hit = null;
+
+                tables.forEach((tbl, tIdx) => {
+                    const rows = Array.from(tbl.querySelectorAll('tr'));
+                    rows.some((row, rIdx) => {
+                        const txt = norm(row.innerText);
+                        if (containsIlpn(txt)) {
+                            hit = {
+                                tableIdx: tIdx,
+                                rowIdx: rIdx,
+                                text: txt.slice(0, 200),
+                                iframeId: uxiframe?.id || null,
+                                iframeSrc: uxiframe?.src || null
+                            };
+                            const targetEl = row.querySelector('a, button') || row;
+                            try { targetEl.scrollIntoView({ block: 'center' }); } catch (e) {}
+                            try { targetEl.dispatchEvent(new MouseEvent('click', { bubbles: true, detail: 1 })); } catch (e) {}
+                            try { targetEl.dispatchEvent(new MouseEvent('dblclick', { bubbles: true, detail: 2 })); } catch (e) {}
+                            return true;
+                        }
+                        return false;
+                    });
+                });
+
+                if (hit) return { ok: true, ...hit };
+                return {
+                    ok: false,
+                    reason: 'no_match',
+                    iframeId: uxiframe?.id || null,
+                    iframeSrc: uxiframe?.src || null,
+                    tables: tables.length
+                };
+            }
+            """,
+            ilpn,
+        )
+    except Exception as exc:
+        rf_log(f"❌ DOM iLPN search failed: {exc}")
+        return False
+
+    if result and result.get("ok"):
+        tbl = result.get("tableIdx")
+        row = result.get("rowIdx")
+        app_log(
+            f"✅ Opened iLPN row via DOM fallback (table#{tbl} row#{row}, iframe={result.get('iframeId')})"
+        )
+        return True
+
+    rf_log(
+        f"❌ DOM iLPN search found no match "
+        f"(iframe={result.get('iframeId') if result else 'n/a'}, tables={result.get('tables') if result else 'n/a'})"
+    )
+    return False
+
+
+def _open_single_filtered_ilpn_row(target, ilpn: str) -> bool:
     """Open the single filtered iLPN row (if exactly one is present)."""
     app_log("🔍 Waiting for filtered iLPN results...")
     _wait_for_ext_mask(target, timeout_ms=8000)
@@ -201,48 +282,45 @@ def _open_single_filtered_ilpn_row(target) -> bool:
             app_log(f"ℹ️ Filter shows {row_count} rows; waiting for single result...")
         target.wait_for_timeout(600)
 
-    if row_count != 1:
-        rf_log(f"❌ Expected exactly one iLPN row after filter, found {row_count}")
-        return False
-
-    # Try ExtJS-native open first
-    if _ext_open_first_row(target):
+    # Try ExtJS-native open first when we detect a single row
+    if row_count == 1 and _ext_open_first_row(target):
         app_log("✅ Opened single iLPN row via ExtJS API")
         return True
 
-    # Fallback to DOM interactions
-    if not rows_locator:
-        rf_log("❌ Could not locate grid rows to open")
-        return False
+    # DOM fallback inside nested uxiframe/table
+    if _dom_open_ilpn_row(target, ilpn):
+        return True
 
-    row = rows_locator.first
-    try:
-        row.scroll_into_view_if_needed(timeout=1000)
-    except Exception:
-        pass
-
-    try:
-        row.click(timeout=1500)
-    except Exception as exc:
-        app_log(f"➖ Row click warning: {exc}")
-
-    open_attempts = [
-        lambda: row.dblclick(timeout=1200),
-        lambda: row.press("Enter"),
-        lambda: row.press("Space"),
-        lambda: target.keyboard.press("Enter"),
-    ]
-
-    for attempt in open_attempts:
+    # Final attempt using raw locators if we did count rows
+    if row_count == 1 and rows_locator:
+        row = rows_locator.first
         try:
-            attempt()
-            app_log("✅ Opened single iLPN row to view details")
-            return True
-        except Exception as exc:
-            app_log(f"➖ Row open attempt did not succeed: {exc}")
-            continue
+            row.scroll_into_view_if_needed(timeout=1000)
+        except Exception:
+            pass
 
-    rf_log("❌ Unable to open the single filtered iLPN row")
+        try:
+            row.click(timeout=1500)
+        except Exception as exc:
+            app_log(f"➖ Row click warning: {exc}")
+
+        open_attempts = [
+            lambda: row.dblclick(timeout=1200),
+            lambda: row.press("Enter"),
+            lambda: row.press("Space"),
+            lambda: target.keyboard.press("Enter"),
+        ]
+
+        for attempt in open_attempts:
+            try:
+                attempt()
+                app_log("✅ Opened single iLPN row to view details")
+                return True
+            except Exception as exc:
+                app_log(f"➖ Row open attempt did not succeed: {exc}")
+                continue
+
+    rf_log(f"❌ Unable to open the filtered iLPN row (row_count={row_count})")
     return False
 
 
@@ -412,7 +490,7 @@ def _fill_ilpn_filter(page, ilpn: str) -> bool:
         rf_log("❌ Unable to trigger iLPN filter apply")
         return False
 
-    return _open_single_filtered_ilpn_row(target)
+    return _open_single_filtered_ilpn_row(target, ilpn)
 
 
 def open_ilpns_and_filter(
