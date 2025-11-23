@@ -156,8 +156,7 @@ def _statusbar_count(target) -> int | None:
 
 def _click_ilpn_detail_tabs(target):
     """
-    Open/detail tabs for capture by force-showing panels (Header, Locks, Movement, Audit, Documents)
-    and scrolling them into view. Avoids UI8 tab JS crashes.
+    Focus the Header tab panel for capture (stable tab), avoiding UI8 tab JS crashes.
     """
     # Give detail page time to render
     try:
@@ -165,43 +164,33 @@ def _click_ilpn_detail_tabs(target):
     except Exception:
         pass
 
-    tab_entries = [
-        ("CONT_dataForm:LPN_Header_Tab", "LPN_Header_Tab_lnk"),
-        ("CONT_dataForm:LPN_Locks_Tab", "LPN_Locks_Tab_lnk"),
-        ("CONT_dataForm:LPN_Movement_Tab", "LPN_Movement_Tab_lnk"),
-        ("CONT_dataForm:LPN_Audit_Tab", "LPN_Audit_Tab_lnk"),
-        ("CONT_dataForm:LPNDocMgt", "LPNDocMgt_lnk"),
-    ]
-
     try:
         target.evaluate(
             """
-            (entries) => {
+            (payload) => {
+                const { panel_id, link_id } = payload;
                 const frames = [window, ...Array.from(window.frames)];
                 frames.forEach(win => {
                     let href = '';
                     try { href = (win.location?.href || '').toLowerCase(); } catch (e) { href = ''; }
                     if (!href.includes('viewlpninbound')) return;
                     const doc = win.document;
-
-                    entries.forEach(([panel_id, link_id]) => {
-                        const panel = doc.getElementById(panel_id);
-                        if (panel) {
-                            panel.style.display = 'block';
-                            panel.style.visibility = 'visible';
-                            panel.style.opacity = '1';
-                            panel.removeAttribute('hidden');
-                            try { panel.scrollIntoView({ block: 'start' }); } catch (e) { panel.scrollIntoView(); }
-                            panel.style.outline = '2px solid red';
-                            setTimeout(() => { panel.style.outline = ''; }, 800);
-                        }
-                        const link = doc.getElementById(link_id) || doc.getElementById(panel_id.replace('CONT_', 'TABH_')) || doc.getElementById(link_id.replace('_lnk', ''));
-                        try { link?.click?.(); } catch (e) {}
-                    });
+                    const panel = doc.getElementById(panel_id);
+                    if (panel) {
+                        panel.style.display = 'block';
+                        panel.style.visibility = 'visible';
+                        panel.style.opacity = '1';
+                        panel.removeAttribute('hidden');
+                        try { panel.scrollIntoView({ block: 'start' }); } catch (e) { panel.scrollIntoView(); }
+                        panel.style.outline = '2px solid red';
+                        setTimeout(() => { panel.style.outline = ''; }, 800);
+                    }
+                    const link = doc.getElementById(link_id) || doc.getElementById(panel_id.replace('CONT_', 'TABH_')) || doc.getElementById(link_id.replace('_lnk', ''));
+                    try { link?.click?.(); } catch (e) {}
                 });
             }
             """,
-            tab_entries,
+            {"panel_id": "CONT_dataForm:LPN_Header_Tab", "link_id": "LPN_Header_Tab_lnk"},
         )
     except Exception:
         pass
