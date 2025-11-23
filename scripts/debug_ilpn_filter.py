@@ -843,7 +843,7 @@ def _click_ilpn_detail_tabs(
 
     # Tab names to click
     # tab_names = ["Header", "Locks", "LPN Movement", "Audit", "Documents"]
-    tab_names = ["Header", "Locks"]
+    tab_names = ["Contents", "Header", "Locks"]
 
     for tab_name in tab_names:
         app_log(f"\n🔄 Attempting to click tab: {tab_name}")
