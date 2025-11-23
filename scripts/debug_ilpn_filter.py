@@ -221,6 +221,36 @@ def _dom_open_ilpn_row(target, ilpn: str) -> bool:
                     }
                 }
 
+                // If no table match, try a broader element text search (div/span/td/etc.)
+                const tryTextSearch = () => {
+                    for (const doc of docsToScan) {
+                        const ownerFrame = doc.defaultView?.frameElement;
+                        const elems = Array.from(doc.querySelectorAll('tr, td, span, div, a, button, li, [role=\"row\"]'));
+                        for (const el of elems) {
+                            const txt = norm(el.innerText);
+                            if (!txt) continue;
+                            if (containsIlpn(txt)) {
+                                const targetEl = el.closest('tr, .x-grid-row, .x-grid-item, [role=\"row\"], a, button') || el;
+                                try { targetEl.scrollIntoView({ block: 'center' }); } catch (e) {}
+                                try { targetEl.dispatchEvent(new MouseEvent('click', { bubbles: true, detail: 1 })); } catch (e) {}
+                                try { targetEl.dispatchEvent(new MouseEvent('dblclick', { bubbles: true, detail: 2 })); } catch (e) {}
+                                return {
+                                    ok: true,
+                                    reason: 'text_search',
+                                    iframeId: ownerFrame?.id || null,
+                                    iframeSrc: ownerFrame?.src || null,
+                                    text: txt.slice(0, 200),
+                                    tablesScanned: scannedTables
+                                };
+                            }
+                        }
+                    }
+                    return null;
+                };
+
+                const textResult = tryTextSearch();
+                if (textResult) return textResult;
+
                 return {
                     ok: false,
                     reason: 'no_match',
@@ -244,10 +274,13 @@ def _dom_open_ilpn_row(target, ilpn: str) -> bool:
         )
         return True
 
-    rf_log(
-        f"❌ DOM iLPN search found no match "
-        f"(iframe={result.get('iframeId') if result else 'n/a'}, tables={result.get('tables') if result else 'n/a'})"
-    )
+    if result:
+        rf_log(
+            f"❌ DOM iLPN search found no match "
+            f"(iframe={result.get('iframeId')}, tables={result.get('tables')}, reason={result.get('reason')})"
+        )
+    else:
+        rf_log("❌ DOM iLPN search failed without result payload")
     return False
 
 
