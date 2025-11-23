@@ -7,10 +7,10 @@ Usage:
 
 import argparse
 import time
-from typing import Optional
 
 from config.settings import Settings
 from core.logger import app_log, rf_log
+from core.screenshot import ScreenshotManager
 from operations import create_operation_services
 
 
@@ -327,7 +327,11 @@ def _dom_open_ilpn_row(target, ilpn: str) -> bool:
     app_log("🐛 DEBUG: _dom_open_ilpn_row returning False")
     return False
 
-def _open_single_filtered_ilpn_row(target, ilpn: str) -> bool:
+def _open_single_filtered_ilpn_row(
+    target,
+    ilpn: str,
+    screenshot_mgr: ScreenshotManager | None = None,
+) -> bool:
     """
     Open the filtered iLPN row quickly.
     - First try DOM fallback immediately (no long waits)
@@ -337,12 +341,18 @@ def _open_single_filtered_ilpn_row(target, ilpn: str) -> bool:
     app_log("🐛 DEBUG: Entered _open_single_filtered_ilpn_row")
     _wait_for_ext_mask(target, timeout_ms=3000)
 
+    tab_capture_kwargs = {
+        "screenshot_mgr": screenshot_mgr,
+        "screenshot_tag": "ilpn_tab",
+        "operation_note": f"iLPN {ilpn} detail tabs",
+    }
+
     # Fast path: DOM scan across all iframe docs
     app_log("🐛 DEBUG: Attempting DOM open...")
     if _dom_open_ilpn_row(target, ilpn):
         app_log("🐛 DEBUG: DOM open succeeded, about to call _click_ilpn_detail_tabs")
         target.wait_for_timeout(2000)  # Wait for detail view to load
-        _click_ilpn_detail_tabs(target)
+        _click_ilpn_detail_tabs(target, **tab_capture_kwargs)
         app_log("🐛 DEBUG: Returned from _click_ilpn_detail_tabs")
         return True
     else:
@@ -400,7 +410,7 @@ def _open_single_filtered_ilpn_row(target, ilpn: str) -> bool:
         app_log("✅ Opened single iLPN row via ExtJS API")
         app_log("🐛 DEBUG: About to call _click_ilpn_detail_tabs (ExtJS path)")
         target.wait_for_timeout(2000)
-        _click_ilpn_detail_tabs(target)
+        _click_ilpn_detail_tabs(target, **tab_capture_kwargs)
         app_log("🐛 DEBUG: Returned from _click_ilpn_detail_tabs (ExtJS path)")
         return True
 
@@ -409,7 +419,7 @@ def _open_single_filtered_ilpn_row(target, ilpn: str) -> bool:
     if _dom_open_ilpn_row(target, ilpn):
         app_log("🐛 DEBUG: Second DOM open succeeded, about to call _click_ilpn_detail_tabs")
         target.wait_for_timeout(2000)
-        _click_ilpn_detail_tabs(target)
+        _click_ilpn_detail_tabs(target, **tab_capture_kwargs)
         app_log("🐛 DEBUG: Returned from _click_ilpn_detail_tabs (DOM retry path)")
         return True
     # Final attempt using raw locators if we did count rows
@@ -438,7 +448,7 @@ def _open_single_filtered_ilpn_row(target, ilpn: str) -> bool:
                 app_log("✅ Opened single iLPN row to view details")
                 app_log("🐛 DEBUG: About to call _click_ilpn_detail_tabs (locator path)")
                 target.wait_for_timeout(2000)
-                _click_ilpn_detail_tabs(target)
+                _click_ilpn_detail_tabs(target, **tab_capture_kwargs)
                 app_log("🐛 DEBUG: Returned from _click_ilpn_detail_tabs (locator path)")
                 return True
             except Exception as exc:
@@ -448,7 +458,11 @@ def _open_single_filtered_ilpn_row(target, ilpn: str) -> bool:
     rf_log(f"❌ Unable to open the filtered iLPN row (row_count={row_count})")
     return False
 
-def _fill_ilpn_filter(page, ilpn: str) -> bool:
+def _fill_ilpn_filter(
+    page,
+    ilpn: str,
+    screenshot_mgr: ScreenshotManager | None = None,
+) -> bool:
     """Reuse the receive flow filter logic to populate the iLPN quick filter and open the result."""
     target_frame = _find_ilpn_frame(page)
     target = target_frame or page
@@ -614,7 +628,7 @@ def _fill_ilpn_filter(page, ilpn: str) -> bool:
         rf_log("❌ Unable to trigger iLPN filter apply")
         return False
 
-    return _open_single_filtered_ilpn_row(target, ilpn)
+    return _open_single_filtered_ilpn_row(target, ilpn, screenshot_mgr=screenshot_mgr)
 
 
 def open_ilpns_and_filter(
@@ -639,7 +653,11 @@ def open_ilpns_and_filter(
                 success = False
             else:
                 app_log(f"🔎 Attempting to filter iLPN '{ilpn}'")
-                success = _fill_ilpn_filter(services.nav_mgr.page, ilpn)
+                success = _fill_ilpn_filter(
+                    services.nav_mgr.page,
+                    ilpn,
+                    screenshot_mgr=services.screenshot_mgr,
+                )
                 if success:
                     app_log("✅ iLPN filter interaction completed (check UI for results).")
                 else:
@@ -789,7 +807,13 @@ def _diagnose_tabs(target):
     app_log("\n✅ Diagnostic complete")
 
 
-def _click_ilpn_detail_tabs(target):
+def _click_ilpn_detail_tabs(
+    target,
+    screenshot_mgr: ScreenshotManager | None = None,
+    *,
+    screenshot_tag: str = "ilpn_tab",
+    operation_note: str | None = None,
+):
     """
     Click through all visible iLPN detail tabs sequentially.
     """
@@ -803,6 +827,9 @@ def _click_ilpn_detail_tabs(target):
 
     # Try to find ALL frames and check each one
     frames_to_try = [target]  # Start with main page
+
+    use_page = getattr(target, "page", None) or target
+    base_note = operation_note or "iLPN detail tab"
 
     try:
         for frame in target.frames:
@@ -895,6 +922,15 @@ def _click_ilpn_detail_tabs(target):
                         app_log(f"    ✅ JS click succeeded: {result}")
                         clicked = True
                         page_target.wait_for_timeout(800)
+                        if screenshot_mgr:
+                            safe_tag = screenshot_tag or "ilpn_tab"
+                            tab_slug = tab_name.lower().replace(" ", "_")
+                            screenshot_mgr.capture(
+                                use_page,
+                                f"{safe_tag}_{tab_slug}",
+                                f"{base_note}: {tab_name}",
+                            )
+
                         break
                     else:
                         app_log(f"    ⚠️ JS click failed: {result}")

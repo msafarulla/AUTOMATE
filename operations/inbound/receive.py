@@ -67,7 +67,7 @@ class ReceiveOperation(BaseOperation):
             return False
 
         try:
-            return bool(debug_fill_ilpn(page, ilpn))
+            return bool(debug_fill_ilpn(page, ilpn, screenshot_mgr=self.screenshot_mgr))
         except Exception as exc:
             rf_log(f"❌ iLPN filter via helper failed: {exc}")
             return False

@@ -140,5 +140,4 @@ def run_open_ui_detours(
             if not fill_ilpn_cb(str(ilpn_val), page=use_page):
                 return False
             use_page.wait_for_timeout(5000)
-            screenshot_mgr.capture(use_page, screenshot_tag, operation_note)
     return True
