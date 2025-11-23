@@ -213,6 +213,8 @@ def _dom_open_ilpn_row(target, ilpn: str) -> bool:
                                 };
                                 const targetEl = row.querySelector('a, button') || row;
                                 try { targetEl.scrollIntoView({ block: 'center' }); } catch (e) {}
+                                const checkbox = row.querySelector?.('input[type=\"checkbox\"], .x-grid-row-checker');
+                                try { checkbox?.click?.(); } catch (e) {}
                                 try { targetEl.dispatchEvent(new MouseEvent('click', { bubbles: true, detail: 1 })); } catch (e) {}
                                 try { targetEl.dispatchEvent(new MouseEvent('dblclick', { bubbles: true, detail: 2 })); } catch (e) {}
                                 return { ok: true, ...hit, tablesScanned: scannedTables };
@@ -232,6 +234,8 @@ def _dom_open_ilpn_row(target, ilpn: str) -> bool:
                             if (containsIlpn(txt)) {
                                 const targetEl = el.closest('tr, .x-grid-row, .x-grid-item, [role=\"row\"], a, button') || el;
                                 try { targetEl.scrollIntoView({ block: 'center' }); } catch (e) {}
+                                const checkbox = targetEl.querySelector?.('input[type=\"checkbox\"], .x-grid-row-checker');
+                                try { checkbox?.click?.(); } catch (e) {}
                                 try { targetEl.dispatchEvent(new MouseEvent('click', { bubbles: true, detail: 1 })); } catch (e) {}
                                 try { targetEl.dispatchEvent(new MouseEvent('dblclick', { bubbles: true, detail: 2 })); } catch (e) {}
                                 return {
