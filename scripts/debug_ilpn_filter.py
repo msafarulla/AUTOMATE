@@ -718,6 +718,10 @@ def main():
 
 def _diagnose_tabs(target):
     """Diagnostic function - handles both Page and Frame objects."""
+    if not getattr(Settings.app, "app_verbose_logging", False):
+        app_log("ℹ️ Tab diagnostic skipped (APP_VERBOSE_LOGGING disabled)")
+        return
+
     app_log("🔍 Starting comprehensive tab diagnostic...")
 
     # Determine if target is a Page or Frame
