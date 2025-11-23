@@ -155,59 +155,47 @@ def _statusbar_count(target) -> int | None:
 
 
 def _click_ilpn_detail_tabs(target):
-    """Open detail tabs (Contents, Header, Locks, LPN Movement, Audit, Documents) for capture."""
-    # Always surface all tab panels to avoid UI8 tab handler issues.
+    """
+    Open/detail tabs for capture by force-showing panels (Header, Locks, Movement, Audit, Documents)
+    and scrolling them into view. Avoids UI8 tab JS crashes.
+    """
     _force_ilpn_panels_visible(target)
-    patterns = [
-        ("contents", ["LPN_Contents", "contents"]),
-        ("header", ["LPN_Header", "header"]),
-        ("locks", ["LPN_Locks", "locks"]),
-        ("lpn movement", ["LPN_Movement", "lpn_movement", "movement"]),
-        ("audit", ["LPN_Audit", "audit"]),
-        ("documents", ["LPN_Documents", "documents"]),
+    tab_entries = [
+        ("CONT_dataForm:LPN_Header_Tab", "LPN_Header_Tab_lnk"),
+        ("CONT_dataForm:LPN_Locks_Tab", "LPN_Locks_Tab_lnk"),
+        ("CONT_dataForm:LPN_Movement_Tab", "LPN_Movement_Tab_lnk"),
+        ("CONT_dataForm:LPN_Audit_Tab", "LPN_Audit_Tab_lnk"),
+        ("CONT_dataForm:LPNDocMgt", "LPNDocMgt_lnk"),
     ]
 
-    for name, needles in patterns:
+    for panel_id, link_id in tab_entries:
         try:
             target.evaluate(
                 """
                 (payload) => {
-                    const { name, needles } = payload;
-                    const norm = (s) => (s || '').replace(/\\s+/g, ' ').trim().toLowerCase();
-                    const docs = [document];
-                    document.querySelectorAll('iframe').forEach(ifr => {
-                        try { if (ifr.contentDocument) docs.push(ifr.contentDocument); } catch (e) {}
-                    });
+                    const { panel_id, link_id } = payload;
+                    const docs = [document, ...Array.from(document.querySelectorAll('iframe')).map(f => f.contentDocument).filter(Boolean)];
 
-                    const tryClick = (el) => {
-                        if (!el) return false;
-                        try { el.scrollIntoView({ block: 'center' }); } catch (e) {}
-                        try { el.dispatchEvent(new MouseEvent('mousedown', { bubbles: true })); } catch (e) {}
-                        try { el.dispatchEvent(new MouseEvent('click', { bubbles: true })); } catch (e) {}
-                        return true;
-                    };
-
-                    for (const doc of docs) {
-                        for (const n of needles) {
-                            const el = doc.querySelector(`[id*=\"${n}\"]`);
-                            if (el && tryClick(el)) return true;
+                    docs.forEach(doc => {
+                        const panel = doc.getElementById(panel_id);
+                        if (panel) {
+                            panel.style.display = 'block';
+                            panel.style.visibility = 'visible';
+                            panel.style.opacity = '1';
+                            panel.removeAttribute('hidden');
+                            try { panel.scrollIntoView({ block: 'start' }); } catch (e) { panel.scrollIntoView(); }
+                            panel.style.outline = '2px solid red';
+                            setTimeout(() => { panel.style.outline = ''; }, 800);
                         }
-                        const candidates = Array.from(doc.querySelectorAll('.tab_tab, .tab_link, .tab_span, .x-tab-strip li, [role=\"tab\"], li, span, a, button, div'));
-                        const hit = candidates.find(el => {
-                            const txt = norm(el.innerText || el.textContent || '');
-                            if (!txt) return false;
-                            return txt === name || txt.includes(name);
-                        });
-                        if (hit && tryClick(hit)) return true;
-                    }
-                    return false;
+                        const link = doc.getElementById(link_id) || doc.getElementById(panel_id.replace('CONT_', 'TABH_'));
+                        try { link?.click?.(); } catch (e) {}
+                    });
                 }
                 """,
-                {"name": name, "needles": needles},
+                {"panel_id": panel_id, "link_id": link_id},
             )
-            # Small pause to allow panel to render before next click
             try:
-                target.wait_for_timeout(200)
+                target.wait_for_timeout(300)
             except Exception:
                 pass
         except Exception:
