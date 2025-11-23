@@ -6,6 +6,7 @@ Usage:
 """
 
 import argparse
+import time
 from typing import Optional
 
 from config.settings import Settings
@@ -28,13 +29,95 @@ def _find_ilpn_frame(page):
     return None
 
 
+def _wait_for_ext_mask(target, timeout_ms: int = 4000):
+    """Wait for ExtJS loading mask to disappear."""
+    mask = target.locator("div.x-mask:visible")
+    deadline = time.time() + timeout_ms / 1000
+    while time.time() < deadline:
+        try:
+            if mask.count() == 0:
+                return True
+        except Exception:
+            return True
+        target.wait_for_timeout(150)
+    return True
+
+
+def _open_single_filtered_ilpn_row(target) -> bool:
+    """Open the single filtered iLPN row (if exactly one is present)."""
+    app_log("🔍 Waiting for filtered iLPN results...")
+    _wait_for_ext_mask(target)
+
+    selectors = [
+        "div.x-grid-view:visible",
+        "div[class*='x-grid-view']:visible",
+        "//div[contains(@class,'x-grid-view') and not(contains(@class,'x-hide'))]",
+    ]
+
+    rows_locator = None
+    row_count = 0
+    for attempt in range(5):
+        for sel in selectors:
+            try:
+                grid = target.locator(sel).last
+                grid.wait_for(state="visible", timeout=1500)
+            except Exception:
+                continue
+
+            rows_locator = grid.locator(".x-grid-row:visible, .x-grid-item:visible")
+            row_count = rows_locator.count()
+            if row_count:
+                break
+
+        if row_count == 1:
+            break
+        if row_count > 1:
+            app_log(f"ℹ️ Filter shows {row_count} rows; waiting for single result...")
+        target.wait_for_timeout(500)
+
+    if not rows_locator or row_count != 1:
+        rf_log(f"❌ Expected exactly one iLPN row after filter, found {row_count}")
+        return False
+
+    row = rows_locator.first
+    try:
+        row.scroll_into_view_if_needed(timeout=1000)
+    except Exception:
+        pass
+
+    try:
+        row.click(timeout=1500)
+    except Exception as exc:
+        app_log(f"➖ Row click warning: {exc}")
+
+    open_attempts = [
+        lambda: row.dblclick(timeout=1200),
+        lambda: row.press("Enter"),
+        lambda: row.press("Space"),
+        lambda: target.keyboard.press("Enter"),
+    ]
+
+    for attempt in open_attempts:
+        try:
+            attempt()
+            app_log("✅ Opened single iLPN row to view details")
+            return True
+        except Exception as exc:
+            app_log(f"➖ Row open attempt did not succeed: {exc}")
+            continue
+
+    rf_log("❌ Unable to open the single filtered iLPN row")
+    return False
+
+
 def _fill_ilpn_filter(page, ilpn: str) -> bool:
-    """Reuse the receive flow filter logic to populate the iLPN quick filter."""
+    """Reuse the receive flow filter logic to populate the iLPN quick filter and open the result."""
     target_frame = _find_ilpn_frame(page)
     target = target_frame or page
     if not target_frame:
         rf_log("⚠️ Could not locate dedicated iLPNs frame, using active page as fallback.")
 
+    filter_triggered = False
     candidates = [
         # "//span[contains(translate(normalize-space(),'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz'),'quick filter')]/following::input[1]",
         # "//label[contains(translate(normalize-space(),'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz'),'lpn')]/following::input[1]",
@@ -69,7 +152,7 @@ def _fill_ilpn_filter(page, ilpn: str) -> bool:
 
     if not input_field:
         rf_log("⚠️ Could not locate visible iLPN quick filter input, attempting hidden-fill fallback.")
-
+        filter_triggered = False
         try:
             filled = target.evaluate(
                 """
@@ -140,22 +223,24 @@ def _fill_ilpn_filter(page, ilpn: str) -> bool:
                 except Exception:
                     pass
                 app_log("✅ Hidden candidate filled and keyboard events fired (Enter/Space).")
-                return True
+                filter_triggered = True
         except Exception as exc:
             rf_log(f"❌ Hidden iLPN fill fallback failed: {exc}")
             return False
 
-        rf_log("❌ Hidden iLPN fill fallback did not find a candidate.")
-        return False
+        if not filter_triggered:
+            rf_log("❌ Hidden iLPN fill fallback did not find a candidate.")
+            return False
 
-    try:
-        app_log("✏️ Filling visible input and pressing Enter")
-        input_field.click()
-        input_field.fill(ilpn)
-        input_field.press("Enter")
-    except Exception as exc:
-        rf_log(f"❌ Unable to fill iLPN filter: {exc}")
-        return False
+    if input_field:
+        try:
+            app_log("✏️ Filling visible input and pressing Enter")
+            input_field.click()
+            input_field.fill(ilpn)
+            input_field.press("Enter")
+        except Exception as exc:
+            rf_log(f"❌ Unable to fill iLPN filter: {exc}")
+            return False
 
     apply_candidates = [
         target.get_by_role("button", name="Apply"),
@@ -167,23 +252,31 @@ def _fill_ilpn_filter(page, ilpn: str) -> bool:
         try:
             btn.first.click()
             app_log("✅ Clicked Apply candidate")
-            return True
+            filter_triggered = True
+            break
         except Exception as exc:
             app_log(f"➖ Apply candidate not clickable: {exc}")
             continue
 
     # Keyboard fallback: Tab twice to focus quick filter, type, press Enter then Space for safety
-    try:
-        target.press("body", "Tab")
-        target.press("body", "Tab")
-        target.type("body", ilpn)
-        target.press("body", "Enter")
-        target.press("body", "Space")
-        app_log("⌨️ Used keyboard fallback (Tab Tab Enter Space)")
-        return True
-    except Exception as exc:
-        rf_log(f"❌ Unable to click Apply in iLPNs UI (even with keyboard fallback): {exc}")
+    if not filter_triggered:
+        try:
+            target.press("body", "Tab")
+            target.press("body", "Tab")
+            target.type("body", ilpn)
+            target.press("body", "Enter")
+            target.press("body", "Space")
+            app_log("⌨️ Used keyboard fallback (Tab Tab Enter Space)")
+            filter_triggered = True
+        except Exception as exc:
+            rf_log(f"❌ Unable to click Apply in iLPNs UI (even with keyboard fallback): {exc}")
+            return False
+
+    if not filter_triggered:
+        rf_log("❌ Unable to trigger iLPN filter apply")
         return False
+
+    return _open_single_filtered_ilpn_row(target)
 
 
 def open_ilpns_and_filter(
