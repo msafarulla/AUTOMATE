@@ -154,54 +154,6 @@ def _statusbar_count(target) -> int | None:
     return None
 
 
-def _force_ilpn_panels_visible(target):
-    """Force all iLPN tab panels visible and scroll to each sequentially."""
-    panels = {
-        "LPN_Contents_Tab": "CONT_dataForm:LPN_Contents_Tab",
-        "LPN_Header_Tab": "CONT_dataForm:LPN_Header_Tab",
-        "LPN_Locks_Tab": "CONT_dataForm:LPN_Locks_Tab",
-        "LPN_Movement_Tab": "CONT_dataForm:LPN_Movement_Tab",
-        "LPN_Audit_Tab": "CONT_dataForm:LPN_Audit_Tab",
-        "LPNDocMgt": "CONT_dataForm:LPNDocMgt",
-    }
-
-    try:
-        target.evaluate(
-            """
-            (panelMap) => {
-                const docs = [document, ...Array.from(document.querySelectorAll('iframe')).map(ifr => ifr.contentDocument).filter(Boolean)];
-                const ids = Object.values(panelMap);
-
-                // Make all panels visible
-                docs.forEach(doc => {
-                    ids.forEach(pid => {
-                        const el = doc.getElementById(pid);
-                        if (el) {
-                            el.style.display = 'block';
-                            el.style.visibility = 'visible';
-                            el.style.opacity = '1';
-                            el.removeAttribute('hidden');
-                        }
-                    });
-                });
-
-                // Scroll through panels to bring them into view (best effort)
-                ids.forEach(pid => {
-                    docs.forEach(doc => {
-                        const el = doc.getElementById(pid);
-                        if (el) {
-                            try { el.scrollIntoView({ block: 'start' }); } catch (e) {}
-                        }
-                    });
-                });
-            }
-            """,
-            panels,
-        )
-    except Exception:
-        pass
-
-
 def _dom_open_ilpn_row(target, ilpn: str) -> bool:
     """DOM fallback: search nested uxiframe tables for the ILPN and open it."""
     app_log(f"🐛 DEBUG: _dom_open_ilpn_row called for iLPN: {ilpn}")
