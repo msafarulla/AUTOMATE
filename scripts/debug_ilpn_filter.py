@@ -159,7 +159,12 @@ def _click_ilpn_detail_tabs(target):
     Open/detail tabs for capture by force-showing panels (Header, Locks, Movement, Audit, Documents)
     and scrolling them into view. Avoids UI8 tab JS crashes.
     """
-    _force_ilpn_panels_visible(target)
+    # Give detail page time to render
+    try:
+        target.wait_for_timeout(1500)
+    except Exception:
+        pass
+
     tab_entries = [
         ("CONT_dataForm:LPN_Header_Tab", "LPN_Header_Tab_lnk"),
         ("CONT_dataForm:LPN_Locks_Tab", "LPN_Locks_Tab_lnk"),
@@ -168,15 +173,18 @@ def _click_ilpn_detail_tabs(target):
         ("CONT_dataForm:LPNDocMgt", "LPNDocMgt_lnk"),
     ]
 
-    for panel_id, link_id in tab_entries:
-        try:
-            target.evaluate(
-                """
-                (payload) => {
-                    const { panel_id, link_id } = payload;
-                    const docs = [document, ...Array.from(document.querySelectorAll('iframe')).map(f => f.contentDocument).filter(Boolean)];
+    try:
+        target.evaluate(
+            """
+            (entries) => {
+                const frames = [window, ...Array.from(window.frames)];
+                frames.forEach(win => {
+                    let href = '';
+                    try { href = (win.location?.href || '').toLowerCase(); } catch (e) { href = ''; }
+                    if (!href.includes('viewlpninbound')) return;
+                    const doc = win.document;
 
-                    docs.forEach(doc => {
+                    entries.forEach(([panel_id, link_id]) => {
                         const panel = doc.getElementById(panel_id);
                         if (panel) {
                             panel.style.display = 'block';
@@ -187,19 +195,16 @@ def _click_ilpn_detail_tabs(target):
                             panel.style.outline = '2px solid red';
                             setTimeout(() => { panel.style.outline = ''; }, 800);
                         }
-                        const link = doc.getElementById(link_id) || doc.getElementById(panel_id.replace('CONT_', 'TABH_'));
+                        const link = doc.getElementById(link_id) || doc.getElementById(panel_id.replace('CONT_', 'TABH_')) || doc.getElementById(link_id.replace('_lnk', ''));
                         try { link?.click?.(); } catch (e) {}
                     });
-                }
-                """,
-                {"panel_id": panel_id, "link_id": link_id},
-            )
-            try:
-                target.wait_for_timeout(300)
-            except Exception:
-                pass
-        except Exception:
-            continue
+                });
+            }
+            """,
+            tab_entries,
+        )
+    except Exception:
+        pass
 
 
 def _force_ilpn_panels_visible(target):
