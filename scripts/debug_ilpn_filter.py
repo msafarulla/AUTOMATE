@@ -168,49 +168,65 @@ def _dom_open_ilpn_row(target, ilpn: str) -> bool:
                     return t.includes(ilpn) || digits(t).includes(digits(ilpn));
                 };
 
-                const frames = Array.from(document.querySelectorAll('iframe'));
-                const uxiframe =
-                    frames.find(f => (f.id || '').includes('uxiframe')) ||
-                    frames.find(f => (f.src || '').toLowerCase().includes('uxiframe')) ||
-                    frames.find(f => (f.src || '').toLowerCase().includes('lpn')) ||
-                    frames[0] ||
-                    null;
+                const seenDocs = new Set();
+                const docsToScan = [];
 
-                const doc = uxiframe?.contentDocument || document;
-                if (!doc) return { ok: false, reason: 'no_doc' };
+                // collect candidate docs: current doc + all iframe docs (depth-1)
+                const pushDoc = (doc) => {
+                    if (doc && !seenDocs.has(doc)) {
+                        seenDocs.add(doc);
+                        docsToScan.push(doc);
+                    }
+                };
 
-                const tables = Array.from(doc.querySelectorAll('table'));
-                let hit = null;
-
-                tables.forEach((tbl, tIdx) => {
-                    const rows = Array.from(tbl.querySelectorAll('tr'));
-                    rows.some((row, rIdx) => {
-                        const txt = norm(row.innerText);
-                        if (containsIlpn(txt)) {
-                            hit = {
-                                tableIdx: tIdx,
-                                rowIdx: rIdx,
-                                text: txt.slice(0, 200),
-                                iframeId: uxiframe?.id || null,
-                                iframeSrc: uxiframe?.src || null
-                            };
-                            const targetEl = row.querySelector('a, button') || row;
-                            try { targetEl.scrollIntoView({ block: 'center' }); } catch (e) {}
-                            try { targetEl.dispatchEvent(new MouseEvent('click', { bubbles: true, detail: 1 })); } catch (e) {}
-                            try { targetEl.dispatchEvent(new MouseEvent('dblclick', { bubbles: true, detail: 2 })); } catch (e) {}
-                            return true;
-                        }
-                        return false;
-                    });
+                pushDoc(document);
+                Array.from(document.querySelectorAll('iframe')).forEach(ifr => {
+                    try { pushDoc(ifr.contentDocument); } catch (e) {}
                 });
 
-                if (hit) return { ok: true, ...hit };
+                let hit = null;
+                let scannedTables = 0;
+                let lastIframeId = null;
+                let lastIframeSrc = null;
+
+                for (const doc of docsToScan) {
+                    const ownerFrame = doc.defaultView?.frameElement;
+                    lastIframeId = ownerFrame?.id || null;
+                    lastIframeSrc = ownerFrame?.src || null;
+
+                    const tables = Array.from(doc.querySelectorAll('table'));
+                    scannedTables += tables.length;
+
+                    for (let tIdx = 0; tIdx < tables.length; tIdx++) {
+                        const tbl = tables[tIdx];
+                        const rows = Array.from(tbl.querySelectorAll('tr'));
+                        for (let rIdx = 0; rIdx < rows.length; rIdx++) {
+                            const row = rows[rIdx];
+                            const txt = norm(row.innerText);
+                            if (containsIlpn(txt)) {
+                                hit = {
+                                    tableIdx: tIdx,
+                                    rowIdx: rIdx,
+                                    text: txt.slice(0, 200),
+                                    iframeId: ownerFrame?.id || null,
+                                    iframeSrc: ownerFrame?.src || null,
+                                };
+                                const targetEl = row.querySelector('a, button') || row;
+                                try { targetEl.scrollIntoView({ block: 'center' }); } catch (e) {}
+                                try { targetEl.dispatchEvent(new MouseEvent('click', { bubbles: true, detail: 1 })); } catch (e) {}
+                                try { targetEl.dispatchEvent(new MouseEvent('dblclick', { bubbles: true, detail: 2 })); } catch (e) {}
+                                return { ok: true, ...hit, tablesScanned: scannedTables };
+                            }
+                        }
+                    }
+                }
+
                 return {
                     ok: false,
                     reason: 'no_match',
-                    iframeId: uxiframe?.id || null,
-                    iframeSrc: uxiframe?.src || null,
-                    tables: tables.length
+                    iframeId: lastIframeId,
+                    iframeSrc: lastIframeSrc,
+                    tables: scannedTables
                 };
             }
             """,
