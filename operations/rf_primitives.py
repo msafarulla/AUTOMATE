@@ -1,4 +1,4 @@
-from typing import Optional, Callable, Any
+from typing import Callable, Any
 from playwright.sync_api import Page, Frame
 from core.screenshot import ScreenshotManager
 from utils.hash_utils import HashUtils
@@ -16,16 +16,15 @@ class RFPrimitives:
         page: Page,
         get_iframe_func: Callable[[], Frame],
         screenshot_mgr: ScreenshotManager,
-        reset_to_home: Optional[Callable[[], None]] = None
+        reset_to_home: Callable[[], None] | None = None
     ):
-
         self.page = page
         self.get_iframe = get_iframe_func
         self.screenshot_mgr = screenshot_mgr
         self._reset_to_home = reset_to_home
         self._auto_accept_errors = Settings.app.auto_accept_rf_messages
 
-    def _should_auto_accept(self, auto_accept_override: Optional[bool]) -> bool:
+    def _should_auto_accept(self, auto_accept_override: bool | None) -> bool:
         return self._auto_accept_errors if auto_accept_override is None else auto_accept_override
 
     # ========================================================================
@@ -37,12 +36,11 @@ class RFPrimitives:
         selector: str,
         value: str,
         screenshot_label: str,
-        screenshot_text: str | None = None,  # Use | instead of Optional
+        screenshot_text: str | None = None,
         wait_for_change: bool = True,
         check_errors: bool = True,
         timeout: int = 2000
-    ) -> tuple[bool, str | None]:  # Consistent style
-
+    ) -> tuple[bool, str | None]:
 
         rf_iframe = self.get_iframe()
 
@@ -94,10 +92,9 @@ class RFPrimitives:
         selector: str,
         value: str,
         screenshot_label: str,
-        screenshot_text: Optional[str] = None,
+        screenshot_text: str | None = None,
         timeout: int = 2000
     ):
-
         rf_iframe = self.get_iframe()
 
         input_field = rf_iframe.locator(selector).first
@@ -116,12 +113,12 @@ class RFPrimitives:
     def submit_current_input(
         self,
         screenshot_label: str,
-        screenshot_text: Optional[str] = None,
+        screenshot_text: str | None = None,
         wait_for_change: bool = True,
         check_errors: bool = True,
         timeout: int = 2000,
-        selector: Optional[str] = None
-    ) -> tuple[bool, Optional[str]]:
+        selector: str | None = None
+    ) -> tuple[bool, str | None]:
 
         rf_iframe = self.get_iframe()
         if selector:
@@ -159,9 +156,8 @@ class RFPrimitives:
         self,
         selector: str,
         timeout: int = 5000,
-        transform: Optional[Callable[[str], str]] = None
+        transform: Callable[[str], str] | None = None
     ) -> str:
-
         rf_iframe = self.get_iframe()
         locator = rf_iframe.locator(selector)
         locator.wait_for(state="visible", timeout=timeout)
@@ -181,7 +177,7 @@ class RFPrimitives:
         choice: str,
         label: str,
         timeout: int = 1000
-    ) -> tuple[bool, Optional[str]]:
+    ) -> tuple[bool, str | None]:
         return self.fill_and_submit(
             selector="input[type='text']:visible",
             value=choice,
@@ -198,10 +194,9 @@ class RFPrimitives:
         self,
         key: str,
         screenshot_label: str,
-        screenshot_text: Optional[str] = None,
+        screenshot_text: str | None = None,
         wait_for_change: bool = True
     ):
-
         rf_iframe = self.get_iframe()
 
         prev_snapshot = HashUtils.get_frame_snapshot(rf_iframe) if wait_for_change else None
@@ -230,7 +225,6 @@ class RFPrimitives:
         self.press_key("Control+a", "accepted_message", "Accepted/Proceeded")
 
     def handle_error_and_continue(self) -> bool:
-
         has_error, msg = self._check_for_errors()
         if msg:  # If there's any message (error or info)
             rf_log(f"{'❌ Error' if has_error else 'ℹ️ Info'}: {msg[:100]}")
@@ -242,7 +236,7 @@ class RFPrimitives:
     # HELPER: Error checking
     # ========================================================================
 
-    def _check_for_errors(self) -> tuple[bool, Optional[str]]:
+    def _check_for_errors(self) -> tuple[bool, str | None]:
         try:
             rf_iframe = self.get_iframe()
             self.page.wait_for_timeout(500)
@@ -290,21 +284,16 @@ class RFPrimitives:
 class RFWorkflows:
 
     def __init__(self, primitives: RFPrimitives):
-        """
-        Args:
-            primitives: The RFPrimitives instance to use
-        """
         self.rf = primitives
-        self._last_scanned_selector: Optional[str] = None
+        self._last_scanned_selector: str | None = None
 
-    def _is_invalid_test_data(self, msg: Optional[str]) -> bool:
+    def _is_invalid_test_data(self, msg: str | None) -> bool:
         """Whether the message matches the invalid test data sentinel."""
         if not msg:
             return False
         return msg.strip().casefold() == self.rf.INVALID_TEST_DATA_MSG.casefold()
 
     def navigate_to_screen(self, path: list[tuple[str, str]]):
-
         self.rf.go_home()
 
         for choice, label in path:
@@ -315,7 +304,7 @@ class RFWorkflows:
     def navigate_to_menu_by_search(
         self,
         search_term: str,
-        expected_tran_id: Optional[str] = None,
+        expected_tran_id: str | None = None,
         option_number: str = "1"
     ) -> bool:
         rf = self.rf
@@ -386,8 +375,7 @@ class RFWorkflows:
         value: str,
         label: str,
         timeout: int = 2000
-    ) -> tuple[bool, Optional[str]]:
-
+    ) -> tuple[bool, str | None]:
         self.rf.fill_field(
             selector=selector,
             value=value,
@@ -395,9 +383,7 @@ class RFWorkflows:
             screenshot_text=f"Scanned {label}: {value}",
             timeout=timeout
         )
-
         self._last_scanned_selector = selector
-
         return False, None
 
     def scan_barcode_auto_enter(
@@ -406,8 +392,8 @@ class RFWorkflows:
         value: str,
         label: str,
         timeout: int = 2000,
-        auto_accept_errors: Optional[bool] = None
-    ) -> tuple[bool, Optional[str]]:
+        auto_accept_errors: bool | None = None
+    ) -> tuple[bool, str | None]:
         # Auto-enter flows shouldn't leave stale selectors
         self._last_scanned_selector = None
 
@@ -428,10 +414,9 @@ class RFWorkflows:
         self,
         label: str,
         wait_for_change: bool = True,
-        auto_accept_errors: Optional[bool] = None,
+        auto_accept_errors: bool | None = None,
         timeout: int = 2000
-    ) -> tuple[bool, Optional[str]]:
-
+    ) -> tuple[bool, str | None]:
         target_selector = self._last_scanned_selector
         if not target_selector:
             rf_log("⚠️ press_enter called without a tracked input; defaulting to focused field.")
@@ -456,8 +441,7 @@ class RFWorkflows:
         scans: list[tuple[str, str, str]],
         submit_label: str,
         wait_for_change: bool = True
-    ) -> tuple[bool, Optional[str]]:
- 
+    ) -> tuple[bool, str | None]:
         for selector, value, label in scans:
             has_error, msg = self.scan_barcode(selector, value, label)
             if has_error:
@@ -476,8 +460,8 @@ class RFWorkflows:
         qty: int,
         item_name: str | None = None,
         timeout: int = 1000,
-        auto_accept_errors: Optional[bool] = None,
-        context: Optional[dict[str, Any]] = None,
+        auto_accept_errors: bool | None = None,
+        context: dict[str, Any] | None = None,
     ) -> bool:
         item_label = item_name or getattr(self, "_item", "") or ""
         label = f"qty_{item_label}_{qty}" if item_label else f"qty_{qty}"
@@ -515,8 +499,7 @@ class RFWorkflows:
         selector: str,
         location: str,
         timeout: int = 3000
-    ) -> tuple[bool, Optional[str]]:
- 
+    ) -> tuple[bool, str | None]:
         return self.rf.fill_and_submit(
             selector=selector,
             value=location,
@@ -533,7 +516,6 @@ class RFWorkflows:
 class RFMenuIntegration:
 
     def __init__(self, rf_menu_manager):
-
         self.rf_menu = rf_menu_manager
 
         # Create primitives using existing managers

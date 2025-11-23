@@ -1,9 +1,9 @@
 # ================================
 # Core task scheduling and utilities
 # ================================
-APScheduler==3.11.0          # 3.11.x supports Python 3.13+
+APScheduler==3.11.0
 invoke==2.2.0
-watchdog==5.0.2              # Works on 3.13; 3.x was 3.12-only
+watchdog==5.0.2
 
 # ================================
 # Networking / requests stack
@@ -12,20 +12,20 @@ requests==2.32.3
 urllib3==2.2.3
 certifi==2024.8.30
 charset-normalizer==3.3.2
-idna==3.10                   # 3.6 outdated; 3.10 fully 3.13-safe
+idna==3.10
 
 # ================================
 # HTML parsing
 # ================================
 beautifulsoup4==4.12.3
 bs4==0.0.2
-soupsieve==2.6               # minor update for 3.13 compatibility
+soupsieve==2.6
 
 # ================================
 # Data processing
 # ================================
-numpy==2.1.1                 # 2.x required for Python 3.13 wheels
-pandas==2.2.3                # latest pandas w/ numpy 2.1 compat
+numpy==2.1.1
+pandas==2.2.3
 python-dateutil==2.9.0.post0
 pytz==2024.2
 tzdata==2024.2
@@ -35,9 +35,9 @@ packaging==24.1
 # ================================
 # Security / cryptography
 # ================================
-bcrypt==4.2.0                # bugfix + Py 3.13 wheels
-cffi==1.17.0                 # 1.16.0 fails on 3.13
-cryptography==43.0.1         # latest verified for 3.13
+bcrypt==4.2.0
+cffi==1.17.0
+cryptography==43.0.1
 pycparser==2.22
 PyNaCl==1.5.0
 paramiko==3.5.0
@@ -46,13 +46,13 @@ paramiko==3.5.0
 # Database / Java bridge
 # ================================
 JayDeBeApi==1.2.3
-jpype1==1.5.1                # still safe; 1.6+ unverified for 3.13
+jpype1==1.5.1
 
 # ================================
 # Playwright stack (Python 3.13)
 # ================================
-playwright>=1.48.0a1          # first Py3.13-compatible build
-pyee>=13.0.0                  # required by Playwright >=1.48
+playwright>=1.48.0a1
+pyee>=13.0.0
 
 # ================================
 # Environment and packaging
@@ -61,7 +61,7 @@ python-dotenv==1.0.1
 distlib==0.3.9
 filelock==3.16.1
 platformdirs==4.3.6
-setuptools==75.1.0           # latest stable for 3.13
+setuptools==75.1.0
 wheel==0.44.0
 virtualenv==20.27.1
 
@@ -70,3 +70,18 @@ virtualenv==20.27.1
 # ================================
 six==1.16.0
 typing_extensions==4.12.2
+
+# ================================
+# Testing
+# ================================
+pytest>=7.4.0
+pytest-cov>=4.1.0
+pytest-mock>=3.12.0
+pytest-asyncio>=0.21.0
+coverage>=7.3.0
+
+# ================================
+# Code quality (optional)
+# ================================
+ruff>=0.1.0
+mypy>=1.7.0

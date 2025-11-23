@@ -1,13 +1,13 @@
 from datetime import datetime
 from pathlib import Path
-from typing import Callable, Optional, Any
+from typing import Callable, Any
 from playwright.sync_api import Page, TimeoutError as PlaywrightTimeoutError
 from utils.eval_utils import safe_page_evaluate, safe_locator_evaluate, PageUnavailableError
 from core.logger import app_log
 
 
 class ScreenshotManager:
-    def __init__(self, output_dir: str = "screenshots", image_format: str = "png", image_quality: Optional[int] = None):
+    def __init__(self, output_dir: str = "screenshots", image_format: str = "png", image_quality: int | None = None):
         self.output_dir = Path(output_dir)
         self.output_dir.mkdir(exist_ok=True)
         self.current_output_dir = self.output_dir
@@ -22,18 +22,20 @@ class ScreenshotManager:
             raise ValueError(f"Unsupported screenshot format: {image_format}")
         self.image_format = fmt
         self.image_quality = image_quality if (fmt == "jpeg" and image_quality is not None) else None
-        self._rf_pre_capture_hook: Optional[Callable[[], None]] = None
-        self._rf_post_capture_hook: Optional[Callable[[], None]] = None
+        self._rf_pre_capture_hook: Callable[[], None] | None = None
+        self._rf_post_capture_hook: Callable[[], None] | None = None
         self._screenshot_timeout_ms = 15000
 
-    def register_rf_capture_hooks(self,
-                                  pre_hook: Optional[Callable[[], None]] = None,
-                                  post_hook: Optional[Callable[[], None]] = None):
+    def register_rf_capture_hooks(
+        self,
+        pre_hook: Callable[[], None] | None = None,
+        post_hook: Callable[[], None] | None = None
+    ):
         """Allow RF flows to inject callbacks around every RF screenshot."""
         self._rf_pre_capture_hook = pre_hook
         self._rf_post_capture_hook = post_hook
 
-    def capture(self, page: Page, label: str, overlay_text: str = None, onDemand: bool = True) -> Optional[Path]:
+    def capture(self, page: Page, label: str, overlay_text: str | None = None, onDemand: bool = True) -> Path | None:
         if not onDemand:
             app_log("⚠️ Screenshot capture skipped due to onDemand=False.")
             return None
@@ -77,13 +79,14 @@ class ScreenshotManager:
         app_log(f"📸 Screenshot saved: {filename}")
         return filename
 
-    def capture_rf_window(self, page: Page, label: str, overlay_text: str = None):
+    def capture_rf_window(self, page: Page, label: str, overlay_text: str | None = None) -> Path | None:
         """Capture RF Menu window screenshot"""
         self.sequence += 1
         filename = self._build_filename(label)
         overlay_added = False
         timestamp_added = False
         overlay_text_val = overlay_text or self._default_overlay_text()
+        target = None
 
         try:
             self._run_rf_hook(self._rf_pre_capture_hook)
@@ -117,7 +120,7 @@ class ScreenshotManager:
             timestamp_added = True
             page.screenshot(**self._screenshot_kwargs(filename))
         finally:
-            if overlay_added:
+            if overlay_added and target:
                 try:
                     self._remove_overlay_from_target(target)
                 except PageUnavailableError:
@@ -143,7 +146,7 @@ class ScreenshotManager:
         kwargs["timeout"] = self._screenshot_timeout_ms
         return kwargs
 
-    def _run_rf_hook(self, hook: Optional[Callable[[], None]]):
+    def _run_rf_hook(self, hook: Callable[[], None] | None):
         if not hook:
             return
         try:
@@ -185,6 +188,7 @@ class ScreenshotManager:
         if not parts:
             return None
         return " / ".join(parts)
+
     def _add_overlay(self, page: Page, text: str, top_offset: float = 40):
         safe_page_evaluate(
             page,
@@ -247,14 +251,14 @@ class ScreenshotManager:
                 overlay.style.left = '50%';
                 overlay.style.transform = 'translateX(-50%)';
                 overlay.style.background = 'rgba(250,250,250,0.3)';
-                    overlay.style.color = 'rgba(20,20,20,0.85)';
-                    overlay.style.padding = '6px 20px';
-                    overlay.style.fontSize = '15px';
-                    overlay.style.fontWeight = '500';
-                    overlay.style.fontFamily = 'Fira Code, monospace';
-                    overlay.style.borderRadius = '16px';
-                    overlay.style.boxShadow = '0 8px 20px rgba(0,0,0,0.35)';
-                    overlay.style.backdropFilter = 'blur(12px)';
+                overlay.style.color = 'rgba(20,20,20,0.85)';
+                overlay.style.padding = '6px 20px';
+                overlay.style.fontSize = '15px';
+                overlay.style.fontWeight = '500';
+                overlay.style.fontFamily = 'Fira Code, monospace';
+                overlay.style.borderRadius = '16px';
+                overlay.style.boxShadow = '0 8px 20px rgba(0,0,0,0.35)';
+                overlay.style.backdropFilter = 'blur(12px)';
                 overlay.style.zIndex = '99999999';
                 overlay.style.pointerEvents = 'none';
                 overlay.style.whiteSpace = 'nowrap';
@@ -311,7 +315,7 @@ class ScreenshotManager:
 
     def _add_timestamp(self, page: Page, rect: dict | None = None):
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        params = {"text": timestamp}
+        params: dict[str, Any] = {"text": timestamp}
         if rect:
             params["top"] = max(10.0, float(rect.get("bottom", 0.0)) - 18.0)
             params["left"] = max(10.0, float(rect.get("right", 0.0)) - 140.0)
