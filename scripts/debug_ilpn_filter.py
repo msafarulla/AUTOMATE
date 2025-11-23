@@ -154,6 +154,114 @@ def _statusbar_count(target) -> int | None:
     return None
 
 
+def _click_ilpn_detail_tabs(target):
+    """Open detail tabs (Contents, Header, Locks, LPN Movement, Audit, Documents) for capture."""
+    # Always surface all tab panels to avoid UI8 tab handler issues.
+    _force_ilpn_panels_visible(target)
+    patterns = [
+        ("contents", ["LPN_Contents", "contents"]),
+        ("header", ["LPN_Header", "header"]),
+        ("locks", ["LPN_Locks", "locks"]),
+        ("lpn movement", ["LPN_Movement", "lpn_movement", "movement"]),
+        ("audit", ["LPN_Audit", "audit"]),
+        ("documents", ["LPN_Documents", "documents"]),
+    ]
+
+    for name, needles in patterns:
+        try:
+            target.evaluate(
+                """
+                (payload) => {
+                    const { name, needles } = payload;
+                    const norm = (s) => (s || '').replace(/\\s+/g, ' ').trim().toLowerCase();
+                    const docs = [document];
+                    document.querySelectorAll('iframe').forEach(ifr => {
+                        try { if (ifr.contentDocument) docs.push(ifr.contentDocument); } catch (e) {}
+                    });
+
+                    const tryClick = (el) => {
+                        if (!el) return false;
+                        try { el.scrollIntoView({ block: 'center' }); } catch (e) {}
+                        try { el.dispatchEvent(new MouseEvent('mousedown', { bubbles: true })); } catch (e) {}
+                        try { el.dispatchEvent(new MouseEvent('click', { bubbles: true })); } catch (e) {}
+                        return true;
+                    };
+
+                    for (const doc of docs) {
+                        for (const n of needles) {
+                            const el = doc.querySelector(`[id*=\"${n}\"]`);
+                            if (el && tryClick(el)) return true;
+                        }
+                        const candidates = Array.from(doc.querySelectorAll('.tab_tab, .tab_link, .tab_span, .x-tab-strip li, [role=\"tab\"], li, span, a, button, div'));
+                        const hit = candidates.find(el => {
+                            const txt = norm(el.innerText || el.textContent || '');
+                            if (!txt) return false;
+                            return txt === name || txt.includes(name);
+                        });
+                        if (hit && tryClick(hit)) return true;
+                    }
+                    return false;
+                }
+                """,
+                {"name": name, "needles": needles},
+            )
+            # Small pause to allow panel to render before next click
+            try:
+                target.wait_for_timeout(200)
+            except Exception:
+                pass
+        except Exception:
+            continue
+
+
+def _force_ilpn_panels_visible(target):
+    """Force all iLPN tab panels visible and scroll to each sequentially."""
+    panels = {
+        "LPN_Contents_Tab": "CONT_dataForm:LPN_Contents_Tab",
+        "LPN_Header_Tab": "CONT_dataForm:LPN_Header_Tab",
+        "LPN_Locks_Tab": "CONT_dataForm:LPN_Locks_Tab",
+        "LPN_Movement_Tab": "CONT_dataForm:LPN_Movement_Tab",
+        "LPN_Audit_Tab": "CONT_dataForm:LPN_Audit_Tab",
+        "LPNDocMgt": "CONT_dataForm:LPNDocMgt",
+    }
+
+    try:
+        target.evaluate(
+            """
+            (panelMap) => {
+                const docs = [document, ...Array.from(document.querySelectorAll('iframe')).map(ifr => ifr.contentDocument).filter(Boolean)];
+                const ids = Object.values(panelMap);
+
+                // Make all panels visible
+                docs.forEach(doc => {
+                    ids.forEach(pid => {
+                        const el = doc.getElementById(pid);
+                        if (el) {
+                            el.style.display = 'block';
+                            el.style.visibility = 'visible';
+                            el.style.opacity = '1';
+                            el.removeAttribute('hidden');
+                        }
+                    });
+                });
+
+                // Scroll through panels to bring them into view (best effort)
+                ids.forEach(pid => {
+                    docs.forEach(doc => {
+                        const el = doc.getElementById(pid);
+                        if (el) {
+                            try { el.scrollIntoView({ block: 'start' }); } catch (e) {}
+                        }
+                    });
+                });
+            }
+            """,
+            panels,
+        )
+    except Exception:
+        pass
+
+
 def _dom_open_ilpn_row(target, ilpn: str) -> bool:
     """DOM fallback: search nested uxiframe tables for the ILPN and open it."""
     try:
@@ -356,10 +464,12 @@ def _open_single_filtered_ilpn_row(target, ilpn: str) -> bool:
     # Try ExtJS-native open first when we detect a single row
     if row_count == 1 and _ext_open_first_row(target):
         app_log("✅ Opened single iLPN row via ExtJS API")
+        _click_ilpn_detail_tabs(target)
         return True
 
     # DOM fallback inside nested uxiframe/table (retry after quick checks)
     if _dom_open_ilpn_row(target, ilpn):
+        _click_ilpn_detail_tabs(target)
         return True
 
     # Final attempt using raw locators if we did count rows
@@ -386,6 +496,7 @@ def _open_single_filtered_ilpn_row(target, ilpn: str) -> bool:
             try:
                 attempt()
                 app_log("✅ Opened single iLPN row to view details")
+                _click_ilpn_detail_tabs(target)
                 return True
             except Exception as exc:
                 app_log(f"➖ Row open attempt did not succeed: {exc}")
