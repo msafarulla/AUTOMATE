@@ -1,6 +1,6 @@
 # operations/inbound/receive.py (simplified)
 from core.logger import rf_log
-from core.detour import ensure_detour_page_ready
+from core.detour import run_open_ui_detours
 from operations.base_operation import BaseOperation
 from operations.inbound.receive_state_machine import ReceiveStateMachine
 from operations.rf_primitives import RFMenuIntegration
@@ -72,91 +72,6 @@ class ReceiveOperation(BaseOperation):
             rf_log(f"❌ iLPN filter via helper failed: {exc}")
             return False
 
-    def _maybe_run_open_ui(self, open_ui_cfg: dict[str, Any] | list[dict[str, Any]] | None) -> bool:
-        """Open one or more configured UIs mid-flow (e.g., Tasks or iLPNs)."""
-        if not open_ui_cfg:
-            return True
-
-        # Normalize to a list of entries
-        entries: list[dict[str, Any]] = []
-        base_cfg: dict[str, Any] = {}
-        if isinstance(open_ui_cfg, list):
-            entries = open_ui_cfg
-        elif isinstance(open_ui_cfg, dict):
-            if not bool(open_ui_cfg.get("enabled", True)):
-                return True
-            base_cfg = open_ui_cfg
-            entries = open_ui_cfg.get("entries") or [open_ui_cfg]
-        else:
-            return True
-
-        nav_mgr_main = NavigationManager(self.page, self.screenshot_mgr)
-        detour_nav = self.detour_nav or (NavigationManager(self.detour_page, self.screenshot_mgr) if self.detour_page else None)
-
-        for idx, entry in enumerate(entries, 1):
-            if not entry or not bool(entry.get("enabled", True)):
-                continue
-
-            use_nav = detour_nav if detour_nav else nav_mgr_main
-            use_page = self.detour_page if self.detour_page else self.page
-
-            if self.detour_page:
-                ensure_detour_page_ready(self.detour_page, self.page, self.settings, self.screenshot_mgr)
-                use_nav.close_active_windows(skip_titles=["rf menu"])
-
-            search_term = entry.get("search_term") or base_cfg.get("search_term", "tasks")
-            match_text = entry.get("match_text") or base_cfg.get("match_text", "Tasks (Configuration)")
-            if not use_nav.open_menu_item(search_term, match_text, close_existing=True, onDemand=False):
-                rf_log(f"❌ UI detour #{idx} failed during receive flow.")
-                return False
-
-            # Expand the detour window for better visibility/capture.
-            try:
-                use_page.wait_for_timeout(5000)
-                use_nav.maximize_non_rf_windows()
-            except Exception:
-                pass
-
-            operation_note = (
-                entry.get("operation_note")
-                or base_cfg.get("operation_note")
-                or f"Visited UI #{idx} during receive"
-            )
-            screenshot_tag = (
-                entry.get("screenshot_tag")
-                or base_cfg.get("screenshot_tag")
-                or f"receive_open_ui_{idx}"
-            )
-
-            rf_log(f"ℹ️ {operation_note}")
-
-            if entry.get("close_after_open"):
-                try:
-                    windows = use_page.locator("div.x-window:visible")
-                    if windows.count() > 0:
-                        win = windows.last
-                        try:
-                            win.locator(".x-tool-close").first.click()
-                        except Exception:
-                            try:
-                                use_page.keyboard.press("Escape")
-                            except Exception:
-                                pass
-                    NavigationManager(use_page, self.screenshot_mgr).close_active_windows(skip_titles=[])
-                except Exception:
-                    pass
-
-            if entry.get("fill_ilpn") and self._screen_context and self._screen_context.get("ilpn"):
-                ilpn_val = self._screen_context.get("ilpn")
-                if not self._fill_ilpn_quick_filter(str(ilpn_val), page=use_page):
-                    return False
-                use_page.wait_for_timeout(5000)
-                self.screenshot_mgr.capture(use_page, screenshot_tag, operation_note)
-        return True
-
-    def _handle_open_ui(self, cfg: dict):
-        self._maybe_run_open_ui(cfg)
-
     def _cache_screen_context(self):
         """Pull key values from the state machine for later detour use (i.e., iLPN fill)."""
         ctx = getattr(self.state_machine, "context", None)
@@ -188,3 +103,17 @@ class ReceiveOperation(BaseOperation):
             return
         self._cache_screen_context()
         self._handle_open_ui(cfg)
+
+    def _handle_open_ui(self, cfg: dict | list[dict] | None):
+        """Invoke shared detour runner."""
+        return run_open_ui_detours(
+            cfg,
+            main_page=self.page,
+            screenshot_mgr=self.screenshot_mgr,
+            main_nav=NavigationManager(self.page, self.screenshot_mgr),
+            detour_page=self.detour_page,
+            detour_nav=self.detour_nav,
+            settings=self.settings,
+            fill_ilpn_cb=self._fill_ilpn_quick_filter,
+            screen_context=self._screen_context,
+        )
