@@ -815,7 +815,8 @@ def _click_ilpn_detail_tabs(target):
         app_log(f"⚠️ Could not enumerate frames: {e}")
 
     # Tab names to click
-    tab_names = ["Header", "Locks", "LPN Movement", "Audit", "Documents"]
+    # tab_names = ["Header", "Locks", "LPN Movement", "Audit", "Documents"]
+    tab_names = ["Header", "Locks"]
 
     for tab_name in tab_names:
         app_log(f"\n🔄 Attempting to click tab: {tab_name}")
