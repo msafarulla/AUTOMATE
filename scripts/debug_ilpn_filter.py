@@ -871,6 +871,14 @@ def _click_ilpn_detail_tabs(
                             app_log(f"    ✅ Clicked element {i}")
                             clicked = True
                             page_target.wait_for_timeout(800)
+                            if screenshot_mgr:
+                                safe_tag = screenshot_tag or "ilpn_tab"
+                                tab_slug = tab_name.lower().replace(" ", "_")
+                                screenshot_mgr.capture(
+                                    use_page,
+                                    f"{safe_tag}_{tab_slug}",
+                                    f"{base_note}: {tab_name}",
+                                )
                             break
                         except Exception as e:
                             app_log(f"    ⚠️ Element {i} click failed: {e}")
@@ -922,15 +930,6 @@ def _click_ilpn_detail_tabs(
                         app_log(f"    ✅ JS click succeeded: {result}")
                         clicked = True
                         page_target.wait_for_timeout(800)
-                        if screenshot_mgr:
-                            safe_tag = screenshot_tag or "ilpn_tab"
-                            tab_slug = tab_name.lower().replace(" ", "_")
-                            screenshot_mgr.capture(
-                                use_page,
-                                f"{safe_tag}_{tab_slug}",
-                                f"{base_note}: {tab_name}",
-                            )
-
                         break
                     else:
                         app_log(f"    ⚠️ JS click failed: {result}")
