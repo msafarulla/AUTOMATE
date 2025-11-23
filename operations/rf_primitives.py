@@ -190,7 +190,7 @@ class RFPrimitives:
     # PRIMITIVE 4: Keyboard shortcuts
     # ========================================================================
 
-    def press_key(
+    def press_rf_hot_key(
         self,
         key: str,
         screenshot_label: str,
@@ -218,11 +218,11 @@ class RFPrimitives:
         if self._reset_to_home:
             self._reset_to_home()
             return
-        self.press_key("Control+b", "RF_HOME", "RF Home")
+        self.press_rf_hot_key("Control+b", "RF_HOME", "RF Home")
 
     def accept_message(self):
         """Accept/proceed from info or error screen (Ctrl+A)."""
-        self.press_key("Control+a", "accepted_message", "Accepted/Proceeded")
+        self.press_rf_hot_key("Control+a", "accepted_message", "Accepted/Proceeded")
 
     def handle_error_and_continue(self) -> bool:
         has_error, msg = self._check_for_errors()
@@ -313,7 +313,7 @@ class RFWorkflows:
         slug = re.sub(r'[^A-Za-z0-9]+', '_', search_term).strip('_') or "menu"
 
         rf.go_home()
-        rf.press_key("Control+f", "rf_menu_search", "Opened menu search", wait_for_change=False)
+        rf.press_rf_hot_key("Control+f", "rf_menu_search", "Opened menu search")
 
         has_error, msg = rf.fill_and_submit(
             selector="input[type='text']:visible",
