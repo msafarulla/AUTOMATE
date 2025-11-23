@@ -217,6 +217,11 @@ def _dom_open_ilpn_row(target, ilpn: str) -> bool:
                                 try { checkbox?.click?.(); } catch (e) {}
                                 try { targetEl.dispatchEvent(new MouseEvent('click', { bubbles: true, detail: 1 })); } catch (e) {}
                                 try { targetEl.dispatchEvent(new MouseEvent('dblclick', { bubbles: true, detail: 2 })); } catch (e) {}
+                                try {
+                                    const buttons = Array.from((ownerFrame?.contentDocument || doc).querySelectorAll('button, a'));
+                                    const viewBtn = buttons.find(b => /view/i.test(b.textContent || ''));
+                                    viewBtn?.click?.();
+                                } catch (e) {}
                                 return { ok: true, ...hit, tablesScanned: scannedTables };
                             }
                         }
@@ -238,6 +243,11 @@ def _dom_open_ilpn_row(target, ilpn: str) -> bool:
                                 try { checkbox?.click?.(); } catch (e) {}
                                 try { targetEl.dispatchEvent(new MouseEvent('click', { bubbles: true, detail: 1 })); } catch (e) {}
                                 try { targetEl.dispatchEvent(new MouseEvent('dblclick', { bubbles: true, detail: 2 })); } catch (e) {}
+                                try {
+                                    const buttons = Array.from((ownerFrame?.contentDocument || doc).querySelectorAll('button, a'));
+                                    const viewBtn = buttons.find(b => /view/i.test(b.textContent || ''));
+                                    viewBtn?.click?.();
+                                } catch (e) {}
                                 return {
                                     ok: true,
                                     reason: 'text_search',
