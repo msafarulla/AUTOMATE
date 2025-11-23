@@ -157,40 +157,86 @@ def _statusbar_count(target) -> int | None:
 def _click_ilpn_detail_tabs(target):
     """
     Focus the Header tab panel for capture (stable tab), avoiding UI8 tab JS crashes.
+    Uses a resilient in-page script to wait for iframes, find header link, click it,
+    and force the panel visible/scroll into view.
     """
-    # Give detail page time to render
-    try:
-        target.wait_for_timeout(1500)
-    except Exception:
-        pass
-
     try:
         target.evaluate(
             """
-            (payload) => {
-                const { panel_id, link_id } = payload;
-                const frames = [window, ...Array.from(window.frames)];
-                frames.forEach(win => {
-                    let href = '';
-                    try { href = (win.location?.href || '').toLowerCase(); } catch (e) { href = ''; }
-                    if (!href.includes('viewlpninbound')) return;
-                    const doc = win.document;
-                    const panel = doc.getElementById(panel_id);
-                    if (panel) {
-                        panel.style.display = 'block';
-                        panel.style.visibility = 'visible';
-                        panel.style.opacity = '1';
-                        panel.removeAttribute('hidden');
-                        try { panel.scrollIntoView({ block: 'start' }); } catch (e) { panel.scrollIntoView(); }
-                        panel.style.outline = '2px solid red';
-                        setTimeout(() => { panel.style.outline = ''; }, 800);
+            () => {
+                const PANEL = "CONT_dataForm:LPN_Header_Tab";
+                const LINK = "LPN_Header_Tab_lnk";
+                const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+                const escapeId = (id) => id.replace(/:/g, "\\\\:");
+
+                const waitFrames = () => {
+                    const iframes = Array.from(document.querySelectorAll("iframe"));
+                    return Promise.all(
+                        iframes.map(f => new Promise(res => {
+                            if (f.contentDocument && f.contentDocument.readyState !== "loading") return res();
+                            f.addEventListener("load", () => res(), { once: true });
+                            setTimeout(res, 3000);
+                        }))
+                    ).then(() => iframes);
+                };
+
+                const waitForVisible = async (doc, id, timeout = 4000, interval = 200) => {
+                    const start = Date.now();
+                    while (Date.now() - start < timeout) {
+                        const el = doc.getElementById(id);
+                        if (el) {
+                            const style = doc.defaultView.getComputedStyle(el);
+                            const visible = style && style.display !== "none" && style.visibility !== "hidden" && el.offsetParent !== null;
+                            if (visible) return el;
+                        }
+                        await sleep(interval);
                     }
-                    const link = doc.getElementById(link_id) || doc.getElementById(panel_id.replace('CONT_', 'TABH_')) || doc.getElementById(link_id.replace('_lnk', ''));
-                    try { link?.click?.(); } catch (e) {}
-                });
+                    return doc.getElementById(id) || null;
+                };
+
+                (async () => {
+                    const iframes = await waitFrames();
+                    const docs = [document, ...iframes.map(f => { try { return f.contentDocument; } catch (e) { return null; } }).filter(Boolean)];
+
+                    for (const doc of docs) {
+                        const candidates = [
+                            () => doc.getElementById(LINK),
+                            () => doc.getElementById(PANEL.replace("CONT_", "TABH_")),
+                            () => doc.querySelector(`#${escapeId(LINK)}`),
+                            () => doc.querySelector(`#${escapeId(PANEL.replace("CONT_", "TABH_"))}`)
+                        ];
+                        let hdr = null;
+                        for (const c of candidates) { try { hdr = c(); } catch (e) { hdr = null; } if (hdr) break; }
+
+                        if (!hdr) continue;
+
+                        try { hdr.click(); } catch (e) { try { hdr.dispatchEvent(new MouseEvent("click", { bubbles: true })); } catch (_) {} }
+
+                        const el = doc.getElementById(PANEL);
+                        if (el) {
+                            el.style.display = "block";
+                            el.style.visibility = "visible";
+                            el.style.opacity = "1";
+                            el.removeAttribute("hidden");
+                            try { el.scrollIntoView({ behavior: "smooth", block: "start" }); } catch(_) { el.scrollIntoView(); }
+                            el.style.outline = "2px solid orange";
+                            setTimeout(() => { el.style.outline = ""; }, 800);
+                        }
+
+                        const visible = await waitForVisible(doc, PANEL, 4000, 200);
+                        if (visible) {
+                            visible.style.display = "block";
+                            visible.style.visibility = "visible";
+                            visible.style.opacity = "1";
+                            visible.removeAttribute("hidden");
+                            try { visible.scrollIntoView({ behavior: "smooth", block: "start" }); } catch(_) { visible.scrollIntoView(); }
+                            visible.style.outline = "2px solid lime";
+                            setTimeout(() => { visible.style.outline = ""; }, 800);
+                        }
+                    }
+                })();
             }
             """,
-            {"panel_id": "CONT_dataForm:LPN_Header_Tab", "link_id": "LPN_Header_Tab_lnk"},
         )
     except Exception:
         pass
