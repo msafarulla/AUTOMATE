@@ -843,8 +843,16 @@ def _click_ilpn_detail_tabs(
 
     # Tab names to click
     # tab_names = ["Header", "Locks", "LPN Movement", "Audit", "Documents"]
-    tab_names = ["Contents", "Header", "Locks"]
-
+    tab_names = ["Header", "Locks"]
+    
+    if screenshot_mgr:
+        safe_tag = screenshot_tag or "ilpn_tab"
+        tab_slug = tab_name.lower().replace(" ", "_")
+        screenshot_mgr.capture(
+            use_page,
+            f"{safe_tag}_{tab_slug}",
+            f"{base_note}: {tab_name}",
+        )
     for tab_name in tab_names:
         app_log(f"\n🔄 Attempting to click tab: {tab_name}")
         clicked = False
