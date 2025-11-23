@@ -160,8 +160,23 @@ def _click_ilpn_detail_tabs(target):
     Uses a resilient in-page script to wait for iframes, find header link, click it,
     and force the panel visible/scroll into view.
     """
+    # Try to target the detail frame explicitly; fallback to page.
+    detail_frame = None
     try:
-        target.evaluate(
+        for f in target.frames:
+            try:
+                if "viewlpninbound" in (f.url or "").lower():
+                    detail_frame = f
+                    break
+            except Exception:
+                continue
+    except Exception:
+        detail_frame = None
+
+    page_for_eval = detail_frame or target
+
+    try:
+        page_for_eval.evaluate(
             """
             () => {
                 const PANEL = "CONT_dataForm:LPN_Header_Tab";
