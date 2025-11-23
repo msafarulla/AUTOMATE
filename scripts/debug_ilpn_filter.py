@@ -154,109 +154,6 @@ def _statusbar_count(target) -> int | None:
     return None
 
 
-def _click_ilpn_detail_tabs(target):
-    """
-    Focus the Header tab panel for capture (stable tab), avoiding UI8 tab JS crashes.
-    Uses a resilient in-page script to wait for iframes, find header link, click it,
-    and force the panel visible/scroll into view.
-    """
-    # Try to target the detail frame explicitly; fallback to page.
-    detail_frame = None
-    try:
-        for f in target.frames:
-            try:
-                if "viewlpninbound" in (f.url or "").lower():
-                    detail_frame = f
-                    break
-            except Exception:
-                continue
-    except Exception:
-        detail_frame = None
-
-    page_for_eval = detail_frame or target
-
-    try:
-        page_for_eval.evaluate(
-            """
-            () => {
-                const PANEL = "CONT_dataForm:LPN_Header_Tab";
-                const LINK = "LPN_Header_Tab_lnk";
-                const sleep = (ms) => new Promise(r => setTimeout(r, ms));
-                const escapeId = (id) => id.replace(/:/g, "\\\\:");
-
-                const waitFrames = () => {
-                    const iframes = Array.from(document.querySelectorAll("iframe"));
-                    return Promise.all(
-                        iframes.map(f => new Promise(res => {
-                            if (f.contentDocument && f.contentDocument.readyState !== "loading") return res();
-                            f.addEventListener("load", () => res(), { once: true });
-                            setTimeout(res, 3000);
-                        }))
-                    ).then(() => iframes);
-                };
-
-                const waitForVisible = async (doc, id, timeout = 4000, interval = 200) => {
-                    const start = Date.now();
-                    while (Date.now() - start < timeout) {
-                        const el = doc.getElementById(id);
-                        if (el) {
-                            const style = doc.defaultView.getComputedStyle(el);
-                            const visible = style && style.display !== "none" && style.visibility !== "hidden" && el.offsetParent !== null;
-                            if (visible) return el;
-                        }
-                        await sleep(interval);
-                    }
-                    return doc.getElementById(id) || null;
-                };
-
-                (async () => {
-                    const iframes = await waitFrames();
-                    const docs = [document, ...iframes.map(f => { try { return f.contentDocument; } catch (e) { return null; } }).filter(Boolean)];
-
-                    for (const doc of docs) {
-                        const candidates = [
-                            () => doc.getElementById(LINK),
-                            () => doc.getElementById(PANEL.replace("CONT_", "TABH_")),
-                            () => doc.querySelector(`#${escapeId(LINK)}`),
-                            () => doc.querySelector(`#${escapeId(PANEL.replace("CONT_", "TABH_"))}`)
-                        ];
-                        let hdr = null;
-                        for (const c of candidates) { try { hdr = c(); } catch (e) { hdr = null; } if (hdr) break; }
-
-                        if (!hdr) continue;
-
-                        try { hdr.click(); } catch (e) { try { hdr.dispatchEvent(new MouseEvent("click", { bubbles: true })); } catch (_) {} }
-
-                        const el = doc.getElementById(PANEL);
-                        if (el) {
-                            el.style.display = "block";
-                            el.style.visibility = "visible";
-                            el.style.opacity = "1";
-                            el.removeAttribute("hidden");
-                            try { el.scrollIntoView({ behavior: "smooth", block: "start" }); } catch(_) { el.scrollIntoView(); }
-                            el.style.outline = "2px solid orange";
-                            setTimeout(() => { el.style.outline = ""; }, 800);
-                        }
-
-                        const visible = await waitForVisible(doc, PANEL, 4000, 200);
-                        if (visible) {
-                            visible.style.display = "block";
-                            visible.style.visibility = "visible";
-                            visible.style.opacity = "1";
-                            visible.removeAttribute("hidden");
-                            try { visible.scrollIntoView({ behavior: "smooth", block: "start" }); } catch(_) { visible.scrollIntoView(); }
-                            visible.style.outline = "2px solid lime";
-                            setTimeout(() => { visible.style.outline = ""; }, 800);
-                        }
-                    }
-                })();
-            }
-            """,
-        )
-    except Exception:
-        pass
-
-
 def _force_ilpn_panels_visible(target):
     """Force all iLPN tab panels visible and scroll to each sequentially."""
     panels = {
@@ -307,10 +204,12 @@ def _force_ilpn_panels_visible(target):
 
 def _dom_open_ilpn_row(target, ilpn: str) -> bool:
     """DOM fallback: search nested uxiframe tables for the ILPN and open it."""
+    app_log(f"🐛 DEBUG: _dom_open_ilpn_row called for iLPN: {ilpn}")
     try:
         result = target.evaluate(
             """
             (ilpn) => {
+                console.log('DOM search starting for:', ilpn);
                 const norm = (s) => (s || '').replace(/\\s+/g, ' ').trim();
                 const digits = (s) => (s || '').replace(/\\D+/g, '');
                 const containsIlpn = (txt) => {
@@ -335,6 +234,8 @@ def _dom_open_ilpn_row(target, ilpn: str) -> bool:
                     try { pushDoc(ifr.contentDocument); } catch (e) {}
                 });
 
+                console.log('Documents to scan:', docsToScan.length);
+
                 let hit = null;
                 let scannedTables = 0;
                 let lastIframeId = null;
@@ -347,6 +248,7 @@ def _dom_open_ilpn_row(target, ilpn: str) -> bool:
 
                     const tables = Array.from(doc.querySelectorAll('table'));
                     scannedTables += tables.length;
+                    console.log('Scanning', tables.length, 'tables in doc');
 
                     for (let tIdx = 0; tIdx < tables.length; tIdx++) {
                         const tbl = tables[tIdx];
@@ -355,6 +257,7 @@ def _dom_open_ilpn_row(target, ilpn: str) -> bool:
                             const row = rows[rIdx];
                             const txt = norm(row.innerText);
                             if (containsIlpn(txt)) {
+                                console.log('FOUND MATCH in table', tIdx, 'row', rIdx, ':', txt.substring(0, 100));
                                 hit = {
                                     tableIdx: tIdx,
                                     rowIdx: rIdx,
@@ -365,13 +268,20 @@ def _dom_open_ilpn_row(target, ilpn: str) -> bool:
                                 const targetEl = row.querySelector('a, button') || row;
                                 try { targetEl.scrollIntoView({ block: 'center' }); } catch (e) {}
                                 const checkbox = row.querySelector?.('input[type=\"checkbox\"], .x-grid-row-checker');
-                                try { checkbox?.click?.(); } catch (e) {}
-                                try { targetEl.dispatchEvent(new MouseEvent('click', { bubbles: true, detail: 1 })); } catch (e) {}
-                                try { targetEl.dispatchEvent(new MouseEvent('dblclick', { bubbles: true, detail: 2 })); } catch (e) {}
+                                try { checkbox?.click?.(); console.log('Clicked checkbox'); } catch (e) {}
+                                try { 
+                                    targetEl.dispatchEvent(new MouseEvent('click', { bubbles: true, detail: 1 })); 
+                                    console.log('Dispatched click');
+                                } catch (e) {}
+                                try { 
+                                    targetEl.dispatchEvent(new MouseEvent('dblclick', { bubbles: true, detail: 2 })); 
+                                    console.log('Dispatched dblclick');
+                                } catch (e) {}
                                 try {
                                     const buttons = Array.from((ownerFrame?.contentDocument || doc).querySelectorAll('button, a'));
                                     const viewBtn = buttons.find(b => /view/i.test(b.textContent || ''));
                                     viewBtn?.click?.();
+                                    console.log('Clicked view button');
                                 } catch (e) {}
                                 return { ok: true, ...hit, tablesScanned: scannedTables };
                             }
@@ -380,24 +290,34 @@ def _dom_open_ilpn_row(target, ilpn: str) -> bool:
                 }
 
                 // If no table match, try a broader element text search (div/span/td/etc.)
+                console.log('No table match, trying text search...');
                 const tryTextSearch = () => {
                     for (const doc of docsToScan) {
                         const ownerFrame = doc.defaultView?.frameElement;
                         const elems = Array.from(doc.querySelectorAll('tr, td, span, div, a, button, li, [role=\"row\"]'));
+                        console.log('Text search checking', elems.length, 'elements');
                         for (const el of elems) {
                             const txt = norm(el.innerText);
                             if (!txt) continue;
                             if (containsIlpn(txt)) {
+                                console.log('FOUND via text search:', txt.substring(0, 100));
                                 const targetEl = el.closest('tr, .x-grid-row, .x-grid-item, [role=\"row\"], a, button') || el;
                                 try { targetEl.scrollIntoView({ block: 'center' }); } catch (e) {}
                                 const checkbox = targetEl.querySelector?.('input[type=\"checkbox\"], .x-grid-row-checker');
-                                try { checkbox?.click?.(); } catch (e) {}
-                                try { targetEl.dispatchEvent(new MouseEvent('click', { bubbles: true, detail: 1 })); } catch (e) {}
-                                try { targetEl.dispatchEvent(new MouseEvent('dblclick', { bubbles: true, detail: 2 })); } catch (e) {}
+                                try { checkbox?.click?.(); console.log('Clicked checkbox'); } catch (e) {}
+                                try { 
+                                    targetEl.dispatchEvent(new MouseEvent('click', { bubbles: true, detail: 1 })); 
+                                    console.log('Dispatched click');
+                                } catch (e) {}
+                                try { 
+                                    targetEl.dispatchEvent(new MouseEvent('dblclick', { bubbles: true, detail: 2 })); 
+                                    console.log('Dispatched dblclick');
+                                } catch (e) {}
                                 try {
                                     const buttons = Array.from((ownerFrame?.contentDocument || doc).querySelectorAll('button, a'));
                                     const viewBtn = buttons.find(b => /view/i.test(b.textContent || ''));
                                     viewBtn?.click?.();
+                                    console.log('Clicked view button');
                                 } catch (e) {}
                                 return {
                                     ok: true,
@@ -416,6 +336,7 @@ def _dom_open_ilpn_row(target, ilpn: str) -> bool:
                 const textResult = tryTextSearch();
                 if (textResult) return textResult;
 
+                console.log('No match found anywhere');
                 return {
                     ok: false,
                     reason: 'no_match',
@@ -429,7 +350,10 @@ def _dom_open_ilpn_row(target, ilpn: str) -> bool:
         )
     except Exception as exc:
         rf_log(f"❌ DOM iLPN search failed: {exc}")
+        app_log(f"🐛 DEBUG: _dom_open_ilpn_row exception: {exc}")
         return False
+
+    app_log(f"🐛 DEBUG: _dom_open_ilpn_row result: {result}")
 
     if result and result.get("ok"):
         tbl = result.get("tableIdx")
@@ -437,6 +361,7 @@ def _dom_open_ilpn_row(target, ilpn: str) -> bool:
         app_log(
             f"✅ Opened iLPN row via DOM fallback (table#{tbl} row#{row}, iframe={result.get('iframeId')})"
         )
+        app_log("🐛 DEBUG: _dom_open_ilpn_row returning True")
         return True
 
     if result:
@@ -446,8 +371,9 @@ def _dom_open_ilpn_row(target, ilpn: str) -> bool:
         )
     else:
         rf_log("❌ DOM iLPN search failed without result payload")
-    return False
 
+    app_log("🐛 DEBUG: _dom_open_ilpn_row returning False")
+    return False
 
 def _open_single_filtered_ilpn_row(target, ilpn: str) -> bool:
     """
@@ -456,11 +382,19 @@ def _open_single_filtered_ilpn_row(target, ilpn: str) -> bool:
     - Then a few short retries for Ext/locator detection if needed
     """
     app_log("🔍 Checking filtered iLPN results (no long wait)...")
+    app_log("🐛 DEBUG: Entered _open_single_filtered_ilpn_row")
     _wait_for_ext_mask(target, timeout_ms=3000)
 
     # Fast path: DOM scan across all iframe docs
+    app_log("🐛 DEBUG: Attempting DOM open...")
     if _dom_open_ilpn_row(target, ilpn):
+        app_log("🐛 DEBUG: DOM open succeeded, about to call _click_ilpn_detail_tabs")
+        target.wait_for_timeout(2000)  # Wait for detail view to load
+        _click_ilpn_detail_tabs(target)
+        app_log("🐛 DEBUG: Returned from _click_ilpn_detail_tabs")
         return True
+    else:
+        app_log("🐛 DEBUG: DOM open failed, trying other methods...")
 
     selectors = [
         "div.x-grid-view:visible",
@@ -472,16 +406,19 @@ def _open_single_filtered_ilpn_row(target, ilpn: str) -> bool:
     rows_locator = None
     row_count = 0
     for attempt in range(4):
+        app_log(f"🐛 DEBUG: Attempt {attempt + 1} to detect rows...")
         # Prefer ExtJS store count when available
         ext_count = _ext_store_count(target)
         if isinstance(ext_count, int):
             row_count = ext_count
+            app_log(f"🐛 DEBUG: ExtJS store count = {row_count}")
         else:
             row_count = 0
 
         status_count = _statusbar_count(target)
         if isinstance(status_count, int) and status_count > row_count:
             row_count = status_count
+            app_log(f"🐛 DEBUG: Status bar count = {row_count}")
 
         for sel in selectors:
             try:
@@ -496,9 +433,11 @@ def _open_single_filtered_ilpn_row(target, ilpn: str) -> bool:
             css_count = rows_locator.count()
             if css_count:
                 row_count = max(row_count, css_count)
+                app_log(f"🐛 DEBUG: CSS row count = {css_count}, total = {row_count}")
                 break
 
         if row_count == 1:
+            app_log("🐛 DEBUG: Found exactly 1 row")
             break
         if row_count > 1:
             app_log(f"ℹ️ Filter shows {row_count} rows; retrying quickly...")
@@ -507,47 +446,55 @@ def _open_single_filtered_ilpn_row(target, ilpn: str) -> bool:
     # Try ExtJS-native open first when we detect a single row
     if row_count == 1 and _ext_open_first_row(target):
         app_log("✅ Opened single iLPN row via ExtJS API")
+        app_log("🐛 DEBUG: About to call _click_ilpn_detail_tabs (ExtJS path)")
+        target.wait_for_timeout(2000)
         _click_ilpn_detail_tabs(target)
+        app_log("🐛 DEBUG: Returned from _click_ilpn_detail_tabs (ExtJS path)")
         return True
 
     # DOM fallback inside nested uxiframe/table (retry after quick checks)
+    app_log("🐛 DEBUG: Trying DOM open again after row detection...")
     if _dom_open_ilpn_row(target, ilpn):
+        app_log("🐛 DEBUG: Second DOM open succeeded, about to call _click_ilpn_detail_tabs")
+        target.wait_for_timeout(2000)
         _click_ilpn_detail_tabs(target)
+        app_log("🐛 DEBUG: Returned from _click_ilpn_detail_tabs (DOM retry path)")
         return True
-
     # Final attempt using raw locators if we did count rows
     if row_count == 1 and rows_locator:
+        app_log("🐛 DEBUG: Trying locator-based row open...")
         row = rows_locator.first
         try:
             row.scroll_into_view_if_needed(timeout=1000)
         except Exception:
             pass
-
         try:
             row.click(timeout=1500)
+            app_log("🐛 DEBUG: Row clicked successfully")
         except Exception as exc:
             app_log(f"➖ Row click warning: {exc}")
-
         open_attempts = [
             lambda: row.dblclick(timeout=1200),
             lambda: row.press("Enter"),
             lambda: row.press("Space"),
             lambda: target.keyboard.press("Enter"),
         ]
-
-        for attempt in open_attempts:
+        for idx, attempt in enumerate(open_attempts):
             try:
+                app_log(f"🐛 DEBUG: Trying open attempt {idx + 1}...")
                 attempt()
                 app_log("✅ Opened single iLPN row to view details")
+                app_log("🐛 DEBUG: About to call _click_ilpn_detail_tabs (locator path)")
+                target.wait_for_timeout(2000)
                 _click_ilpn_detail_tabs(target)
+                app_log("🐛 DEBUG: Returned from _click_ilpn_detail_tabs (locator path)")
                 return True
             except Exception as exc:
-                app_log(f"➖ Row open attempt did not succeed: {exc}")
+                app_log(f"➖ Row open attempt {idx + 1} did not succeed: {exc}")
                 continue
-
+    app_log(f"🐛 DEBUG: All methods failed, row_count={row_count}")
     rf_log(f"❌ Unable to open the filtered iLPN row (row_count={row_count})")
     return False
-
 
 def _fill_ilpn_filter(page, ilpn: str) -> bool:
     """Reuse the receive flow filter logic to populate the iLPN quick filter and open the result."""
@@ -797,6 +744,219 @@ def main():
         args.keep_open,
         close_existing=not args.keep_existing,
     )
+
+
+def _diagnose_tabs(target):
+    """Diagnostic function - handles both Page and Frame objects."""
+    app_log("🔍 Starting comprehensive tab diagnostic...")
+
+    # Determine if target is a Page or Frame
+    is_page = hasattr(target, 'frames')
+    app_log(f"📄 Target type: {'Page' if is_page else 'Frame'}")
+
+    # Check main target
+    try:
+        app_log("📄 Checking main target...")
+        main_result = target.evaluate(
+            """
+            () => {
+                const info = {
+                    url: window.location.href,
+                    title: document.title,
+                    frameCount: document.querySelectorAll('iframe').length,
+                    bodyText: document.body?.innerText?.substring(0, 200) || 'NO BODY',
+                };
+                return info;
+            }
+            """
+        )
+        app_log(f"  Main info: {main_result}")
+    except Exception as e:
+        app_log(f"  ❌ Main check failed: {e}")
+
+    # Check all frames (only if target is a Page)
+    if is_page:
+        try:
+            frames = target.frames
+            app_log(f"📦 Total frames found: {len(frames)}")
+
+            for idx, frame in enumerate(frames):
+                try:
+                    url = frame.url
+                    app_log(f"\n🔲 Frame {idx}: {url}")
+
+                    frame_info = frame.evaluate(
+                        """
+                        () => {
+                            const tabs = [];
+                            const tabTexts = ['Contents', 'Header', 'Locks', 'LPN Movement', 'Audit', 'Documents'];
+
+                            const allElements = document.querySelectorAll('*');
+                            const potentialTabs = [];
+
+                            for (const el of allElements) {
+                                const text = (el.textContent || '').trim();
+
+                                for (const tabText of tabTexts) {
+                                    if (text === tabText) {
+                                        const rect = el.getBoundingClientRect();
+                                        const style = window.getComputedStyle(el);
+
+                                        potentialTabs.push({
+                                            text: text,
+                                            tag: el.tagName,
+                                            visible: style.display !== 'none' && style.visibility !== 'hidden',
+                                            width: Math.round(rect.width),
+                                            height: Math.round(rect.height),
+                                        });
+                                    }
+                                }
+                            }
+
+                            return {
+                                potentialTabs: potentialTabs,
+                                totalElements: allElements.length
+                            };
+                        }
+                        """
+                    )
+
+                    if frame_info['potentialTabs']:
+                        app_log(f"  ✅ Found {len(frame_info['potentialTabs'])} potential tabs")
+                        for tab in frame_info['potentialTabs']:
+                            app_log(f"    📌 {tab}")
+
+                except Exception as e:
+                    app_log(f"  ❌ Frame {idx} check failed: {e}")
+
+        except Exception as e:
+            app_log(f"❌ Frame enumeration failed: {e}")
+    else:
+        app_log("ℹ️ Target is a Frame, skipping frame enumeration")
+
+    app_log("\n✅ Diagnostic complete")
+
+
+def _click_ilpn_detail_tabs(target):
+    """
+    Click through all visible iLPN detail tabs sequentially.
+    """
+    # Run diagnostic first
+    _diagnose_tabs(target)
+
+    # Wait a moment for the detail view to fully load
+    target.wait_for_timeout(2000)
+
+    app_log("🎯 Starting tab clicking process...")
+
+    # Try to find ALL frames and check each one
+    frames_to_try = [target]  # Start with main page
+
+    try:
+        for frame in target.frames:
+            frames_to_try.append(frame)
+            try:
+                app_log(f"  📦 Will try frame: {frame.url}")
+            except:
+                app_log(f"  📦 Will try frame: (no url)")
+    except Exception as e:
+        app_log(f"⚠️ Could not enumerate frames: {e}")
+
+    # Tab names to click
+    tab_names = ["Header", "Locks", "LPN Movement", "Audit", "Documents"]
+
+    for tab_name in tab_names:
+        app_log(f"\n🔄 Attempting to click tab: {tab_name}")
+        clicked = False
+
+        # Try each frame until we succeed
+        for frame_idx, page_target in enumerate(frames_to_try):
+            if clicked:
+                break
+
+            try:
+                app_log(f"  🎯 Trying in frame {frame_idx}...")
+
+                # Strategy 1: Get by text with force click
+                try:
+                    elements = page_target.get_by_text(tab_name, exact=True)
+                    count = elements.count()
+                    app_log(f"    Found {count} exact text matches")
+
+                    for i in range(count):
+                        try:
+                            el = elements.nth(i)
+                            el.scroll_into_view_if_needed(timeout=500)
+                            el.click(force=True, timeout=1000)
+                            app_log(f"    ✅ Clicked element {i}")
+                            clicked = True
+                            page_target.wait_for_timeout(800)
+                            break
+                        except Exception as e:
+                            app_log(f"    ⚠️ Element {i} click failed: {e}")
+                except Exception as e:
+                    app_log(f"    ⚠️ Text match strategy failed: {e}")
+
+                if clicked:
+                    break
+
+                # Strategy 2: JavaScript brute force
+                try:
+                    result = page_target.evaluate(
+                        """
+                        (tabName) => {
+                            console.log('Searching for tab:', tabName);
+
+                            const allElements = Array.from(document.querySelectorAll('*'));
+                            console.log('Total elements:', allElements.length);
+
+                            for (const el of allElements) {
+                                const text = (el.textContent || '').trim();
+
+                                if (text === tabName) {
+                                    const rect = el.getBoundingClientRect();
+                                    console.log('Found match:', el.tagName, text, rect);
+
+                                    // Try to click it
+                                    try {
+                                        el.scrollIntoView({ block: 'center' });
+                                        el.click();
+                                        console.log('Clicked!');
+                                        return { success: true, tag: el.tagName, text: text };
+                                    } catch (e) {
+                                        console.log('Click failed:', e);
+                                        // Try dispatching event
+                                        el.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+                                        return { success: true, tag: el.tagName, text: text, method: 'dispatch' };
+                                    }
+                                }
+                            }
+
+                            return { success: false, reason: 'not found' };
+                        }
+                        """,
+                        tab_name
+                    )
+
+                    if result.get('success'):
+                        app_log(f"    ✅ JS click succeeded: {result}")
+                        clicked = True
+                        page_target.wait_for_timeout(800)
+                        break
+                    else:
+                        app_log(f"    ⚠️ JS click failed: {result}")
+
+                except Exception as e:
+                    app_log(f"    ⚠️ JS strategy failed: {e}")
+
+            except Exception as e:
+                app_log(f"  ❌ Frame {frame_idx} failed: {e}")
+
+        if not clicked:
+            app_log(f"  ❌ FAILED to click tab: {tab_name}")
+
+    app_log("\n✅ Tab clicking process complete")
+    return True
 
 
 if __name__ == "__main__":
