@@ -43,40 +43,125 @@ def _wait_for_ext_mask(target, timeout_ms: int = 4000):
     return True
 
 
+def _ext_store_count(target) -> int | None:
+    """Get grid store count via ExtJS if available."""
+    try:
+        return target.evaluate(
+            """
+            () => {
+                if (!window.Ext?.ComponentQuery) return null;
+                const grids = Ext.ComponentQuery.query('grid') || [];
+                for (let i = grids.length - 1; i >= 0; i -= 1) {
+                    const g = grids[i];
+                    try {
+                        if (g.isHidden?.() || g.isDestroyed?.()) continue;
+                        const cnt = g.getStore?.()?.getCount?.();
+                        if (typeof cnt === 'number') return cnt;
+                    } catch (e) {}
+                }
+                return null;
+            }
+            """
+        )
+    except Exception:
+        return None
+
+
+def _ext_open_first_row(target) -> bool:
+    """Use ExtJS APIs to select and open the first row."""
+    try:
+        return bool(
+            target.evaluate(
+                """
+                () => {
+                    if (!window.Ext?.ComponentQuery) return false;
+                    const grids = Ext.ComponentQuery.query('grid') || [];
+                    for (let i = grids.length - 1; i >= 0; i -= 1) {
+                        const g = grids[i];
+                        try {
+                            if (g.isHidden?.() || g.isDestroyed?.()) continue;
+                            const store = g.getStore?.();
+                            if (!store || store.getCount?.() !== 1) continue;
+                            const rec = store.getAt?.(0);
+                            if (!rec) continue;
+
+                            const sel = g.getSelectionModel?.();
+                            sel?.select(rec);
+
+                            const view = g.getView?.();
+                            const row = view?.getRow?.(rec) || view?.getNode?.(0);
+                            if (row) {
+                                row.scrollIntoView({ block: 'center' });
+                                row.dispatchEvent(new MouseEvent('click', { bubbles: true, detail: 1 }));
+                                row.dispatchEvent(new MouseEvent('dblclick', { bubbles: true, detail: 2 }));
+                                return true;
+                            }
+                        } catch (e) {}
+                    }
+                    return false;
+                }
+                """
+            )
+        )
+    except Exception:
+        return False
+
+
 def _open_single_filtered_ilpn_row(target) -> bool:
     """Open the single filtered iLPN row (if exactly one is present)."""
     app_log("🔍 Waiting for filtered iLPN results...")
-    _wait_for_ext_mask(target)
+    _wait_for_ext_mask(target, timeout_ms=8000)
 
     selectors = [
         "div.x-grid-view:visible",
         "div[class*='x-grid-view']:visible",
         "//div[contains(@class,'x-grid-view') and not(contains(@class,'x-hide'))]",
+        "table.x-grid-table:visible",
     ]
 
     rows_locator = None
     row_count = 0
-    for attempt in range(5):
+    for attempt in range(8):
+        # Prefer ExtJS store count when available
+        ext_count = _ext_store_count(target)
+        if isinstance(ext_count, int):
+            row_count = ext_count
+        else:
+            row_count = 0
+
         for sel in selectors:
             try:
                 grid = target.locator(sel).last
-                grid.wait_for(state="visible", timeout=1500)
+                grid.wait_for(state="visible", timeout=1200)
             except Exception:
                 continue
 
-            rows_locator = grid.locator(".x-grid-row:visible, .x-grid-item:visible")
-            row_count = rows_locator.count()
-            if row_count:
+            rows_locator = grid.locator(
+                ".x-grid-row:visible, .x-grid-item:visible, tr.x-grid-row"
+            )
+            css_count = rows_locator.count()
+            if css_count:
+                row_count = css_count
                 break
 
         if row_count == 1:
             break
         if row_count > 1:
             app_log(f"ℹ️ Filter shows {row_count} rows; waiting for single result...")
-        target.wait_for_timeout(500)
+        target.wait_for_timeout(600)
 
-    if not rows_locator or row_count != 1:
+    if row_count != 1:
         rf_log(f"❌ Expected exactly one iLPN row after filter, found {row_count}")
+        return False
+
+    # Try ExtJS-native open first
+    if _ext_open_first_row(target):
+        app_log("✅ Opened single iLPN row via ExtJS API")
+        return True
+
+    # Fallback to DOM interactions
+    if not rows_locator:
+        rf_log("❌ Could not locate grid rows to open")
         return False
 
     row = rows_locator.first
