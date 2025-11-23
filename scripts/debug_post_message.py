@@ -24,7 +24,13 @@ def _load_message(args: argparse.Namespace, settings: Settings) -> str:
     return settings.app.post_message_text or ""
 
 
-def run_post_message(message: str, keep_existing: bool = False, hold_seconds: int = 0) -> bool:
+def run_post_message(
+    message: str,
+    keep_existing: bool = True,
+    hold_seconds: int = 0,
+    wait: bool = False,
+    keep_open: bool = False,
+) -> bool:
     settings = Settings.from_env()
     if not message:
         app_log("❌ No post message provided (empty payload).")
@@ -64,21 +70,46 @@ def run_post_message(message: str, keep_existing: bool = False, hold_seconds: in
                     services.nav_mgr.page.wait_for_timeout(hold_seconds * 1000)
                 except KeyboardInterrupt:
                     app_log("⏹️ Hold interrupted by user.")
+            if wait:
+                app_log("⏸️ Leaving browser open. Press Enter to close and exit.")
+                try:
+                    input()
+                except KeyboardInterrupt:
+                    pass
+            if keep_open:
+                app_log("⏳ Keeping browser session open until Ctrl+C (no auto-close).")
+                try:
+                    while True:
+                        services.nav_mgr.page.wait_for_timeout(5000)
+                except KeyboardInterrupt:
+                    app_log("⏹️ Keep-open interrupted by user.")
 
 
 def main():
     parser = argparse.ArgumentParser(description="Send a Post Message via UI automation.")
     parser.add_argument("--message", help="Message payload to post (XML or text).")
     parser.add_argument("--message-file", help="Path to a file containing the payload.")
-    parser.add_argument("--keep-existing", action="store_true", help="Do not close existing windows when opening Post Message.")
+    parser.add_argument(
+        "--close-existing",
+        action="store_true",
+        help="Close existing windows before opening Post Message (default is to leave them open).",
+    )
     parser.add_argument("--hold-seconds", type=int, default=0, help="Keep UI open after posting for N seconds.")
+    parser.add_argument("--wait", action="store_true", help="Keep window open until Enter is pressed.")
+    parser.add_argument("--keep-open", action="store_true", help="Keep session alive until Ctrl+C (overrides hold/wait).")
     args = parser.parse_args()
 
     settings = Settings.from_env()
     payload = _load_message(args, settings)
-    success = run_post_message(payload, keep_existing=args.keep_existing, hold_seconds=args.hold_seconds)
+    success = run_post_message(
+        payload,
+        keep_existing=not args.close_existing,
+        hold_seconds=args.hold_seconds,
+        wait=args.wait,
+        keep_open=args.keep_open,
+    )
     if not success:
-        raise SystemExit(1)
+        app_log("⚠️ Post Message completed with errors (see logs above).")
 
 
 if __name__ == "__main__":

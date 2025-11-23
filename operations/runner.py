@@ -115,7 +115,8 @@ class OperationRunner:
         return load_op.execute(shipment, dock_door, bol)
 
     def _run_post_message(self, payload: str | None = None) -> bool:
-        self.nav_mgr.open_menu_item("POST", "Post Message (Integration)")
+        # Leave existing windows open to allow post-run inspection.
+        self.nav_mgr.open_menu_item("POST", "Post Message (Integration)", close_existing=False)
         try:
             self.nav_mgr.maximize_non_rf_windows()
         except Exception:
