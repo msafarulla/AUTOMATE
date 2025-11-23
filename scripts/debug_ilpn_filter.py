@@ -107,6 +107,24 @@ def _ext_open_first_row(target) -> bool:
         return False
 
 
+def _statusbar_count(target) -> int | None:
+    """Parse the grid status bar text for row counts (e.g., 'Displaying 1 - 1 of 1')."""
+    try:
+        bar = target.locator("div.x-paging-info:visible, div[id*='pagingtoolbar']:visible .x-toolbar-text").last
+        text = bar.inner_text(timeout=800)
+    except Exception:
+        return None
+
+    import re
+    m = re.search(r"of\s+(\d+)", text or "", re.I)
+    if m:
+        try:
+            return int(m.group(1))
+        except Exception:
+            return None
+    return None
+
+
 def _open_single_filtered_ilpn_row(target) -> bool:
     """Open the single filtered iLPN row (if exactly one is present)."""
     app_log("🔍 Waiting for filtered iLPN results...")
@@ -129,6 +147,10 @@ def _open_single_filtered_ilpn_row(target) -> bool:
         else:
             row_count = 0
 
+        status_count = _statusbar_count(target)
+        if isinstance(status_count, int) and status_count > row_count:
+            row_count = status_count
+
         for sel in selectors:
             try:
                 grid = target.locator(sel).last
@@ -141,7 +163,7 @@ def _open_single_filtered_ilpn_row(target) -> bool:
             )
             css_count = rows_locator.count()
             if css_count:
-                row_count = css_count
+                row_count = max(row_count, css_count)
                 break
 
         if row_count == 1:
