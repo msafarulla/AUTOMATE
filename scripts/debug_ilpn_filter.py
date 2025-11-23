@@ -15,17 +15,46 @@ from operations import create_operation_services
 
 
 def _find_ilpn_frame(page):
-    """Locate the frame that hosts the iLPNs UI."""
+    """
+    Locate the frame that hosts the iLPNs grid.
+
+    The grid is often inside an inner "uxiframe-*-frame" inside the LPNListInboundMain page,
+    so we prefer the deepest non-blank frame whose URL contains 'uxiframe' or 'lpn'.
+    """
     app_log("🔍 Scanning frames for iLPN content...")
-    for frame in page.frames:
+
+    def score(frame) -> tuple[int, int]:
         try:
             url = frame.url or ""
         except Exception:
             url = ""
-        if "LPNListInbound" in url or "lpn" in url.lower():
+        url_l = url.lower()
+        # Higher score for more specific matches
+        s = 0
+        if "uxiframe" in url_l:
+            s += 3
+        if "lpnlist" in url_l or "lpn" in url_l:
+            s += 2
+        if url and url != "about:blank":
+            s += 1
+        depth = len(frame.url.split("/")) if url else 0
+        return (s, depth)
+
+    frames = list(page.frames)
+    frames.sort(key=score, reverse=True)
+
+    for frame in frames:
+        try:
+            url = frame.url or ""
+        except Exception:
+            url = ""
+        app_log(f"🔎 Frame candidate: {url}")
+        url_l = url.lower()
+        if url and url != "about:blank" and ("uxiframe" in url_l or "lpn" in url_l):
             app_log(f"✅ Using frame with url: {url}")
             return frame
-        app_log(f"➖ Skipping frame url: {url}")
+
+    app_log("⚠️ Falling back to main page (no matching frame found)")
     return None
 
 
@@ -139,7 +168,7 @@ def _open_single_filtered_ilpn_row(target) -> bool:
 
     rows_locator = None
     row_count = 0
-    for attempt in range(8):
+    for attempt in range(12):
         # Prefer ExtJS store count when available
         ext_count = _ext_store_count(target)
         if isinstance(ext_count, int):
