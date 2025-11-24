@@ -17,12 +17,13 @@ class WorkflowStageExecutor:
         self.settings = settings
         self.orchestrator = orchestrator
         self.step_execution = step_execution
+        step_names = self.settings.app.step_names
         self.step_handlers = {
-            "post": self.handle_post_step,
-            "receive": self.handle_receive_step,
-            "loading": self.handle_loading_step,
-            "tasks": self.handle_tasks_step,
-            "ilpns": self.handle_ilpns_step,
+            step_names.postMessage.lower(): self.handle_post_step,
+            step_names.runReceiving.lower(): self.handle_receive_step,
+            step_names.runLoading.lower(): self.handle_loading_step,
+            step_names.OpenTasksUi.lower(): self.handle_tasks_step,
+            step_names.OpenIlpnUi.lower(): self.handle_ilpns_step,
         }
 
     def _confirm_prod_post(self, workflow_index: int) -> bool:

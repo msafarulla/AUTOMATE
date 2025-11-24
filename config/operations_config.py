@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from typing import Dict
+from config.settings import StepNames
 
 
 @dataclass
@@ -27,6 +28,7 @@ class ScreenSelectors:
 
 class OperationConfig:
     """Centralized configuration for warehouse operations."""
+    STEP_NAMES = StepNames()
 
     RECEIVE_MENU = MenuConfig(
         name="RDC: Recv - ASN",
@@ -40,7 +42,6 @@ class OperationConfig:
         'location': "input#dataForm\\:locn",
         'suggested_location_aloc': "span#dataForm\\:SBRUdtltxt1_b1",
         'suggested_location_cloc': "span#dataForm\\:SBRUdtltxt1_b2",
-        # These target the container rows so inner_text includes the numeric value after the label.
         'shipped_quantity': "div#dataForm\\:id_101",
         'received_quantity': "div#dataForm\\:id_133",
         'ilpn': "div#csid",
@@ -105,7 +106,7 @@ class OperationConfig:
     DEFAULT_WORKFLOWS = {
         'inbound': {
             'receive_HAPPY_PATH': {
-                'post': {
+                STEP_NAMES.postMessage: {
                     'enabled': True,
                     'source': 'db',
                     'type': 'ASN',
@@ -119,7 +120,7 @@ class OperationConfig:
                         },
                     ],
                 },
-                'receive': {
+                STEP_NAMES.runReceiving: {
                     'asn': '',
                     'item': '',
                     'quantity': 0,

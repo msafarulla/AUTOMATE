@@ -76,7 +76,7 @@ class OpenUIConfig:
 
 
 @dataclass
-class PostMessageStep:
+class PostStage:
     """Post message stage configuration."""
     message_type: str  # "ASN" or "DistributionOrder"
     source: str = "db"
@@ -99,7 +99,7 @@ class PostMessageStep:
 
 
 @dataclass
-class ReceivingStep:
+class ReceiveStage:
     """Receive operation stage configuration."""
     asn: str = ""  # Often populated from post stage metadata
     item: str = ""
@@ -124,7 +124,7 @@ class ReceivingStep:
 
 
 @dataclass
-class LoadingStep:
+class LoadingStage:
     """Loading operation stage configuration."""
     shipment: str
     dock_door: str
@@ -139,7 +139,7 @@ class LoadingStep:
 
 
 @dataclass
-class OpenTasksUiStep:
+class TasksStage:
     """Tasks UI stage configuration."""
     search_term: str = "tasks"
     match_text: str = "Tasks (Configuration)"
@@ -154,7 +154,7 @@ class OpenTasksUiStep:
 
 
 @dataclass
-class OpenIlpnUiStep:
+class ILPNsStage:
     """iLPNs UI stage configuration."""
     search_term: str = "ilpns"
     match_text: str = "iLPNs (Distribution)"
@@ -173,7 +173,7 @@ class Workflow:
     """Complete workflow definition."""
     name: str
     bucket: str = "inbound"
-    steps: dict[str, Any] = field(default_factory=dict)
+    stages: dict[str, Any] = field(default_factory=dict)
 
     @property
     def full_name(self) -> str:
@@ -181,7 +181,7 @@ class Workflow:
 
     def to_tuple(self) -> tuple[str, dict[str, Any]]:
         """Convert to the format expected by WorkflowStageExecutor."""
-        return (self.full_name, self.steps)
+        return (self.full_name, self.stages)
 
 
 class WorkflowBuilder:
@@ -190,32 +190,32 @@ class WorkflowBuilder:
     def __init__(self, name: str, bucket: str = "inbound", step_names: StepNames | None = None):
         self._name = name
         self._bucket = bucket
-        self._steps: dict[str, Any] = {}
+        self._stages: dict[str, Any] = {}
         self._step_names = step_names or StepNames()
 
-    def postMessageStep(self, stage: PostMessageStep) -> "WorkflowBuilder":
+    def post(self, stage: PostStage) -> "WorkflowBuilder":
         """Add a post message stage."""
-        self._steps[self._step_names.postMessage] = stage.to_dict()
+        self._stages[self._step_names.post] = stage.to_dict()
         return self
 
-    def receivingStep(self, stage: ReceivingStep) -> "WorkflowBuilder":
+    def receive(self, stage: ReceiveStage) -> "WorkflowBuilder":
         """Add a receive stage."""
-        self._steps[self._step_names.runReceiving] = stage.to_dict()
+        self._stages[self._step_names.receive] = stage.to_dict()
         return self
 
-    def loadingStep(self, stage: LoadingStep) -> "WorkflowBuilder":
+    def loading(self, stage: LoadingStage) -> "WorkflowBuilder":
         """Add a loading stage."""
-        self._steps[self._step_names.runLoading] = stage.to_dict()
+        self._stages[self._step_names.loading] = stage.to_dict()
         return self
 
-    def openTasksUiStep(self, stage: OpenTasksUiStep) -> "WorkflowBuilder":
+    def tasks(self, stage: TasksStage) -> "WorkflowBuilder":
         """Add a tasks UI stage."""
-        self._steps[self._step_names.OpenTasksUi] = stage.to_dict()
+        self._stages[self._step_names.tasks] = stage.to_dict()
         return self
 
-    def openIlpnUiStep(self, stage: OpenIlpnUiStep) -> "WorkflowBuilder":
+    def ilpns(self, stage: ILPNsStage) -> "WorkflowBuilder":
         """Add an iLPNs UI stage."""
-        self._steps[self._step_names.OpenIlpnUi] = stage.to_dict()
+        self._stages[self._step_names.ilpns] = stage.to_dict()
         return self
 
     def build(self) -> Workflow:
@@ -223,7 +223,7 @@ class WorkflowBuilder:
         return Workflow(
             name=self._name,
             bucket=self._bucket,
-            steps=self._steps,
+            stages=self._stages,
         )
 
 
@@ -238,7 +238,7 @@ def create_default_workflows() -> list[Workflow]:
     # Standard receive happy path
     receive_happy = (
         WorkflowBuilder("receive_HAPPY_PATH", "inbound")
-        .postMessageStep(PostMessageStep(
+        .post(PostStage(
             message_type="ASN",
             source="db",
             lookback_days=14,
@@ -247,7 +247,7 @@ def create_default_workflows() -> list[Workflow]:
                 ASNItem(item_name="81402XC01C", shipped_qty=20000),
             ],
         ))
-        .receivingStep(ReceivingStep(
+        .receive(ReceiveStage(
             flow=FlowType.HAPPY_PATH,
             auto_handle_deviation=True,
             open_ui=OpenUIConfig(entries=[
@@ -278,7 +278,7 @@ def workflows_to_legacy_format(workflows: list[Workflow]) -> dict[str, dict[str,
     for workflow in workflows:
         if workflow.bucket not in result:
             result[workflow.bucket] = {}
-        result[workflow.bucket][workflow.name] = workflow.steps
+        result[workflow.bucket][workflow.name] = workflow.stages
     
     return result
 

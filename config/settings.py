@@ -70,6 +70,16 @@ def _env_flag(name: str, default: bool) -> bool:
 
 
 @dataclass
+class StepNames:
+    """Configurable stage identifiers used across workflows."""
+    postMessage: str = "postMessage"
+    runReceiving: str = "runReceiving"
+    runLoading: str = "runLoading"
+    OpenTasksUi: str = "OpenTasksUi"
+    OpenIlpnUi: str = "OpenIlpnUi"
+
+
+@dataclass
 class BrowserConfig:
     width: int = field(default_factory=lambda: _SCREEN_WIDTH)
     height: int = field(default_factory=lambda: _SCREEN_HEIGHT)
@@ -96,6 +106,7 @@ class AppConfig:
     app_server: str = ""
     app_server_user: str = ""
     app_server_pass: str = ""
+    step_names: StepNames = field(default_factory=StepNames)
 
 
 class Settings:
