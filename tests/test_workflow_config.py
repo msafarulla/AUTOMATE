@@ -8,10 +8,10 @@ from config.workflow_config import (
     FlowType,
     OpenUIConfig,
     OpenUIEntry,
-    PostStage,
-    ReceiveStage,
-    LoadingStage,
-    TasksStage,
+    PostMessageStep,
+    ReceivingStep,
+    LoadingStep,
+    OpenTasksUiStep,
     Workflow,
     WorkflowBuilder,
     create_default_workflows,
@@ -73,7 +73,7 @@ class TestPostStage:
     """Tests for PostStage."""
 
     def test_minimal_config(self):
-        stage = PostStage(message_type="ASN")
+        stage = PostMessageStep(message_type="ASN")
         result = stage.to_dict()
         
         assert result["type"] == "ASN"
@@ -81,7 +81,7 @@ class TestPostStage:
         assert result["enabled"] is True
 
     def test_with_items(self):
-        stage = PostStage(
+        stage = PostMessageStep(
             message_type="ASN",
             asn_items=[
                 ASNItem(item_name="ITEM1", shipped_qty=100),
@@ -98,14 +98,14 @@ class TestReceiveStage:
     """Tests for ReceiveStage."""
 
     def test_default_flow(self):
-        stage = ReceiveStage()
+        stage = ReceivingStep()
         result = stage.to_dict()
         
         assert result["flow"] == "HAPPY_PATH"
         assert result["auto_handle_deviation"] is True
 
     def test_with_open_ui(self):
-        stage = ReceiveStage(
+        stage = ReceivingStep(
             asn="12345678",
             item="TESTITEM",
             quantity=100,
@@ -125,32 +125,32 @@ class TestWorkflowBuilder:
     def test_simple_workflow(self):
         workflow = (
             WorkflowBuilder("test_flow", "inbound")
-            .receive(ReceiveStage(asn="123", item="ABC", quantity=10))
+            .receivingStep(ReceivingStep(asn="123", item="ABC", quantity=10))
             .build()
         )
         
         assert workflow.name == "test_flow"
         assert workflow.bucket == "inbound"
         assert workflow.full_name == "inbound.test_flow"
-        assert "receive" in workflow.stages
+        assert "receive" in workflow.steps
 
     def test_multi_stage_workflow(self):
         workflow = (
             WorkflowBuilder("full_flow", "inbound")
-            .post(PostStage(message_type="ASN"))
-            .receive(ReceiveStage())
-            .tasks(TasksStage())
+            .postMessageStep(PostMessageStep(message_type="ASN"))
+            .receivingStep(ReceivingStep())
+            .openTasksUiStep(OpenTasksUiStep())
             .build()
         )
         
-        assert "post" in workflow.stages
-        assert "receive" in workflow.stages
-        assert "tasks" in workflow.stages
+        assert "post" in workflow.steps
+        assert "receive" in workflow.steps
+        assert "tasks" in workflow.steps
 
     def test_outbound_workflow(self):
         workflow = (
             WorkflowBuilder("load_test", "outbound")
-            .loading(LoadingStage(
+            .loading(LoadingStep(
                 shipment="SHIP001",
                 dock_door="DOOR1",
                 bol="BOL123"
@@ -168,10 +168,10 @@ class TestWorkflowConversions:
 
     def test_to_legacy_format(self):
         workflows = [
-            WorkflowBuilder("flow1", "inbound").receive(ReceiveStage()).build(),
-            WorkflowBuilder("flow2", "inbound").receive(ReceiveStage()).build(),
+            WorkflowBuilder("flow1", "inbound").receivingStep(ReceivingStep()).build(),
+            WorkflowBuilder("flow2", "inbound").receivingStep(ReceivingStep()).build(),
             WorkflowBuilder("load1", "outbound").loading(
-                LoadingStage("S1", "D1", "B1")
+                LoadingStep("S1", "D1", "B1")
             ).build(),
         ]
         
@@ -185,8 +185,8 @@ class TestWorkflowConversions:
 
     def test_flatten_workflows(self):
         workflows = [
-            WorkflowBuilder("test1", "bucket1").receive(ReceiveStage()).build(),
-            WorkflowBuilder("test2", "bucket2").receive(ReceiveStage()).build(),
+            WorkflowBuilder("test1", "bucket1").receivingStep(ReceivingStep()).build(),
+            WorkflowBuilder("test2", "bucket2").receivingStep(ReceivingStep()).build(),
         ]
         
         flattened = flatten_workflows(workflows)
@@ -215,5 +215,5 @@ class TestDefaultWorkflows:
             None
         )
         assert receive_happy is not None
-        assert "post" in receive_happy.stages
-        assert "receive" in receive_happy.stages
+        assert "post" in receive_happy.steps
+        assert "receive" in receive_happy.steps
