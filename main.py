@@ -59,7 +59,7 @@ def run_automation(settings: Settings, wmOps):
 
     # Run each workflow
     for index, (scenario_name, steps) in enumerate(workflows, 1):
-        ops.screenshot_mgr.set_scenario(scenario_name)
+        wmOps.screenshot_mgr.set_scenario(scenario_name)
 
         app_log("\n" + "=" * 60)
         app_log(f"📦 WORKFLOW {index}/{total}: scenario_{scenario_name}")
