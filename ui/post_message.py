@@ -28,7 +28,6 @@ class PostMessageManager:
 
         frame = self._resolve_frame()
 
-        self._ensure_textareas_resized(frame)
         self._fill_message(frame, message)
         response_info = self._submit_and_capture(frame)
         last_response = response_info
@@ -188,28 +187,6 @@ class PostMessageManager:
 
         raise RuntimeError("Unable to locate the Reset button on Post Message screen")
 
-    def _ensure_textareas_resized(self, frame: Frame):
-        """Increase request/response textarea height based on viewport for easier inspection."""
-        try:
-            frame.evaluate(
-                """
-                () => {
-                    const viewHeight = window.innerHeight || 800;
-                    const targetHeight = Math.max(240, Math.round(viewHeight * 0.35));
-                    const resize = (sel) => {
-                        document.querySelectorAll(sel).forEach(el => {
-                            el.style.minHeight = targetHeight + 'px';
-                            el.style.height = targetHeight + 'px';
-                        });
-                    };
-                    resize("textarea[name*='xmlString' i], textarea[id*='xmlString' i], textarea[name*='message' i], textarea[id*='message' i]");
-                    resize("textarea[name*='resultString' i], textarea[id*='resultString' i], textarea[name*='response' i]");
-                }
-                """
-            )
-        except Exception:
-            pass
-
     def _release_post_message_focus(self, frame: Frame):
         try:
             frame.evaluate(
@@ -227,7 +204,6 @@ class PostMessageManager:
             pass
 
     def _read_response(self, frame: Frame) -> str:
-        self._ensure_textareas_resized(frame)
         selectors = [
             "textarea[name='dataForm:resultString']",
             "textarea[id='dataForm:resultString']",
