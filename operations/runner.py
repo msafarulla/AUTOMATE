@@ -17,7 +17,7 @@ from ui.rf_menu import RFMenuManager
 
 
 @dataclass
-class StageActions:
+class StepExecution:
     run_login: Callable[[], None]
     run_change_warehouse: Callable[[], None]
     run_post_message: Callable[[str | None], bool]
@@ -31,7 +31,7 @@ class OperationServices:
     screenshot_mgr: ScreenshotManager
     nav_mgr: NavigationManager
     orchestrator: AutomationOrchestrator
-    stage_actions: StageActions
+    step_execution: StepExecution
 
 
 class OperationRunner:
@@ -191,7 +191,7 @@ def create_operation_services(settings: Any) -> Generator[OperationServices, Non
             screenshot_mgr=screenshot_mgr,
             nav_mgr=nav_mgr,
             orchestrator=orchestrator,
-            stage_actions=StageActions(
+            step_execution=StepExecution(
                 run_login=runner.run_login,
                 run_change_warehouse=runner.run_change_warehouse,
                 run_post_message=runner.run_post_message,

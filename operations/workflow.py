@@ -4,7 +4,7 @@ from core.logger import app_log
 from core.orchestrator import AutomationOrchestrator
 from core.post_message_payload import build_post_message_payload
 from config.settings import Settings
-from operations.runner import StageActions
+from operations.runner import StepExecution
 
 
 class WorkflowStageExecutor:
@@ -12,7 +12,7 @@ class WorkflowStageExecutor:
         self,
         settings: Settings,
         orchestrator: AutomationOrchestrator,
-        stage_actions: StageActions,
+        stage_actions: StepExecution,
     ):
         self.settings = settings
         self.orchestrator = orchestrator
@@ -172,7 +172,7 @@ class WorkflowStageExecutor:
         return metadata, True
 
 
-    def run_stage(
+    def run_step(
         self,
         stage_name: str,
         stage_cfg: dict[str, Any],

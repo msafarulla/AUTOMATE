@@ -47,15 +47,15 @@ def run_automation(settings: Settings, wmOps):
     app_log("🚀 Starting warehouse automation...")
 
     # Login and setup
-    wmOps.stage_actions.run_login()
-    wmOps.stage_actions.run_change_warehouse()
+    wmOps.step_execution.run_login()
+    wmOps.step_execution.run_change_warehouse()
 
     # Load workflows
     workflows = load_workflows()
     total = len(workflows)
 
     # Create stage executor
-    executor = WorkflowStageExecutor(settings, wmOps.orchestrator, wmOps.stage_actions)
+    executor = WorkflowStageExecutor(settings, wmOps.orchestrator, wmOps.step_execution)
 
     # Run each workflow
     for index, (scenario_name, steps) in enumerate(workflows, 1):
@@ -68,7 +68,7 @@ def run_automation(settings: Settings, wmOps):
         metadata: dict[str, Any] = {}
         for step_name, step_data_input in steps.items():
             wmOps.screenshot_mgr.set_stage(step_name)
-            metadata, should_continue = executor.run_stage(
+            metadata, should_continue = executor.run_step(
                 step_name, step_data_input, metadata, index
             )
             if not should_continue:
