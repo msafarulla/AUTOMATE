@@ -18,6 +18,7 @@ from config.workflow_config import (
     workflows_to_legacy_format,
     flatten_workflows,
 )
+from config.settings import StepNames
 
 
 class TestASNItem:
@@ -123,6 +124,7 @@ class TestWorkflowBuilder:
     """Tests for the fluent builder."""
 
     def test_simple_workflow(self):
+        names = StepNames()
         workflow = (
             WorkflowBuilder("test_flow", "inbound")
             .receivingStep(ReceivingStep(asn="123", item="ABC", quantity=10))
@@ -132,9 +134,10 @@ class TestWorkflowBuilder:
         assert workflow.name == "test_flow"
         assert workflow.bucket == "inbound"
         assert workflow.full_name == "inbound.test_flow"
-        assert "receive" in workflow.steps
+        assert names.runReceiving in workflow.steps
 
     def test_multi_stage_workflow(self):
+        names = StepNames()
         workflow = (
             WorkflowBuilder("full_flow", "inbound")
             .postMessageStep(PostMessageStep(message_type="ASN"))
@@ -143,14 +146,15 @@ class TestWorkflowBuilder:
             .build()
         )
         
-        assert "post" in workflow.steps
-        assert "receive" in workflow.steps
-        assert "tasks" in workflow.steps
+        assert names.postMessage in workflow.steps
+        assert names.runReceiving in workflow.steps
+        assert names.OpenTasksUi in workflow.steps
 
     def test_outbound_workflow(self):
+        names = StepNames()
         workflow = (
             WorkflowBuilder("load_test", "outbound")
-            .loading(LoadingStep(
+            .loadingStep(LoadingStep(
                 shipment="SHIP001",
                 dock_door="DOOR1",
                 bol="BOL123"
@@ -160,17 +164,18 @@ class TestWorkflowBuilder:
         
         assert workflow.bucket == "outbound"
         assert workflow.full_name == "outbound.load_test"
-        assert workflow.stages["loading"]["shipment"] == "SHIP001"
+        assert workflow.steps[names.runLoading]["shipment"] == "SHIP001"
 
 
 class TestWorkflowConversions:
     """Tests for format conversion functions."""
 
     def test_to_legacy_format(self):
+        names = StepNames()
         workflows = [
             WorkflowBuilder("flow1", "inbound").receivingStep(ReceivingStep()).build(),
             WorkflowBuilder("flow2", "inbound").receivingStep(ReceivingStep()).build(),
-            WorkflowBuilder("load1", "outbound").loading(
+            WorkflowBuilder("load1", "outbound").loadingStep(
                 LoadingStep("S1", "D1", "B1")
             ).build(),
         ]
@@ -207,6 +212,7 @@ class TestDefaultWorkflows:
         assert all(isinstance(w, Workflow) for w in workflows)
 
     def test_default_workflow_has_stages(self):
+        names = StepNames()
         workflows = create_default_workflows()
         
         # Should have at least one workflow with post and receive
@@ -215,5 +221,5 @@ class TestDefaultWorkflows:
             None
         )
         assert receive_happy is not None
-        assert "post" in receive_happy.steps
-        assert "receive" in receive_happy.steps
+        assert names.postMessage in receive_happy.steps
+        assert names.runReceiving in receive_happy.steps
