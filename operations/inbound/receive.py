@@ -4,7 +4,6 @@ from core.detour import run_open_ui_detours
 from operations.base_operation import BaseOperation
 from operations.inbound.receive_state_machine import ReceiveStateMachine
 from operations.rf_primitives import RFMenuIntegration
-from operations.ilpn_filter import fill_ilpn_filter
 from config.operations_config import OperationConfig
 from typing import Any
 from ui.navigation import NavigationManager
@@ -59,10 +58,11 @@ class ReceiveOperation(BaseOperation):
         return success
 
     def _fill_ilpn_quick_filter(self, ilpn: str, page=None) -> bool:
-        """Fill the iLPN quick filter using the shared helper logic."""
+        """Fill the iLPN quick filter using the debug helper logic (shared)."""
         page = page or self.page
         try:
-            return bool(fill_ilpn_filter(page, ilpn, screenshot_mgr=self.screenshot_mgr))
+            from scripts.debug_ilpn_filter import _fill_ilpn_filter as debug_fill_ilpn
+            return bool(debug_fill_ilpn(page, ilpn, screenshot_mgr=self.screenshot_mgr))
         except Exception as exc:
             rf_log(f"❌ iLPN filter via helper failed: {exc}")
             return False
