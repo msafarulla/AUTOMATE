@@ -10,7 +10,6 @@ import time
 
 from config.settings import Settings
 from core.logger import app_log, rf_log
-from operations.ilpn_filter import fill_ilpn_filter
 from core.screenshot import ScreenshotManager
 from operations import create_operation_services
 
@@ -654,7 +653,7 @@ def open_ilpns_and_filter(
                 success = False
             else:
                 app_log(f"🔎 Attempting to filter iLPN '{ilpn}'")
-                success = fill_ilpn_filter(
+                success = _fill_ilpn_filter(
                     services.nav_mgr.page,
                     ilpn,
                     screenshot_mgr=services.screenshot_mgr,
