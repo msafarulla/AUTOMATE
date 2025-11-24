@@ -18,11 +18,11 @@ class WorkflowStageExecutor:
         self.orchestrator = orchestrator
         self.step_execution = step_execution
         self.step_handlers = {
-            "post": self.handle_post_stage,
-            "receive": self.handle_receive_stage,
-            "loading": self.handle_loading_stage,
-            "tasks": self.handle_tasks_stage,
-            "ilpns": self.handle_ilpns_stage,
+            "post": self.handle_post_step,
+            "receive": self.handle_receive_step,
+            "loading": self.handle_loading_step,
+            "tasks": self.handle_tasks_step,
+            "ilpns": self.handle_ilpns_step,
         }
 
     def _confirm_prod_post(self, workflow_index: int) -> bool:
@@ -40,7 +40,7 @@ class WorkflowStageExecutor:
         app_log("✅ PROD confirmation received.")
         return True
 
-    def handle_post_stage(
+    def handle_post_step(
         self, stage_cfg: dict[str, Any], metadata: dict[str, Any], workflow_idx: int
     ) -> Tuple[dict[str, Any], bool]:
         if not bool(stage_cfg.get("enabled")):
@@ -83,7 +83,7 @@ class WorkflowStageExecutor:
         metadata.update(payload_metadata)
         return metadata, True
 
-    def handle_receive_stage(
+    def handle_receive_step(
         self, stage_cfg: dict[str, Any], metadata: dict[str, Any], workflow_idx: int
     ) -> Tuple[dict[str, Any], bool]:
         if not stage_cfg:
@@ -120,7 +120,7 @@ class WorkflowStageExecutor:
             return metadata, False
         return metadata, True
 
-    def handle_loading_stage(
+    def handle_loading_step(
         self, stage_cfg: dict[str, Any], metadata: dict[str, Any], workflow_idx: int
     ) -> Tuple[dict[str, Any], bool]:
         if not stage_cfg:
@@ -137,7 +137,7 @@ class WorkflowStageExecutor:
             return metadata, False
         return metadata, True
 
-    def handle_tasks_stage(
+    def handle_tasks_step(
         self, stage_cfg: dict[str, Any], metadata: dict[str, Any], workflow_idx: int
     ) -> Tuple[dict[str, Any], bool]:
         if not bool(stage_cfg.get("enabled", True)):
@@ -154,7 +154,7 @@ class WorkflowStageExecutor:
             return metadata, False
         return metadata, True
 
-    def handle_ilpns_stage(
+    def handle_ilpns_step(
         self, stage_cfg: dict[str, Any], metadata: dict[str, Any], workflow_idx: int
     ) -> Tuple[dict[str, Any], bool]:
         if not bool(stage_cfg.get("enabled", True)):
