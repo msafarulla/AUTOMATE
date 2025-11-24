@@ -52,57 +52,51 @@ class NavigationManager:
         self.screenshot_mgr.capture(self.page, f"warehouse_{warehouse}", f"Changed to {warehouse}", onDemand)
         app_log(f"✅ Changed to {warehouse}")
 
-    def open_menu_item(self, search_term: str, match_text: str, 
-                       max_attempts: int = 1, close_existing: bool = True, onDemand: bool = True) -> bool:
+    def open_menu_item(self, search_term: str, match_text: str, onDemand: bool = True) -> bool:
         """Open a menu item by searching and selecting exact match."""
         normalized_match = self._normalize(match_text)
 
-        for attempt in range(max_attempts):
-            if close_existing:
-                self.close_active_windows()
-            self.page.wait_for_timeout(500)
+        # Open menu and search
+        self._open_menu_panel()
+        self._reset_menu_filter()
+        self._do_search(search_term)
 
-            # Open menu and search
-            self._open_menu_panel()
-            self._reset_menu_filter()
-            self._do_search(search_term)
+        # Find and click match
+        items = self.page.locator("ul.x-list-plain:visible li.x-boundlist-item")
+        count = self._wait_for_results(items)
+        app_log(f"🔍 Found {count} items for '{search_term}'")
 
-            # Find and click match
-            items = self.page.locator("ul.x-list-plain:visible li.x-boundlist-item")
-            count = self._wait_for_results(items)
-            app_log(f"🔍 Found {count} items for '{search_term}' (attempt {attempt + 1})")
+        if count == 0:
+            app_log("⚠️ No results found for search term.")
+            return False
 
-            if count == 0:
-                continue
+        # Look for exact match
+        for i in range(count):
+            item = items.nth(i)
+            text = self._normalize(item.inner_text().strip())
 
-            # Look for exact match
-            for i in range(count):
-                item = items.nth(i)
-                text = self._normalize(item.inner_text().strip())
-                
-                if text == normalized_match:
-                    app_log(f"✅ Match found: '{match_text}'")
-                    self.screenshot_mgr.capture(self.page, f"select_{text}", f"Selecting {match_text}", onDemand)
-                    
-                    try:
-                        self._click_menu_item(item, "rf menu" in normalized_match)
-                    except PlaywrightTimeout:
-                        app_log("⚠️ Menu went stale, retrying...")
-                        break
+            if text == normalized_match:
+                app_log(f"✅ Match found: '{match_text}'")
+                self.screenshot_mgr.capture(self.page, f"select_{text}", f"Selecting {match_text}", onDemand)
 
-                    self._post_selection_adjustments(normalized_match)
-                    self.page.wait_for_timeout(4000)
-                    return True
+                try:
+                    self._click_menu_item(item, "rf menu" in normalized_match)
+                except PlaywrightTimeout:
+                    app_log("⚠️ Menu went stale while clicking match.")
+                    return False
 
-            app_log("⚠️ No exact match found, retrying...")
+                self._post_selection_adjustments(normalized_match)
+                self.page.wait_for_timeout(4000)
+                return True
 
+        app_log(f"⚠️ No exact match found for '{match_text}'")
         app_log(f"❌ Could not find: '{match_text}'")
         return False
 
-    def open_tasks_ui(self, search: str = "tasks", match: str = "Tasks (Configuration)",
-                      close_existing: bool = True) -> bool:
+    def open_tasks_ui(self, search: str = "tasks", match: str = "Tasks (Configuration)") -> bool:
         """Open Tasks UI."""
-        if self.open_menu_item(search, match, close_existing=close_existing):
+        self.close_active_windows()
+        if self.open_menu_item(search, match):
             self.screenshot_mgr.capture(self.page, "tasks_ui", "Tasks UI")
             return True
         return False

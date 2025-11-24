@@ -91,6 +91,7 @@ class OperationRunner:
         auto_handle: bool = False,
         open_ui_cfg: dict[str, Any] | None = None,
     ) -> bool:
+        self.nav_mgr.close_active_windows()
         self.nav_mgr.open_menu_item("RF MENU", "RF Menu (Distribution)")
         receive_op = ReceiveOperation(
             self.page,
@@ -110,13 +111,14 @@ class OperationRunner:
         )
 
     def _loading_impl(self, shipment: str, dock_door: str, bol: str) -> bool:
+        self.nav_mgr.close_active_windows()
         self.nav_mgr.open_menu_item("RF MENU", "RF Menu (Distribution)")
         load_op = LoadingOperation(self.page, self.page_mgr, self.screenshot_mgr, self.rf_menu)
         return load_op.execute(shipment, dock_door, bol)
 
     def _run_post_message(self, payload: str | None = None) -> bool:
         # Leave existing windows open to allow post-run inspection.
-        self.nav_mgr.open_menu_item("POST", "Post Message (Integration)", close_existing=False)
+        self.nav_mgr.open_menu_item("POST", "Post Message (Integration)")
         try:
             self.nav_mgr.maximize_non_rf_windows()
         except Exception:
@@ -150,7 +152,7 @@ class OperationRunner:
         search_term: str = "tasks",
         match_text: str = "Tasks (Configuration)",
     ) -> bool:
-        succeeded = self.nav_mgr.open_tasks_ui(search_term, match_text, close_existing=False)
+        succeeded = self.nav_mgr.open_tasks_ui(search_term, match_text)
         if not succeeded:
             app_log("❌ Tasks UI in-place navigation failed")
         return succeeded

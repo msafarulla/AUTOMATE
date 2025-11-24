@@ -26,7 +26,6 @@ def _load_message(args: argparse.Namespace, settings: Settings) -> str:
 
 def run_post_message(
     message: str,
-    keep_existing: bool = True,
     hold_seconds: int = 0,
     wait: bool = False,
     keep_open: bool = True,
@@ -37,14 +36,19 @@ def run_post_message(
         return False
 
     with create_operation_services(settings) as services:
+        page = services.nav_mgr.page
         try:
             services.stage_actions.run_login()
             services.stage_actions.run_change_warehouse()
 
+            try:
+                services.nav_mgr.close_active_windows()
+            except Exception:
+                pass
+
             opened = services.nav_mgr.open_menu_item(
                 "POST",
                 "Post Message (Integration)",
-                close_existing=not keep_existing,
             )
             if not opened:
                 app_log("❌ Could not open Post Message screen.")
@@ -55,15 +59,32 @@ def run_post_message(
             except Exception:
                 pass
 
-            post_mgr = PostMessageManager(services.nav_mgr.page, services.screenshot_mgr)
+            post_mgr = PostMessageManager(page, services.screenshot_mgr)
             success, info = post_mgr.send_message(message)
             app_log(f"Post Message summary: {info.get('summary')}")
             payload_preview = info.get("payload")
             if payload_preview:
                 app_log(f"Response payload: {payload_preview}")
 
-            if keep_open:
+            if hold_seconds > 0:
+                app_log(f"⏸️ Holding browser open for {hold_seconds}s.")
+                page.wait_for_timeout(hold_seconds * 1000)
+
+            if wait:
                 input("Press Enter to exit and close the browser...")
+
+            if keep_open:
+                app_log("⏳ Keeping browser session open until Ctrl+C.")
+                while True:
+                    page.wait_for_timeout(5000)
+
+            return success
+        except KeyboardInterrupt:
+            app_log("⏹️ Interrupted by user.")
+            return False
+        except Exception as exc:
+            app_log(f"❌ Post Message run failed: {exc}")
+            return False
 
 
 def main():
@@ -71,11 +92,8 @@ def main():
     parser.add_argument("--message", help="Message payload to post (XML or text).")
     parser.add_argument("--message-file", help="Path to a file containing the payload.")
     parser.add_argument(
-        "--close-existing",
-        action="store_true",
-        help="Close existing windows before opening Post Message (default is to leave them open).",
+        "--hold-seconds", type=int, default=0, help="Keep UI open after posting for N seconds."
     )
-    parser.add_argument("--hold-seconds", type=int, default=0, help="Keep UI open after posting for N seconds.")
     parser.add_argument("--wait", action="store_true", help="Keep window open until Enter is pressed.")
     parser.add_argument("--keep-open", action="store_true", help="Keep session alive until Ctrl+C (overrides hold/wait).")
     args = parser.parse_args()
@@ -84,7 +102,6 @@ def main():
     payload = _load_message(args, settings)
     success = run_post_message(
         payload,
-        keep_existing=not args.close_existing,
         hold_seconds=args.hold_seconds,
         wait=args.wait,
         keep_open=args.keep_open,

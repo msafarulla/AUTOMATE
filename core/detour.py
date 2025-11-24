@@ -92,10 +92,15 @@ def run_open_ui_detours(
                 use_nav.close_active_windows(skip_titles=["rf menu"])
             except Exception:
                 pass
+        else:
+            try:
+                use_nav.close_active_windows()
+            except Exception:
+                pass
 
         search_term = entry.get("search_term") or base_cfg.get("search_term", "tasks")
         match_text = entry.get("match_text") or base_cfg.get("match_text", "Tasks (Configuration)")
-        if not use_nav.open_menu_item(search_term, match_text, close_existing=True, onDemand=False):
+        if not use_nav.open_menu_item(search_term, match_text, onDemand=False):
             rf_log(f"❌ UI detour #{idx} failed.")
             return False
 
