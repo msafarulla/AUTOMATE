@@ -349,6 +349,42 @@ def _diagnose_tabs(target):
     app_log("\n✅ Diagnostic complete")
 
 
+def _collect_frames(target):
+    """Return a de-duplicated list of the target plus any frames we can reach (target + owning page)."""
+    frames = []
+    seen = set()
+
+    def add_frame(f):
+        try:
+            key = getattr(f, "_guid", None) or id(f)
+        except Exception:
+            key = id(f)
+        if key in seen:
+            return
+        seen.add(key)
+        frames.append(f)
+
+    add_frame(target)
+
+    # Frames directly on the target if it behaves like a Page.
+    try:
+        for frame in target.frames:
+            add_frame(frame)
+    except Exception:
+        pass
+
+    # Frames on the owning page if target is a Frame.
+    try:
+        page_obj = getattr(target, "page", None)
+        if page_obj and hasattr(page_obj, "frames"):
+            for frame in page_obj.frames:
+                add_frame(frame)
+    except Exception:
+        pass
+
+    return frames
+
+
 def _click_ilpn_detail_tabs(
     target,
     screenshot_mgr: ScreenshotManager | None = None,
@@ -364,44 +400,54 @@ def _click_ilpn_detail_tabs(
 
     app_log("🎯 Starting tab clicking process...")
 
-    # Try to find ALL frames and check each one
-    frames_to_try = [target]
+    # Try to find ALL frames and check each one; refresh once after a brief wait to catch newly loaded frames.
+    frames_to_try = _collect_frames(target)
+    target.wait_for_timeout(300)
+    frames_to_try = _collect_frames(target)
 
     use_page = getattr(target, "page", None) or target
     base_note = operation_note or "iLPN detail tab"
 
-    # Frames directly under the target (if it's a Page)
-    try:
-        for frame in target.frames:
-            frames_to_try.append(frame)
-            try:
-                app_log(f"  📦 Will try frame: {frame.url}")
-            except Exception:
-                app_log(f"  📦 Will try frame: (no url)")
-    except Exception as e:
-        app_log(f"⚠️ Could not enumerate frames on target: {e}")
-
-    # If target is a Frame, also try all frames on its owning page (detail tabs often live there).
-    try:
-        page_obj = getattr(target, "page", None)
-        if page_obj and hasattr(page_obj, "frames"):
-            for frame in page_obj.frames:
-                if frame not in frames_to_try:
-                    frames_to_try.append(frame)
-                    try:
-                        app_log(f"  📦 Will try page frame: {frame.url}")
-                    except Exception:
-                        app_log(f"  📦 Will try page frame: (no url)")
-    except Exception as e:
-        app_log(f"⚠️ Could not enumerate frames on target.page: {e}")
-
     tab_names = ["Header", "Contents", "Locks"]
+
+    # Prefer frames that actually contain our tab labels.
+    scored_frames = []
+    for frame in frames_to_try:
+        score = 0
+        try:
+            counts = frame.evaluate(
+                """
+                (names) => {
+                    const found = {};
+                    for (const n of names) found[n] = 0;
+                    const all = Array.from(document.querySelectorAll('*'));
+                    for (const el of all) {
+                        const text = (el.textContent || '').trim();
+                        if (!text) continue;
+                        for (const n of names) {
+                            if (text === n) found[n] += 1;
+                        }
+                    }
+                    return found;
+                }
+                """,
+                tab_names,
+            )
+            score = sum(counts.values())
+            if score > 0:
+                app_log(f"  📌 Frame likely has tabs (score={score})")
+        except Exception:
+            score = 0
+        scored_frames.append((score, frame))
+
+    scored_frames.sort(key=lambda x: x[0], reverse=True)
+    frames_ordered = [f for _, f in scored_frames if _ > 0] + [f for _, f in scored_frames if _ == 0]
 
     for tab_name in tab_names:
         app_log(f"\n🔄 Attempting to click tab: {tab_name}")
         clicked = False
 
-        for frame_idx, page_target in enumerate(frames_to_try):
+        for frame_idx, page_target in enumerate(frames_ordered):
             if clicked:
                 break
 
@@ -510,14 +556,35 @@ def _open_single_filtered_ilpn_row(target, ilpn: str, screenshot_mgr: Screenshot
         "operation_note": f"iLPN {ilpn} detail tabs",
     }
 
+    def click_tabs_on_targets():
+        """Try clicking tabs on both the current target and its owning page (if present)."""
+        targets = []
+        seen = set()
+        for t in (target, getattr(target, "page", None)):
+            if not t:
+                continue
+            key = getattr(t, "_guid", None) or id(t)
+            if key in seen:
+                continue
+            seen.add(key)
+            targets.append(t)
+        for t in targets:
+            try:
+                _click_ilpn_detail_tabs(t, **tab_capture_kwargs)
+                return True
+            except Exception as exc:
+                app_log(f"⚠️ Tab click attempt on target failed: {exc}")
+        return False
+
     # Fast path: DOM scan across all iframe docs
     app_log("🐛 DEBUG: Attempting DOM open...")
     if _dom_open_ilpn_row(target, ilpn):
         app_log("🐛 DEBUG: DOM open succeeded, about to call _click_ilpn_detail_tabs")
         target.wait_for_timeout(2000)  # Wait for detail view to load
-        _click_ilpn_detail_tabs(target, **tab_capture_kwargs)
+        if click_tabs_on_targets():
+            app_log("🐛 DEBUG: Tab click succeeded after DOM open")
+            return True
         app_log("🐛 DEBUG: Returned from _click_ilpn_detail_tabs")
-        return True
     else:
         app_log("🐛 DEBUG: DOM open failed, trying other methods...")
 
@@ -573,18 +640,20 @@ def _open_single_filtered_ilpn_row(target, ilpn: str, screenshot_mgr: Screenshot
         app_log("✅ Opened single iLPN row via ExtJS API")
         app_log("🐛 DEBUG: About to call _click_ilpn_detail_tabs (ExtJS path)")
         target.wait_for_timeout(2000)
-        _click_ilpn_detail_tabs(target, **tab_capture_kwargs)
+        if click_tabs_on_targets():
+            app_log("🐛 DEBUG: Tab click succeeded after ExtJS open")
+            return True
         app_log("🐛 DEBUG: Returned from _click_ilpn_detail_tabs (ExtJS path)")
-        return True
 
     # DOM fallback inside nested uxiframe/table (retry after quick checks)
     app_log("🐛 DEBUG: Trying DOM open again after row detection...")
     if _dom_open_ilpn_row(target, ilpn):
         app_log("🐛 DEBUG: Second DOM open succeeded, about to call _click_ilpn_detail_tabs")
         target.wait_for_timeout(2000)
-        _click_ilpn_detail_tabs(target, **tab_capture_kwargs)
+        if click_tabs_on_targets():
+            app_log("🐛 DEBUG: Tab click succeeded after DOM retry")
+            return True
         app_log("🐛 DEBUG: Returned from _click_ilpn_detail_tabs (DOM retry path)")
-        return True
     # Final attempt using raw locators if we did count rows
     if row_count == 1 and rows_locator:
         app_log("🐛 DEBUG: Trying locator-based row open...")
@@ -611,9 +680,11 @@ def _open_single_filtered_ilpn_row(target, ilpn: str, screenshot_mgr: Screenshot
                 app_log("✅ Opened single iLPN row to view details")
                 app_log("🐛 DEBUG: About to call _click_ilpn_detail_tabs (locator path)")
                 target.wait_for_timeout(2000)
-                _click_ilpn_detail_tabs(target, **tab_capture_kwargs)
+                if click_tabs_on_targets():
+                    app_log("🐛 DEBUG: Tab click succeeded after locator path")
+                    return True
                 app_log("🐛 DEBUG: Returned from _click_ilpn_detail_tabs (locator path)")
-                return True
+                return False
             except Exception as exc:
                 app_log(f"➖ Row open attempt {idx + 1} did not succeed: {exc}")
                 continue
