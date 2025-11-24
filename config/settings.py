@@ -133,9 +133,6 @@ class Settings:
         cls.app.auto_close_post_login_windows = _env_flag(
             "AUTO_CLOSE_POST_LOGIN_WINDOWS", cls.app.auto_close_post_login_windows
         )
-        cls.app.force_enable_context_menu = _env_flag(
-            "FORCE_ENABLE_CONTEXT_MENU", cls.app.force_enable_context_menu
-        )
         set_general_verbose(cls.app.app_verbose_logging)
         set_rf_verbose(cls.app.rf_verbose_logging)
         try:
