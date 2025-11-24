@@ -7,11 +7,11 @@ Usage:
 
 import argparse
 import time
-
 from config.settings import Settings
 from core.logger import app_log, rf_log
 from core.screenshot import ScreenshotManager
 from operations import create_operation_services
+from operations.inbound.ilpn_filter_helper import fill_ilpn_filter
 
 
 def _find_ilpn_frame(page):
@@ -653,7 +653,7 @@ def open_ilpns_and_filter(
                 success = False
             else:
                 app_log(f"🔎 Attempting to filter iLPN '{ilpn}'")
-                success = _fill_ilpn_filter(
+                success = fill_ilpn_filter(
                     services.nav_mgr.page,
                     ilpn,
                     screenshot_mgr=services.screenshot_mgr,
