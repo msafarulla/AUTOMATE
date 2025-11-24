@@ -200,19 +200,16 @@ class PostMessageManager:
                     // Derive rows/cols from current viewport so larger screens show more content.
                     const targetRows = Math.max(30, Math.min(140, Math.round(viewHeight / 12)));
                     const targetHeight = Math.max(320, Math.round(targetRows * 18)); // assume ~18px line height
-                    const targetCols = Math.max(80, Math.min(180, Math.round(viewWidth / 8)));
 
                     const targets = document.querySelectorAll(
                         'textarea[id="dataForm:xmlString"], textarea[name="dataForm:xmlString"], textarea[id="dataForm:resultString"], textarea[name="dataForm:resultString"], textarea[name*="response" i], textarea[id*="response" i]'
                     );
                     targets.forEach((el) => {
-                        el.setAttribute('cols', targetCols);
                         el.setAttribute('rows', targetRows);
                         el.style.setProperty('height', `${targetHeight}px`, 'important');
                         el.style.setProperty('min-height', `${targetHeight}px`, 'important');
                         el.style.setProperty('max-height', `${targetHeight}px`, 'important');
                         el.style.setProperty('overflow', 'auto', 'important');
-                        el.style.setProperty('width', '100%', 'important');
                     });
                 }
                 """
