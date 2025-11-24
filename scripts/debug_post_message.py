@@ -78,11 +78,7 @@ def run_post_message(
                     pass
             if keep_open:
                 app_log("⏳ Keeping browser session open until Ctrl+C (no auto-close).")
-                try:
-                    while True:
-                        services.nav_mgr.page.wait_for_timeout(5000)
-                except KeyboardInterrupt:
-                    app_log("⏹️ Keep-open interrupted by user.")
+                input("Press Enter to exit and close the browser...")
 
 
 def main():
