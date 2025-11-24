@@ -27,25 +27,29 @@ def _load_message(args: argparse.Namespace, settings: Settings) -> str:
 def run_post_message(
     message: str,
     keep_existing: bool = True,
+    hold_seconds: int = 0,
+    wait: bool = False,
+    keep_open: bool = True,
 ) -> bool:
     settings = Settings.from_env()
     if not message:
         app_log("❌ No post message provided (empty payload).")
         return False
 
-    success = False
     with create_operation_services(settings) as services:
-        services.stage_actions.run_login()
-        services.stage_actions.run_change_warehouse()
+        try:
+            services.stage_actions.run_login()
+            services.stage_actions.run_change_warehouse()
 
-        opened = services.nav_mgr.open_menu_item(
-            "POST",
-            "Post Message (Integration)",
-            close_existing=not keep_existing,
-        )
-        if not opened:
-            app_log("❌ Could not open Post Message screen.")
-        else:
+            opened = services.nav_mgr.open_menu_item(
+                "POST",
+                "Post Message (Integration)",
+                close_existing=not keep_existing,
+            )
+            if not opened:
+                app_log("❌ Could not open Post Message screen.")
+                return False
+
             try:
                 services.nav_mgr.maximize_non_rf_windows()
             except Exception:
@@ -58,14 +62,8 @@ def run_post_message(
             if payload_preview:
                 app_log(f"Response payload: {payload_preview}")
 
-        # Keep the session alive for inspection until the user is ready to exit.
-        app_log("⏸️ Leaving browser open. Press Enter to close and exit.")
-        try:
-            input()
-        except KeyboardInterrupt:
-            app_log("⏹️ Exit interrupted by user.")
-
-    return success
+            if keep_open:
+                input("Press Enter to exit and close the browser...")
 
 
 def main():
@@ -77,6 +75,9 @@ def main():
         action="store_true",
         help="Close existing windows before opening Post Message (default is to leave them open).",
     )
+    parser.add_argument("--hold-seconds", type=int, default=0, help="Keep UI open after posting for N seconds.")
+    parser.add_argument("--wait", action="store_true", help="Keep window open until Enter is pressed.")
+    parser.add_argument("--keep-open", action="store_true", help="Keep session alive until Ctrl+C (overrides hold/wait).")
     args = parser.parse_args()
 
     settings = Settings.from_env()
@@ -84,6 +85,9 @@ def main():
     success = run_post_message(
         payload,
         keep_existing=not args.close_existing,
+        hold_seconds=args.hold_seconds,
+        wait=args.wait,
+        keep_open=args.keep_open,
     )
     if not success:
         app_log("⚠️ Post Message completed with errors (see logs above).")
