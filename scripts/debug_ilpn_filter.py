@@ -50,10 +50,6 @@ def open_ilpns_and_filter(
         except Exception as exc:
             app_log(f"❌ Debug run failed: {exc}")
             success = False
-        input("Press Enter to exit...")
-
-
-
 
     return success
 
