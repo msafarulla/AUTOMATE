@@ -480,32 +480,131 @@ def _click_ilpn_detail_tabs(
 
 
 def _open_single_filtered_ilpn_row(target, ilpn: str, screenshot_mgr: ScreenshotManager | None = None) -> bool:
-    """Open the single filtered iLPN row, handling Ext grids and DOM fallbacks."""
-    rf_log(f"🔍 Waiting for filtered iLPN row to appear ({ilpn})")
-    target.wait_for_timeout(1200)
-    _wait_for_ext_mask(target)
+    """
+    Open the filtered iLPN row quickly.
+    - First try DOM fallback immediately (no long waits)
+    - Then a few short retries for Ext/locator detection if needed
+    """
+    app_log("🔍 Checking filtered iLPN results (no long wait)...")
+    app_log("🐛 DEBUG: Entered _open_single_filtered_ilpn_row")
+    _wait_for_ext_mask(target, timeout_ms=3000)
 
-    row_count = None
-    for strategy in (_ext_store_count, _statusbar_count):
-        try:
-            row_count = strategy(target)
-        except Exception:
-            row_count = None
-        if row_count is not None:
+    tab_capture_kwargs = {
+        "screenshot_mgr": screenshot_mgr,
+        "screenshot_tag": "ilpn_tab",
+        "operation_note": f"iLPN {ilpn} detail tabs",
+    }
+
+    # Fast path: DOM scan across all iframe docs
+    app_log("🐛 DEBUG: Attempting DOM open...")
+    if _dom_open_ilpn_row(target, ilpn):
+        app_log("🐛 DEBUG: DOM open succeeded, about to call _click_ilpn_detail_tabs")
+        target.wait_for_timeout(2000)  # Wait for detail view to load
+        _click_ilpn_detail_tabs(target, **tab_capture_kwargs)
+        app_log("🐛 DEBUG: Returned from _click_ilpn_detail_tabs")
+        return True
+    else:
+        app_log("🐛 DEBUG: DOM open failed, trying other methods...")
+
+    selectors = [
+        "div.x-grid-view:visible",
+        "div[class*='x-grid-view']:visible",
+        "//div[contains(@class,'x-grid-view') and not(contains(@class,'x-hide'))]",
+        "table.x-grid-table:visible",
+    ]
+
+    rows_locator = None
+    row_count = 0
+    for attempt in range(4):
+        app_log(f"🐛 DEBUG: Attempt {attempt + 1} to detect rows...")
+        # Prefer ExtJS store count when available
+        ext_count = _ext_store_count(target)
+        if isinstance(ext_count, int):
+            row_count = ext_count
+            app_log(f"🐛 DEBUG: ExtJS store count = {row_count}")
+        else:
+            row_count = 0
+
+        status_count = _statusbar_count(target)
+        if isinstance(status_count, int) and status_count > row_count:
+            row_count = status_count
+            app_log(f"🐛 DEBUG: Status bar count = {row_count}")
+
+        for sel in selectors:
+            try:
+                grid = target.locator(sel).last
+                grid.wait_for(state="visible", timeout=1200)
+            except Exception:
+                continue
+
+            rows_locator = grid.locator(
+                ".x-grid-row:visible, .x-grid-item:visible, tr.x-grid-row"
+            )
+            css_count = rows_locator.count()
+            if css_count:
+                row_count = max(row_count, css_count)
+                app_log(f"🐛 DEBUG: CSS row count = {css_count}, total = {row_count}")
+                break
+
+        if row_count == 1:
+            app_log("🐛 DEBUG: Found exactly 1 row")
             break
-    app_log(f"🐛 DEBUG: Row count detection result: {row_count}")
+        if row_count > 1:
+            app_log(f"ℹ️ Filter shows {row_count} rows; retrying quickly...")
+        target.wait_for_timeout(300)
 
-    if row_count == 1:
-        app_log("✅ Exactly one row detected via Ext/store/statusbar")
+    # Try ExtJS-native open first when we detect a single row
+    if row_count == 1 and _ext_open_first_row(target):
+        app_log("✅ Opened single iLPN row via ExtJS API")
+        app_log("🐛 DEBUG: About to call _click_ilpn_detail_tabs (ExtJS path)")
+        target.wait_for_timeout(2000)
+        _click_ilpn_detail_tabs(target, **tab_capture_kwargs)
+        app_log("🐛 DEBUG: Returned from _click_ilpn_detail_tabs (ExtJS path)")
+        return True
+
+    # DOM fallback inside nested uxiframe/table (retry after quick checks)
+    app_log("🐛 DEBUG: Trying DOM open again after row detection...")
+    if _dom_open_ilpn_row(target, ilpn):
+        app_log("🐛 DEBUG: Second DOM open succeeded, about to call _click_ilpn_detail_tabs")
+        target.wait_for_timeout(2000)
+        _click_ilpn_detail_tabs(target, **tab_capture_kwargs)
+        app_log("🐛 DEBUG: Returned from _click_ilpn_detail_tabs (DOM retry path)")
+        return True
+    # Final attempt using raw locators if we did count rows
+    if row_count == 1 and rows_locator:
+        app_log("🐛 DEBUG: Trying locator-based row open...")
+        row = rows_locator.first
         try:
-            if _ext_open_first_row(target):
-                _click_ilpn_detail_tabs(target, screenshot_mgr=screenshot_mgr, screenshot_tag="ilpn_tab", operation_note="Auto open iLPN")
-                return True
+            row.scroll_into_view_if_needed(timeout=1000)
+        except Exception:
+            pass
+        try:
+            row.click(timeout=1500)
+            app_log("🐛 DEBUG: Row clicked successfully")
         except Exception as exc:
-            app_log(f"➖ ExtJS open failed: {exc}")
-
-    app_log("➖ Falling back to DOM search for single row")
-    return _dom_open_ilpn_row(target, ilpn)
+            app_log(f"➖ Row click warning: {exc}")
+        open_attempts = [
+            lambda: row.dblclick(timeout=1200),
+            lambda: row.press("Enter"),
+            lambda: row.press("Space"),
+            lambda: target.keyboard.press("Enter"),
+        ]
+        for idx, attempt in enumerate(open_attempts):
+            try:
+                app_log(f"🐛 DEBUG: Trying open attempt {idx + 1}...")
+                attempt()
+                app_log("✅ Opened single iLPN row to view details")
+                app_log("🐛 DEBUG: About to call _click_ilpn_detail_tabs (locator path)")
+                target.wait_for_timeout(2000)
+                _click_ilpn_detail_tabs(target, **tab_capture_kwargs)
+                app_log("🐛 DEBUG: Returned from _click_ilpn_detail_tabs (locator path)")
+                return True
+            except Exception as exc:
+                app_log(f"➖ Row open attempt {idx + 1} did not succeed: {exc}")
+                continue
+    app_log(f"🐛 DEBUG: All methods failed, row_count={row_count}")
+    rf_log(f"❌ Unable to open the filtered iLPN row (row_count={row_count})")
+    return False
 
 
 def fill_ilpn_filter(
@@ -673,4 +772,3 @@ def fill_ilpn_filter(
         return False
 
     return _open_single_filtered_ilpn_row(target, ilpn, screenshot_mgr=screenshot_mgr)
-
