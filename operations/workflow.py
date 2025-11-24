@@ -171,15 +171,6 @@ class WorkflowStageExecutor:
             return metadata, False
         return metadata, True
 
-    def handle_rf_return_stage(
-        self, stage_cfg: dict[str, Any], metadata: dict[str, Any], workflow_idx: int
-    ):
-        title = stage_cfg.get("title", "RF Menu")
-        success = self.stage_actions.run_focus_rf(title)
-        if not success:
-            app_log(f"❌ Unable to resume RF UI for workflow {workflow_idx}; halting.")
-            return metadata, False
-        return metadata, True
 
     def run_stage(
         self,

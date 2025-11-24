@@ -24,8 +24,6 @@ class StageActions:
     receive: Callable[..., bool]
     loading: Callable[..., bool]
     run_tasks_ui: Callable[..., bool]
-    run_tasks_ui_in_place: Callable[..., bool]
-    run_focus_rf: Callable[..., bool]
 
 
 @dataclass
@@ -66,8 +64,6 @@ class OperationRunner:
         self.run_change_warehouse = self._guarded(self._run_change_warehouse)
         self.run_post_message = self._guarded(self._run_post_message)
         self.run_tasks_ui = self._guarded(self._run_tasks_ui)
-        self.run_tasks_ui_in_place = self._guarded(self._run_tasks_ui_in_place)
-        self.run_focus_rf = self._guarded(self._run_focus_rf)
 
     def _guarded(self, func: Callable[..., Any]) -> Callable[..., Any]:
         @wraps(func)
@@ -147,21 +143,6 @@ class OperationRunner:
             app_log("❌ Tasks UI navigation failed")
         return succeeded
 
-    def _run_tasks_ui_in_place(
-        self,
-        search_term: str = "tasks",
-        match_text: str = "Tasks (Configuration)",
-    ) -> bool:
-        succeeded = self.nav_mgr.open_tasks_ui(search_term, match_text)
-        if not succeeded:
-            app_log("❌ Tasks UI in-place navigation failed")
-        return succeeded
-
-    def _run_focus_rf(self, title: str = "RF Menu") -> bool:
-        succeeded = self.nav_mgr.focus_window_by_title(title)
-        if not succeeded:
-            app_log("❌ RF window focus failed")
-        return succeeded
 
 @contextmanager
 def create_operation_services(settings: Any) -> Generator[OperationServices, None, None]:
