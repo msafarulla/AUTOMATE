@@ -28,6 +28,7 @@ class PostMessageManager:
 
         frame = self._resolve_frame()
 
+        self._resize_textareas(frame)
         self._fill_message(frame, message)
         response_info = self._submit_and_capture(frame)
         last_response = response_info
@@ -187,6 +188,34 @@ class PostMessageManager:
 
         raise RuntimeError("Unable to locate the Reset button on Post Message screen")
 
+    def _resize_textareas(self, frame: Frame):
+        """Resize request/response textareas to use ~95% of viewport height."""
+        try:
+            frame.evaluate(
+                """
+                () => {
+                    const viewHeight = window.innerHeight || 900;
+                    const targetHeight = Math.max(320, Math.round(viewHeight * 0.95));
+                    const selectors = [
+                        "textarea[name='dataForm:xmlString']",
+                        "textarea[id='dataForm:xmlString']",
+                        "textarea[name='dataForm:resultString']",
+                        "textarea[id='dataForm:resultString']",
+                        "textarea[name*='response' i]",
+                        "textarea[id*='response' i]"
+                    ];
+                    document.querySelectorAll(selectors.join(',')).forEach((el) => {
+                        el.style.setProperty('height', `${targetHeight}px`, 'important');
+                        el.style.setProperty('min-height', `${targetHeight}px`, 'important');
+                        el.style.setProperty('max-height', `${targetHeight}px`, 'important');
+                        el.style.setProperty('overflow', 'auto', 'important');
+                    });
+                }
+                """
+            )
+        except Exception:
+            pass
+
     def _release_post_message_focus(self, frame: Frame):
         try:
             frame.evaluate(
@@ -204,6 +233,7 @@ class PostMessageManager:
             pass
 
     def _read_response(self, frame: Frame) -> str:
+        self._resize_textareas(frame)
         selectors = [
             "textarea[name='dataForm:resultString']",
             "textarea[id='dataForm:resultString']",
