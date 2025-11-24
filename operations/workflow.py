@@ -106,7 +106,7 @@ class WorkflowStageExecutor:
             or stage_cfg.get("ilpns")
         )
         receive_result = self.orchestrator.run_with_retry(
-            self.step_execution.receive,
+            self.step_execution.run_receive,
             f"Receive (Workflow {workflow_idx})",
             asn=receive_asn,
             item=receive_item,
@@ -126,7 +126,7 @@ class WorkflowStageExecutor:
         if not stage_cfg:
             return metadata, True
         load_result = self.orchestrator.run_with_retry(
-            self.step_execution.loading,
+            self.step_execution.run_loading,
             f"Load (Workflow {workflow_idx})",
             shipment=stage_cfg.get("shipment"),
             dock_door=stage_cfg.get("dock_door"),
@@ -144,11 +144,7 @@ class WorkflowStageExecutor:
             return metadata, True
         search_term = stage_cfg.get("search_term", "tasks")
         match_text = stage_cfg.get("match_text", "Tasks (Configuration)")
-        in_place = bool(stage_cfg.get("preserve_window") or stage_cfg.get("preserve"))
-        if in_place:
-            success = self.step_execution.run_tasks_ui_in_place(search_term, match_text)
-        else:
-            success = self.step_execution.run_tasks_ui(search_term, match_text)
+        success = self.step_execution.run_open_ui(search_term, match_text)
         if not success:
             app_log(f"❌ Unable to open Tasks UI for workflow {workflow_idx}; halting.")
             return metadata, False
@@ -161,11 +157,7 @@ class WorkflowStageExecutor:
             return metadata, True
         search_term = stage_cfg.get("search_term", "ilpns")
         match_text = stage_cfg.get("match_text", "iLPNs (Distribution)")
-        in_place = bool(stage_cfg.get("preserve_window") or stage_cfg.get("preserve"))
-        if in_place:
-            success = self.step_execution.run_tasks_ui_in_place(search_term, match_text)
-        else:
-            success = self.step_execution.run_tasks_ui(search_term, match_text)
+        success = self.step_execution.run_open_ui(search_term, match_text)
         if not success:
             app_log(f"❌ Unable to open iLPNs UI for workflow {workflow_idx}; halting.")
             return metadata, False

@@ -142,7 +142,6 @@ class TasksStage:
     """Tasks UI stage configuration."""
     search_term: str = "tasks"
     match_text: str = "Tasks (Configuration)"
-    preserve_window: bool = False
     enabled: bool = True
 
     def to_dict(self) -> dict[str, Any]:
@@ -150,7 +149,6 @@ class TasksStage:
             "enabled": self.enabled,
             "search_term": self.search_term,
             "match_text": self.match_text,
-            "preserve_window": self.preserve_window,
         }
 
 
@@ -159,7 +157,6 @@ class ILPNsStage:
     """iLPNs UI stage configuration."""
     search_term: str = "ilpns"
     match_text: str = "iLPNs (Distribution)"
-    preserve_window: bool = False
     enabled: bool = True
 
     def to_dict(self) -> dict[str, Any]:
@@ -167,7 +164,6 @@ class ILPNsStage:
             "enabled": self.enabled,
             "search_term": self.search_term,
             "match_text": self.match_text,
-            "preserve_window": self.preserve_window,
         }
 
 

@@ -21,9 +21,9 @@ class StepExecution:
     run_login: Callable[[], None]
     run_change_warehouse: Callable[[], None]
     run_post_message: Callable[[str | None], bool]
-    receive: Callable[..., bool]
-    loading: Callable[..., bool]
-    run_tasks_ui: Callable[..., bool]
+    run_receive: Callable[..., bool]
+    run_loading: Callable[..., bool]
+    run_open_ui: Callable[..., bool]
 
 
 @dataclass
@@ -58,12 +58,12 @@ class OperationRunner:
         self.post_message_mgr = post_message_mgr
         self.rf_menu = rf_menu
         self.conn_guard = conn_guard
-        self.receive = self._guarded(self._receive_impl)
-        self.loading = self._guarded(self._loading_impl)
+        self.run_receive = self._guarded(self._receive_impl)
+        self.run_loading = self._guarded(self._loading_impl)
         self.run_login = self._guarded(self._run_login)
         self.run_change_warehouse = self._guarded(self._run_change_warehouse)
         self.run_post_message = self._guarded(self._run_post_message)
-        self.run_tasks_ui = self._guarded(self._run_tasks_ui)
+        self.run_open_ui = self._guarded(self._run_open_ui)
 
     def _guarded(self, func: Callable[..., Any]) -> Callable[..., Any]:
         @wraps(func)
@@ -137,10 +137,11 @@ class OperationRunner:
         )
         return success
 
-    def _run_tasks_ui(self, search_term: str = "tasks", match_text: str = "Tasks (Configuration)") -> bool:
+    def _run_open_ui(self, search_term: str = "tasks", match_text: str = "Tasks (Configuration)") -> bool:
+        """Open a UI window by search term and match text."""
         succeeded = self.nav_mgr.open_tasks_ui(search_term, match_text)
         if not succeeded:
-            app_log("❌ Tasks UI navigation failed")
+            app_log(f"❌ UI navigation failed for '{match_text}'")
         return succeeded
 
 
@@ -195,9 +196,9 @@ def create_operation_services(settings: Any) -> Generator[OperationServices, Non
                 run_login=runner.run_login,
                 run_change_warehouse=runner.run_change_warehouse,
                 run_post_message=runner.run_post_message,
-                receive=runner.receive,
-                loading=runner.loading,
-                run_tasks_ui=runner.run_tasks_ui,
+                run_receive=runner.run_receive,
+                run_loading=runner.run_loading,
+                run_open_ui=runner.run_open_ui,
             ),
         )
         yield services
