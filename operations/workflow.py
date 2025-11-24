@@ -12,12 +12,12 @@ class WorkflowStageExecutor:
         self,
         settings: Settings,
         orchestrator: AutomationOrchestrator,
-        stage_actions: StepExecution,
+        step_execution: StepExecution,
     ):
         self.settings = settings
         self.orchestrator = orchestrator
-        self.stage_actions = stage_actions
-        self.stage_handlers = {
+        self.step_execution = step_execution
+        self.step_handlers = {
             "post": self.handle_post_stage,
             "receive": self.handle_receive_stage,
             "loading": self.handle_loading_stage,
@@ -72,7 +72,7 @@ class WorkflowStageExecutor:
             )
             return metadata, False
         post_result = self.orchestrator.run_with_retry(
-            lambda payload=message_payload: self.stage_actions.run_post_message(
+            lambda payload=message_payload: self.step_execution.run_post_message(
                 payload
             ),
             f"Post Message (Workflow {workflow_idx})",
@@ -106,7 +106,7 @@ class WorkflowStageExecutor:
             or stage_cfg.get("ilpns")
         )
         receive_result = self.orchestrator.run_with_retry(
-            self.stage_actions.receive,
+            self.step_execution.receive,
             f"Receive (Workflow {workflow_idx})",
             asn=receive_asn,
             item=receive_item,
@@ -126,7 +126,7 @@ class WorkflowStageExecutor:
         if not stage_cfg:
             return metadata, True
         load_result = self.orchestrator.run_with_retry(
-            self.stage_actions.loading,
+            self.step_execution.loading,
             f"Load (Workflow {workflow_idx})",
             shipment=stage_cfg.get("shipment"),
             dock_door=stage_cfg.get("dock_door"),
@@ -146,9 +146,9 @@ class WorkflowStageExecutor:
         match_text = stage_cfg.get("match_text", "Tasks (Configuration)")
         in_place = bool(stage_cfg.get("preserve_window") or stage_cfg.get("preserve"))
         if in_place:
-            success = self.stage_actions.run_tasks_ui_in_place(search_term, match_text)
+            success = self.step_execution.run_tasks_ui_in_place(search_term, match_text)
         else:
-            success = self.stage_actions.run_tasks_ui(search_term, match_text)
+            success = self.step_execution.run_tasks_ui(search_term, match_text)
         if not success:
             app_log(f"❌ Unable to open Tasks UI for workflow {workflow_idx}; halting.")
             return metadata, False
@@ -163,9 +163,9 @@ class WorkflowStageExecutor:
         match_text = stage_cfg.get("match_text", "iLPNs (Distribution)")
         in_place = bool(stage_cfg.get("preserve_window") or stage_cfg.get("preserve"))
         if in_place:
-            success = self.stage_actions.run_tasks_ui_in_place(search_term, match_text)
+            success = self.step_execution.run_tasks_ui_in_place(search_term, match_text)
         else:
-            success = self.stage_actions.run_tasks_ui(search_term, match_text)
+            success = self.step_execution.run_tasks_ui(search_term, match_text)
         if not success:
             app_log(f"❌ Unable to open iLPNs UI for workflow {workflow_idx}; halting.")
             return metadata, False
@@ -179,7 +179,7 @@ class WorkflowStageExecutor:
         metadata: dict[str, Any],
         workflow_idx: int,
     ) -> Tuple[dict[str, Any], bool]:
-        handler = self.stage_handlers.get(stage_name.lower())
+        handler = self.step_handlers.get(stage_name.lower())
         if handler:
             return handler(stage_cfg, metadata, workflow_idx)
         app_log(f"ℹ️ No handler for workflow stage '{stage_name}'; skipping.")
