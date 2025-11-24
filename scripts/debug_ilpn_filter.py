@@ -6,10 +6,17 @@ Usage:
 """
 
 import argparse
+import sys
+from pathlib import Path
 from config.settings import Settings
 from core.logger import app_log, rf_log
-from operations import create_operation_services
+from operations.runner import create_operation_services
 from operations.inbound.ilpn_filter_helper import fill_ilpn_filter
+
+# Ensure project root is on sys.path when run directly from scripts/
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
 
 
 def open_ilpns_and_filter(
