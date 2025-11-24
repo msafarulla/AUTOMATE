@@ -199,7 +199,7 @@ class PostMessageManager:
                     // Derive rows/height from viewport but cap to avoid exceeding the screen.
                     const targetRows = Math.max(30, Math.min(120, Math.round(viewHeight / 14)));
                     const desiredHeight = Math.max(260, Math.round(targetRows * 18)); // assume ~18px line height
-                    const targetHeight = Math.min(desiredHeight, Math.round(viewHeight * 0.85)); // cap at 60% of viewport
+                    const targetHeight = Math.min(desiredHeight, Math.round(viewHeight * 0.6)); // cap at 60% of viewport
 
                     const targets = document.querySelectorAll(
                         'textarea[id="dataForm:xmlString"], textarea[name="dataForm:xmlString"], textarea[id="dataForm:resultString"], textarea[name="dataForm:resultString"], textarea[name*="response" i], textarea[id*="response" i]'
