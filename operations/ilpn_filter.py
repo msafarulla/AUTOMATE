@@ -633,13 +633,18 @@ def click_ilpn_detail_tabs(
     app_log("🎯 Starting tab clicking process...")
 
     # Try to find ALL frames and check each one
-    frames_to_try = [target]  # Start with main page
+    frames_to_try = [target]  # Start with main page or the provided frame
 
     use_page = getattr(target, "page", None) or target
     base_note = operation_note or "iLPN detail tab"
 
     try:
-        for frame in target.frames:
+        candidate_frames = []
+        if hasattr(target, "frames"):
+            candidate_frames = list(target.frames)
+        elif hasattr(target, "child_frames"):
+            candidate_frames = list(target.child_frames)
+        for frame in candidate_frames:
             frames_to_try.append(frame)
             try:
                 app_log(f"  📦 Will try frame: {frame.url}")
