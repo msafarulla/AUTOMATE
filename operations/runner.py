@@ -198,8 +198,6 @@ def create_operation_services(settings: Any) -> Generator[OperationServices, Non
                 receive=runner.receive,
                 loading=runner.loading,
                 run_tasks_ui=runner.run_tasks_ui,
-                run_tasks_ui_in_place=runner.run_tasks_ui_in_place,
-                run_focus_rf=runner.run_focus_rf,
             ),
         )
         yield services
