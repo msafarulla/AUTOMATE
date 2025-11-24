@@ -29,7 +29,7 @@ def run_post_message(
     keep_existing: bool = True,
     hold_seconds: int = 0,
     wait: bool = False,
-    keep_open: bool = False,
+    keep_open: bool = True,
 ) -> bool:
     settings = Settings.from_env()
     if not message:
@@ -62,22 +62,7 @@ def run_post_message(
             if payload_preview:
                 app_log(f"Response payload: {payload_preview}")
 
-            return success
-        finally:
-            if hold_seconds > 0:
-                app_log(f"⏸️ Holding browser open for {hold_seconds}s.")
-                try:
-                    services.nav_mgr.page.wait_for_timeout(hold_seconds * 1000)
-                except KeyboardInterrupt:
-                    app_log("⏹️ Hold interrupted by user.")
-            if wait:
-                app_log("⏸️ Leaving browser open. Press Enter to close and exit.")
-                try:
-                    input()
-                except KeyboardInterrupt:
-                    pass
             if keep_open:
-                app_log("⏳ Keeping browser session open until Ctrl+C (no auto-close).")
                 input("Press Enter to exit and close the browser...")
 
 
