@@ -194,16 +194,19 @@ class PostMessageManager:
             frame.evaluate(
                 """
                 () => {
-                    const viewHeight = window.innerHeight || 800;
-                    const targetHeight = Math.max(240, Math.round(viewHeight * 0.35));
-                    const resize = (sel) => {
-                        document.querySelectorAll(sel).forEach(el => {
-                            el.style.minHeight = targetHeight + 'px';
-                            el.style.height = targetHeight + 'px';
-                        });
-                    };
-                    resize("textarea[name*='xmlString' i], textarea[id*='xmlString' i], textarea[name*='message' i], textarea[id*='message' i]");
-                    resize("textarea[name*='resultString' i], textarea[id*='resultString' i], textarea[name*='response' i]");
+                    const viewHeight = window.innerHeight || 900;
+                    const targetRows = Math.max(40, Math.round(viewHeight / 15)); // roughly 15px per row
+                    const targets = document.querySelectorAll(
+                        'textarea[id="dataForm:xmlString"], textarea[name="dataForm:xmlString"], textarea[id="dataForm:resultString"], textarea[name="dataForm:resultString"], textarea[name*="response" i], textarea[id*="response" i]'
+                    );
+                    targets.forEach((el) => {
+                        el.setAttribute('rows', targetRows);
+                        el.style.removeProperty('max-height');
+                        el.style.removeProperty('min-height');
+                        el.style.removeProperty('height');
+                        el.style.setProperty('height', 'auto', 'important');
+                        el.style.setProperty('overflow', 'auto', 'important');
+                    });
                 }
                 """
             )
