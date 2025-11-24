@@ -87,7 +87,7 @@ class AppConfig:
     check_interval: int = 200
     post_message_text: str = """place holder"""
     rf_verbose_logging: bool = True
-    app_verbose_logging: bool = False
+    app_verbose_logging: bool = True
     requires_prod_confirmation: bool = False
     auto_accept_rf_messages: bool = True
     auto_click_info_icon: bool = False
