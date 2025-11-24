@@ -370,6 +370,7 @@ def _click_ilpn_detail_tabs(
     use_page = getattr(target, "page", None) or target
     base_note = operation_note or "iLPN detail tab"
 
+    # Frames directly under the target (if it's a Page)
     try:
         for frame in target.frames:
             frames_to_try.append(frame)
@@ -378,7 +379,21 @@ def _click_ilpn_detail_tabs(
             except Exception:
                 app_log(f"  📦 Will try frame: (no url)")
     except Exception as e:
-        app_log(f"⚠️ Could not enumerate frames: {e}")
+        app_log(f"⚠️ Could not enumerate frames on target: {e}")
+
+    # If target is a Frame, also try all frames on its owning page (detail tabs often live there).
+    try:
+        page_obj = getattr(target, "page", None)
+        if page_obj and hasattr(page_obj, "frames"):
+            for frame in page_obj.frames:
+                if frame not in frames_to_try:
+                    frames_to_try.append(frame)
+                    try:
+                        app_log(f"  📦 Will try page frame: {frame.url}")
+                    except Exception:
+                        app_log(f"  📦 Will try page frame: (no url)")
+    except Exception as e:
+        app_log(f"⚠️ Could not enumerate frames on target.page: {e}")
 
     tab_names = ["Header", "Contents", "Locks"]
 
@@ -489,6 +504,8 @@ def _open_single_filtered_ilpn_row(target, ilpn: str, screenshot_mgr: Screenshot
     app_log("🐛 DEBUG: Entered _open_single_filtered_ilpn_row")
     _wait_for_ext_mask(target, timeout_ms=3000)
 
+    tab_target = getattr(target, "page", None) or target
+
     tab_capture_kwargs = {
         "screenshot_mgr": screenshot_mgr,
         "screenshot_tag": "ilpn_tab",
@@ -500,7 +517,7 @@ def _open_single_filtered_ilpn_row(target, ilpn: str, screenshot_mgr: Screenshot
     if _dom_open_ilpn_row(target, ilpn):
         app_log("🐛 DEBUG: DOM open succeeded, about to call _click_ilpn_detail_tabs")
         target.wait_for_timeout(2000)  # Wait for detail view to load
-        _click_ilpn_detail_tabs(target, **tab_capture_kwargs)
+        _click_ilpn_detail_tabs(tab_target, **tab_capture_kwargs)
         app_log("🐛 DEBUG: Returned from _click_ilpn_detail_tabs")
         return True
     else:
@@ -558,7 +575,7 @@ def _open_single_filtered_ilpn_row(target, ilpn: str, screenshot_mgr: Screenshot
         app_log("✅ Opened single iLPN row via ExtJS API")
         app_log("🐛 DEBUG: About to call _click_ilpn_detail_tabs (ExtJS path)")
         target.wait_for_timeout(2000)
-        _click_ilpn_detail_tabs(target, **tab_capture_kwargs)
+        _click_ilpn_detail_tabs(tab_target, **tab_capture_kwargs)
         app_log("🐛 DEBUG: Returned from _click_ilpn_detail_tabs (ExtJS path)")
         return True
 
@@ -567,7 +584,7 @@ def _open_single_filtered_ilpn_row(target, ilpn: str, screenshot_mgr: Screenshot
     if _dom_open_ilpn_row(target, ilpn):
         app_log("🐛 DEBUG: Second DOM open succeeded, about to call _click_ilpn_detail_tabs")
         target.wait_for_timeout(2000)
-        _click_ilpn_detail_tabs(target, **tab_capture_kwargs)
+        _click_ilpn_detail_tabs(tab_target, **tab_capture_kwargs)
         app_log("🐛 DEBUG: Returned from _click_ilpn_detail_tabs (DOM retry path)")
         return True
     # Final attempt using raw locators if we did count rows
@@ -596,7 +613,7 @@ def _open_single_filtered_ilpn_row(target, ilpn: str, screenshot_mgr: Screenshot
                 app_log("✅ Opened single iLPN row to view details")
                 app_log("🐛 DEBUG: About to call _click_ilpn_detail_tabs (locator path)")
                 target.wait_for_timeout(2000)
-                _click_ilpn_detail_tabs(target, **tab_capture_kwargs)
+                _click_ilpn_detail_tabs(tab_target, **tab_capture_kwargs)
                 app_log("🐛 DEBUG: Returned from _click_ilpn_detail_tabs (locator path)")
                 return True
             except Exception as exc:
