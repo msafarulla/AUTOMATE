@@ -1,19 +1,18 @@
 """
-Shared iLPN quick-filter helpers extracted from the debug script.
+Debug helper to open the iLPNs UI standalone and exercise the quick filter.
+
+Usage:
+    python scripts/debug_ilpn_filter.py --ilpn XYZ123
 """
 
-import re
+import argparse
 import time
-from typing import Any
 
+from config.settings import Settings
 from core.logger import app_log, rf_log
+from operations.ilpn_filter import fill_ilpn_filter
 from core.screenshot import ScreenshotManager
-
-__all__ = [
-    "fill_ilpn_filter",
-    "diagnose_tabs",
-    "click_ilpn_detail_tabs",
-]
+from operations import create_operation_services
 
 
 def _find_ilpn_frame(page):
@@ -146,6 +145,7 @@ def _statusbar_count(target) -> int | None:
     except Exception:
         return None
 
+    import re
     m = re.search(r"of\s+(\d+)", text or "", re.I)
     if m:
         try:
@@ -201,46 +201,101 @@ def _dom_open_ilpn_row(target, ilpn: str) -> bool:
 
                     const tables = Array.from(doc.querySelectorAll('table'));
                     scannedTables += tables.length;
-                    console.log(' tables:', tables.length, 'iframe:', lastIframeId, lastIframeSrc);
+                    console.log('Scanning', tables.length, 'tables in doc');
 
-                    for (let tblIdx = 0; tblIdx < tables.length; tblIdx += 1) {
-                        const tbl = tables[tblIdx];
+                    for (let tIdx = 0; tIdx < tables.length; tIdx++) {
+                        const tbl = tables[tIdx];
                         const rows = Array.from(tbl.querySelectorAll('tr'));
-                        for (let rowIdx = 0; rowIdx < rows.length; rowIdx += 1) {
-                            const row = rows[rowIdx];
-                            const cells = Array.from(row.querySelectorAll('td, th'));
-                            if (!cells.length) continue;
-                            const rowText = cells.map(c => norm(c.textContent)).join(' ').trim();
-                            if (!rowText) continue;
-                            if (containsIlpn(rowText)) {
-                                try {
-                                    row.scrollIntoView({ block: 'center' });
-                                    row.dispatchEvent(new MouseEvent('click', { bubbles: true, detail: 1 }));
-                                    row.dispatchEvent(new MouseEvent('dblclick', { bubbles: true, detail: 2 }));
-                                } catch (e) {}
-
+                        for (let rIdx = 0; rIdx < rows.length; rIdx++) {
+                            const row = rows[rIdx];
+                            const txt = norm(row.innerText);
+                            if (containsIlpn(txt)) {
+                                console.log('FOUND MATCH in table', tIdx, 'row', rIdx, ':', txt.substring(0, 100));
                                 hit = {
-                                    iframeId: lastIframeId,
-                                    iframeSrc: lastIframeSrc,
-                                    tableIdx: tblIdx,
-                                    rowIdx: rowIdx,
+                                    tableIdx: tIdx,
+                                    rowIdx: rIdx,
+                                    text: txt.slice(0, 200),
+                                    iframeId: ownerFrame?.id || null,
+                                    iframeSrc: ownerFrame?.src || null,
                                 };
-                                break;
+                                const targetEl = row.querySelector('a, button') || row;
+                                try { targetEl.scrollIntoView({ block: 'center' }); } catch (e) {}
+                                const checkbox = row.querySelector?.('input[type=\"checkbox\"], .x-grid-row-checker');
+                                try { checkbox?.click?.(); console.log('Clicked checkbox'); } catch (e) {}
+                                try { 
+                                    targetEl.dispatchEvent(new MouseEvent('click', { bubbles: true, detail: 1 })); 
+                                    console.log('Dispatched click');
+                                } catch (e) {}
+                                try { 
+                                    targetEl.dispatchEvent(new MouseEvent('dblclick', { bubbles: true, detail: 2 })); 
+                                    console.log('Dispatched dblclick');
+                                } catch (e) {}
+                                try {
+                                    const buttons = Array.from((ownerFrame?.contentDocument || doc).querySelectorAll('button, a'));
+                                    const viewBtn = buttons.find(b => /view/i.test(b.textContent || ''));
+                                    viewBtn?.click?.();
+                                    console.log('Clicked view button');
+                                } catch (e) {}
+                                return { ok: true, ...hit, tablesScanned: scannedTables };
                             }
                         }
-                        if (hit) break;
                     }
-                    if (hit) break;
                 }
 
+                // If no table match, try a broader element text search (div/span/td/etc.)
+                console.log('No table match, trying text search...');
+                const tryTextSearch = () => {
+                    for (const doc of docsToScan) {
+                        const ownerFrame = doc.defaultView?.frameElement;
+                        const elems = Array.from(doc.querySelectorAll('tr, td, span, div, a, button, li, [role=\"row\"]'));
+                        console.log('Text search checking', elems.length, 'elements');
+                        for (const el of elems) {
+                            const txt = norm(el.innerText);
+                            if (!txt) continue;
+                            if (containsIlpn(txt)) {
+                                console.log('FOUND via text search:', txt.substring(0, 100));
+                                const targetEl = el.closest('tr, .x-grid-row, .x-grid-item, [role=\"row\"], a, button') || el;
+                                try { targetEl.scrollIntoView({ block: 'center' }); } catch (e) {}
+                                const checkbox = targetEl.querySelector?.('input[type=\"checkbox\"], .x-grid-row-checker');
+                                try { checkbox?.click?.(); console.log('Clicked checkbox'); } catch (e) {}
+                                try { 
+                                    targetEl.dispatchEvent(new MouseEvent('click', { bubbles: true, detail: 1 })); 
+                                    console.log('Dispatched click');
+                                } catch (e) {}
+                                try { 
+                                    targetEl.dispatchEvent(new MouseEvent('dblclick', { bubbles: true, detail: 2 })); 
+                                    console.log('Dispatched dblclick');
+                                } catch (e) {}
+                                try {
+                                    const buttons = Array.from((ownerFrame?.contentDocument || doc).querySelectorAll('button, a'));
+                                    const viewBtn = buttons.find(b => /view/i.test(b.textContent || ''));
+                                    viewBtn?.click?.();
+                                    console.log('Clicked view button');
+                                } catch (e) {}
+                                return {
+                                    ok: true,
+                                    reason: 'text_search',
+                                    iframeId: ownerFrame?.id || null,
+                                    iframeSrc: ownerFrame?.src || null,
+                                    text: txt.slice(0, 200),
+                                    tablesScanned: scannedTables
+                                };
+                            }
+                        }
+                    }
+                    return null;
+                };
+
+                const textResult = tryTextSearch();
+                if (textResult) return textResult;
+
+                console.log('No match found anywhere');
                 return {
-                    ok: !!hit,
-                    iframeId: hit?.iframeId || lastIframeId,
-                    iframeSrc: hit?.iframeSrc || lastIframeSrc,
-                    tableIdx: hit?.tableIdx,
-                    rowIdx: hit?.rowIdx,
-                    tables: scannedTables,
-                    reason: hit ? 'found' : 'not-found',
+                    ok: false,
+                    reason: 'no_match',
+                    iframeId: lastIframeId,
+                    iframeSrc: lastIframeSrc,
+                    tables: scannedTables
                 };
             }
             """,
@@ -272,7 +327,6 @@ def _dom_open_ilpn_row(target, ilpn: str) -> bool:
 
     app_log("🐛 DEBUG: _dom_open_ilpn_row returning False")
     return False
-
 
 def _open_single_filtered_ilpn_row(
     target,
@@ -405,8 +459,7 @@ def _open_single_filtered_ilpn_row(
     rf_log(f"❌ Unable to open the filtered iLPN row (row_count={row_count})")
     return False
 
-
-def fill_ilpn_filter(
+def _fill_ilpn_filter(
     page,
     ilpn: str,
     screenshot_mgr: ScreenshotManager | None = None,
@@ -419,45 +472,106 @@ def fill_ilpn_filter(
 
     filter_triggered = False
     candidates = [
+        # "//span[contains(translate(normalize-space(),'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz'),'quick filter')]/following::input[1]",
+        # "//label[contains(translate(normalize-space(),'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz'),'lpn')]/following::input[1]",
+        # "//input[contains(@placeholder,'ilter') and not(@type='hidden')]",
+        # "//input[contains(@aria-label,'Quick filter') and not(@type='hidden')]",
+        # "//input[contains(@name,'lpn') and not(@type='hidden')]",
+        # "//input[contains(@id,'lpn') and not(@type='hidden')]",
         "//input[contains(@name,'filter') and not(@type='hidden')]",
         "input.x-form-text:visible",
         "input[type='text']:visible",
     ]
     input_field = None
-
-    # Prefer hidden input if visible one is tricky
     for sel in candidates:
+        app_log(f"🔎 Trying selector: {sel}")
         try:
-            field = target.locator(sel).first
-            count = field.count()
-            if count == 0:
-                continue
-            field.wait_for(timeout=1500)
-            if field.is_visible():
-                input_field = field
-                break
-        except Exception:
+            locator = target.locator(sel).first
+            locator.wait_for(state="visible", timeout=3000)
+            input_field = locator
+            state = locator.evaluate("""
+                el => ({
+                    display: getComputedStyle(el).display,
+                    visibility: getComputedStyle(el).visibility,
+                    disabled: el.disabled,
+                    readonly: el.readOnly
+                })
+            """)
+            app_log(f"✅ Selector matched: {sel} (state={state})")
+            break
+        except Exception as exc:
+            app_log(f"➖ Selector not usable: {sel} ({exc})")
             continue
 
-    # Hidden input handling
     if not input_field:
+        rf_log("⚠️ Could not locate visible iLPN quick filter input, attempting hidden-fill fallback.")
+        filter_triggered = False
         try:
-            # Try a hidden input (type=hidden) that Ext might be using to store the quick filter.
-            hidden_candidates = target.locator("//input[contains(@name,'filter') and @type='hidden']")
-            if hidden_candidates.count():
-                hidden = hidden_candidates.first
-                value_before = hidden.input_value(timeout=500)
-                app_log(f"🐛 DEBUG: Hidden iLPN value before fill: {value_before}")
-                hidden.fill(ilpn)
-                value_after = hidden.input_value(timeout=500)
-                app_log(f"🐛 DEBUG: Hidden iLPN value after fill: {value_after}")
-                if value_before != value_after:
-                    filter_triggered = True
+            filled = target.evaluate(
+                """
+                (ilpn) => {
+                    const val = String(ilpn);
+                    const inputs = Array.from(document.querySelectorAll('input'));
+                    if (!inputs.length) return false;
+                    console.log('debug_ilpn_filter: found inputs', inputs.length);
+
+                    const score = (el) => {
+                        const txt = [
+                            el.name || '',
+                            el.id || '',
+                            el.placeholder || '',
+                            el.getAttribute('aria-label') || ''
+                        ].join(' ').toLowerCase();
+                        let s = 0;
+                        if (txt.includes('lpn')) s += 3;
+                        if (txt.includes('filter')) s += 2;
+                        if (el.type === 'hidden') s += 1;
+                        return s;
+                    };
+
+                    const ranked = inputs
+                        .map(el => ({
+                            el,
+                            s: score(el),
+                            name: el.name,
+                            id: el.id,
+                            placeholder: el.placeholder,
+                            aria: el.getAttribute('aria-label'),
+                            type: el.type,
+                            display: getComputedStyle(el).display,
+                            visibility: getComputedStyle(el).visibility
+                        }))
+                        .filter(entry => entry.s > 0)
+                        .sort((a, b) => b.s - a.s);
+
+                    if (!ranked.length) {
+                        console.log('debug_ilpn_filter: no scored inputs');
+                        return false;
+                    }
+
+                    console.log('debug_ilpn_filter: top candidates', ranked.slice(0, 3));
+
+                    const el = ranked[0].el;
+                    try {
+                        el.removeAttribute('disabled');
+                        el.style.display = '';
+                        el.style.visibility = 'visible';
+                        el.style.opacity = '1';
+                    } catch (e) {}
+
+                    try { el.focus?.(); } catch (e) {}
+                    el.value = val;
+                    ['input', 'change', 'keyup', 'keydown', 'keypress'].forEach(evt => {
+                        try { el.dispatchEvent(new Event(evt, { bubbles: true, cancelable: true })); } catch (e) {}
+                    });
+                    return true;
+                }
+                """,
+                ilpn,
+            )
+            if filled:
                 try:
                     target.press("body", "Enter")
-                except Exception:
-                    pass
-                try:
                     target.press("body", "Space")
                 except Exception:
                     pass
@@ -518,10 +632,93 @@ def fill_ilpn_filter(
     return _open_single_filtered_ilpn_row(target, ilpn, screenshot_mgr=screenshot_mgr)
 
 
-def diagnose_tabs(target):
-    """Diagnostic function - handles both Page and Frame objects."""
-    from config.settings import Settings  # local import to avoid circular at module load
+def open_ilpns_and_filter(
+    ilpn: str,
+    search_term: str,
+    match_text: str,
+    wait: bool,
+    hold_seconds: int,
+    keep_open: bool,
+    close_existing: bool,
+):
+    """Login, open iLPNs UI, and try filtering with the provided iLPN."""
+    settings = Settings.from_env()
+    success = False
+    with create_operation_services(settings) as services:
+        try:
+            services.stage_actions.run_login()
+            services.stage_actions.run_change_warehouse()
 
+            if not services.nav_mgr.open_menu_item(search_term, match_text, close_existing=close_existing):
+                app_log(f"❌ Could not open menu item '{match_text}'")
+                success = False
+            else:
+                app_log(f"🔎 Attempting to filter iLPN '{ilpn}'")
+                success = fill_ilpn_filter(
+                    services.nav_mgr.page,
+                    ilpn,
+                    screenshot_mgr=services.screenshot_mgr,
+                )
+                if success:
+                    app_log("✅ iLPN filter interaction completed (check UI for results).")
+                else:
+                    app_log("❌ iLPN filter interaction failed.")
+        except Exception as exc:
+            app_log(f"❌ Debug run failed: {exc}")
+            success = False
+        finally:
+            if hold_seconds > 0:
+                app_log(f"⏸️ Holding browser open for {hold_seconds}s (Ctrl+C to exit sooner). No close buttons will be clicked.")
+                try:
+                    services.nav_mgr.page.wait_for_timeout(hold_seconds * 1000)
+                except KeyboardInterrupt:
+                    app_log("⏹️ Hold interrupted by user.")
+
+            if wait:
+                app_log("⏸️ Leaving browser open. Press Enter to close and exit.")
+                try:
+                    input()
+                except KeyboardInterrupt:
+                    pass
+
+            if keep_open:
+                app_log("⏳ Keeping browser session open until Ctrl+C (no auto-close).")
+                try:
+                    while True:
+                        services.nav_mgr.page.wait_for_timeout(5000)
+                except KeyboardInterrupt:
+                    app_log("⏹️ Keep-open interrupted by user.")
+
+        return success
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Open iLPNs UI and filter by iLPN.")
+    parser.add_argument("--ilpn", required=True, help="iLPN value to filter by")
+    parser.add_argument("--search-term", default="ILPNS", help="Menu search keyword")
+    parser.add_argument("--match-text", default="iLPNs (Distribution)", help="Menu item text to open")
+    parser.add_argument("--wait", action="store_true", help="Keep the window open until Enter is pressed")
+    parser.add_argument("--hold-seconds", type=int, default=0, help="Keep UI open for N seconds (non-interactive environments)")
+    parser.add_argument("--keep-open", action="store_true", help="Keep browser session alive until Ctrl+C (overrides hold/wait timing)")
+    parser.add_argument("--keep-existing", action="store_true", help="Do not close existing windows when opening the iLPNs menu")
+    args = parser.parse_args()
+
+    if not args.wait and args.hold_seconds == 0 and not args.keep_open:
+        app_log("ℹ️ Tip: add --hold-seconds 300 or --keep-open to inspect the UI; otherwise the session will close after filtering.")
+
+    open_ilpns_and_filter(
+        args.ilpn,
+        args.search_term,
+        args.match_text,
+        args.wait,
+        args.hold_seconds,
+        args.keep_open,
+        close_existing=not args.keep_existing,
+    )
+
+
+def _diagnose_tabs(target):
+    """Diagnostic function - handles both Page and Frame objects."""
     if not getattr(Settings.app, "app_verbose_logging", False):
         app_log("ℹ️ Tab diagnostic skipped (APP_VERBOSE_LOGGING disabled)")
         return
@@ -529,7 +726,7 @@ def diagnose_tabs(target):
     app_log("🔍 Starting comprehensive tab diagnostic...")
 
     # Determine if target is a Page or Frame
-    is_page = hasattr(target, "frames")
+    is_page = hasattr(target, 'frames')
     app_log(f"📄 Target type: {'Page' if is_page else 'Frame'}")
 
     # Check main target
@@ -599,9 +796,9 @@ def diagnose_tabs(target):
                         """
                     )
 
-                    if frame_info["potentialTabs"]:
+                    if frame_info['potentialTabs']:
                         app_log(f"  ✅ Found {len(frame_info['potentialTabs'])} potential tabs")
-                        for tab in frame_info["potentialTabs"]:
+                        for tab in frame_info['potentialTabs']:
                             app_log(f"    📌 {tab}")
 
                 except Exception as e:
@@ -615,8 +812,8 @@ def diagnose_tabs(target):
     app_log("\n✅ Diagnostic complete")
 
 
-def click_ilpn_detail_tabs(
-    target: Any,
+def _click_ilpn_detail_tabs(
+    target,
     screenshot_mgr: ScreenshotManager | None = None,
     *,
     screenshot_tag: str = "ilpn_tab",
@@ -625,7 +822,8 @@ def click_ilpn_detail_tabs(
     """
     Click through all visible iLPN detail tabs sequentially.
     """
-    diagnose_tabs(target)
+    # Run diagnostic first
+    _diagnose_tabs(target)
 
     # Wait a moment for the detail view to fully load
     target.wait_for_timeout(2000)
@@ -643,14 +841,15 @@ def click_ilpn_detail_tabs(
             frames_to_try.append(frame)
             try:
                 app_log(f"  📦 Will try frame: {frame.url}")
-            except Exception:
-                app_log("  📦 Will try frame: (no url)")
+            except:
+                app_log(f"  📦 Will try frame: (no url)")
     except Exception as e:
         app_log(f"⚠️ Could not enumerate frames: {e}")
 
     # Tab names to click
+    # tab_names = ["Header", "Locks", "LPN Movement", "Audit", "Documents"]
     tab_names = ["Header", "Contents", "Locks"]
-
+    
     for tab_name in tab_names:
         app_log(f"\n🔄 Attempting to click tab: {tab_name}")
         clicked = False
@@ -677,6 +876,14 @@ def click_ilpn_detail_tabs(
                             app_log(f"    ✅ Clicked element {i}")
                             clicked = True
                             page_target.wait_for_timeout(800)
+                            if screenshot_mgr:
+                                safe_tag = screenshot_tag or "ilpn_tab"
+                                tab_slug = tab_name.lower().replace(" ", "_")
+                                screenshot_mgr.capture(
+                                    use_page,
+                                    f"{safe_tag}_{tab_slug}",
+                                    f"{base_note}: {tab_name}",
+                                )
                             break
                         except Exception as e:
                             app_log(f"    ⚠️ Element {i} click failed: {e}")
@@ -721,22 +928,13 @@ def click_ilpn_detail_tabs(
                             return { success: false, reason: 'not found' };
                         }
                         """,
-                        tab_name,
+                        tab_name
                     )
 
-                    if result.get("success"):
+                    if result.get('success'):
                         app_log(f"    ✅ JS click succeeded: {result}")
                         clicked = True
                         page_target.wait_for_timeout(800)
-                        if screenshot_mgr:
-                            safe_tag = screenshot_tag or "ilpn_tab"
-                            tab_slug = tab_name.lower().replace(" ", "_")
-                            screenshot_mgr.capture(
-                                use_page,
-                                f"{safe_tag}_{tab_slug}",
-                                f"{base_note}: {tab_name}",
-                            )
-
                         break
                     else:
                         app_log(f"    ⚠️ JS click failed: {result}")
@@ -754,6 +952,5 @@ def click_ilpn_detail_tabs(
     return True
 
 
-# Backwards compatible aliases for external callers
-_diagnose_tabs = diagnose_tabs
-_click_ilpn_detail_tabs = click_ilpn_detail_tabs
+if __name__ == "__main__":
+    main()
