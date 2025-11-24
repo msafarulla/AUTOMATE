@@ -82,7 +82,7 @@ class BrowserConfig:
 
 @dataclass
 class AppConfig:
-    change_warehouse: str = "ONT"
+    change_warehouse: str = "SDC"
     timeout_default: int = 5000
     check_interval: int = 200
     post_message_text: str = """place holder"""
@@ -93,7 +93,6 @@ class AppConfig:
     auto_click_info_icon: bool = False
     verify_tran_id_marker: bool = False
     auto_close_post_login_windows: bool = False
-    force_enable_context_menu: bool = True
     app_server: str = ""
     app_server_user: str = ""
     app_server_pass: str = ""
