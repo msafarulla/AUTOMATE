@@ -195,7 +195,7 @@ class PostMessageManager:
                 """
                 () => {
                     const viewHeight = window.innerHeight || 900;
-                    const targetHeight = Math.max(320, Math.round(viewHeight * 0.95));
+                    const targetHeight = Math.max(320, Math.round(viewHeight * 0.85));
                     const selectors = [
                         "textarea[name='dataForm:xmlString']",
                         "textarea[id='dataForm:xmlString']",
