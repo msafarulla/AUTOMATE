@@ -195,65 +195,132 @@ def _dom_open_ilpn_row(target, ilpn: str) -> bool:
 
                     const tables = Array.from(doc.querySelectorAll('table'));
                     scannedTables += tables.length;
-                    console.log('Scanning document with', tables.length, 'tables');
+                    console.log('Scanning', tables.length, 'tables in doc');
 
-                    for (const table of tables) {
-                        const rows = Array.from(table.querySelectorAll('tr'));
-                        for (const row of rows) {
-                            const cells = Array.from(row.querySelectorAll('td'));
-                            const txt = cells.map(c => norm(c.innerText || c.textContent)).join(' | ');
+                    for (let tIdx = 0; tIdx < tables.length; tIdx++) {
+                        const tbl = tables[tIdx];
+                        const rows = Array.from(tbl.querySelectorAll('tr'));
+                        for (let rIdx = 0; rIdx < rows.length; rIdx++) {
+                            const row = rows[rIdx];
+                            const txt = norm(row.innerText);
                             if (containsIlpn(txt)) {
-                                hit = { row, table };
-                                console.log('Found match in table');
-                                break;
+                                console.log('FOUND MATCH in table', tIdx, 'row', rIdx, ':', txt.substring(0, 100));
+                                hit = {
+                                    tableIdx: tIdx,
+                                    rowIdx: rIdx,
+                                    text: txt.slice(0, 200),
+                                    iframeId: ownerFrame?.id || null,
+                                    iframeSrc: ownerFrame?.src || null,
+                                };
+                                const targetEl = row.querySelector('a, button') || row;
+                                try { targetEl.scrollIntoView({ block: 'center' }); } catch (e) {}
+                                const checkbox = row.querySelector?.('input[type="checkbox"], .x-grid-row-checker');
+                                try { checkbox?.click?.(); console.log('Clicked checkbox'); } catch (e) {}
+                                try { 
+                                    targetEl.dispatchEvent(new MouseEvent('click', { bubbles: true, detail: 1 })); 
+                                    console.log('Dispatched click');
+                                } catch (e) {}
+                                try { 
+                                    targetEl.dispatchEvent(new MouseEvent('dblclick', { bubbles: true, detail: 2 })); 
+                                    console.log('Dispatched dblclick');
+                                } catch (e) {}
+                                try {
+                                    const buttons = Array.from((ownerFrame?.contentDocument || doc).querySelectorAll('button, a'));
+                                    const viewBtn = buttons.find(b => /view/i.test(b.textContent || ''));
+                                    viewBtn?.click?.();
+                                    console.log('Clicked view button');
+                                } catch (e) {}
+                                return { ok: true, ...hit, tablesScanned: scannedTables };
                             }
                         }
-                        if (hit) break;
                     }
-
-                    if (hit) break;
                 }
 
-                if (!hit) {
-                    return { success: false, reason: 'not found', scannedTables, lastIframeId, lastIframeSrc };
-                }
+                // If no table match, try a broader element text search (div/span/td/etc.)
+                console.log('No table match, trying text search...');
+                const tryTextSearch = () => {
+                    for (const doc of docsToScan) {
+                        const ownerFrame = doc.defaultView?.frameElement;
+                        const elems = Array.from(doc.querySelectorAll('tr, td, span, div, a, button, li, [role="row"]'));
+                        console.log('Text search checking', elems.length, 'elements');
+                        for (const el of elems) {
+                            const txt = norm(el.innerText);
+                            if (!txt) continue;
+                            if (containsIlpn(txt)) {
+                                console.log('FOUND via text search:', txt.substring(0, 100));
+                                const targetEl = el.closest('tr, .x-grid-row, .x-grid-item, [role="row"], a, button') || el;
+                                try { targetEl.scrollIntoView({ block: 'center' }); } catch (e) {}
+                                const checkbox = targetEl.querySelector?.('input[type="checkbox"], .x-grid-row-checker');
+                                try { checkbox?.click?.(); console.log('Clicked checkbox'); } catch (e) {}
+                                try { 
+                                    targetEl.dispatchEvent(new MouseEvent('click', { bubbles: true, detail: 1 })); 
+                                    console.log('Dispatched click');
+                                } catch (e) {}
+                                try { 
+                                    targetEl.dispatchEvent(new MouseEvent('dblclick', { bubbles: true, detail: 2 })); 
+                                    console.log('Dispatched dblclick');
+                                } catch (e) {}
+                                try {
+                                    const buttons = Array.from((ownerFrame?.contentDocument || doc).querySelectorAll('button, a'));
+                                    const viewBtn = buttons.find(b => /view/i.test(b.textContent || ''));
+                                    viewBtn?.click?.();
+                                    console.log('Clicked view button');
+                                } catch (e) {}
+                                return {
+                                    ok: true,
+                                    reason: 'text_search',
+                                    iframeId: ownerFrame?.id || null,
+                                    iframeSrc: ownerFrame?.src || null,
+                                    text: txt.slice(0, 200),
+                                    tablesScanned: scannedTables
+                                };
+                            }
+                        }
+                    }
+                    return null;
+                };
 
-                try {
-                    hit.row.scrollIntoView({ block: 'center' });
-                    hit.row.dispatchEvent(new MouseEvent('click', { bubbles: true, detail: 1 }));
-                    hit.row.dispatchEvent(new MouseEvent('dblclick', { bubbles: true, detail: 2 }));
-                } catch (e) {
-                    console.log('Row click failed:', e);
-                }
+                const textResult = tryTextSearch();
+                if (textResult) return textResult;
 
+                console.log('No match found anywhere');
                 return {
-                    success: true,
-                    scannedTables,
-                    lastIframeId,
-                    lastIframeSrc,
-                    rowText: (hit.row.innerText || '').trim(),
-                    tableSummary: {
-                        rows: hit.table?.rows?.length || 0,
-                        cols: hit.table?.rows?.[0]?.cells?.length || 0
-                    }
+                    ok: false,
+                    reason: 'no_match',
+                    iframeId: lastIframeId,
+                    iframeSrc: lastIframeSrc,
+                    tables: scannedTables
                 };
             }
             """,
             ilpn,
         )
     except Exception as exc:
-        rf_log(f"❌ DOM iLPN open failed: {exc}")
+        rf_log(f"❌ DOM iLPN search failed: {exc}")
+        app_log(f"🐛 DEBUG: _dom_open_ilpn_row exception: {exc}")
         return False
 
-    if not result or not result.get("success"):
-        app_log(f"➖ DOM search fallback failed: {result}")
-        return False
+    app_log(f"🐛 DEBUG: _dom_open_ilpn_row result: {result}")
 
-    app_log(f"✅ DOM search opened row (tables scanned: {result.get('scannedTables')})")
-    last_frame = result.get("lastIframeId") or result.get("lastIframeSrc")
-    if last_frame:
-        app_log(f"   Last iframe seen: {last_frame}")
-    return True
+    if result and result.get("ok"):
+        tbl = result.get("tableIdx")
+        row = result.get("rowIdx")
+        app_log(
+            f"✅ Opened iLPN row via DOM fallback (table#{tbl} row#{row}, iframe={result.get('iframeId')})"
+        )
+        app_log("🐛 DEBUG: _dom_open_ilpn_row returning True")
+        return True
+
+    if result:
+        rf_log(
+            f"❌ DOM iLPN search found no match "
+            f"(iframe={result.get('iframeId')}, tables={result.get('tables')}, reason={result.get('reason')})"
+        )
+    else:
+        rf_log("❌ DOM iLPN search failed without result payload")
+
+    app_log("🐛 DEBUG: _dom_open_ilpn_row returning False")
+    return False
 
 
 def _diagnose_tabs(target):
