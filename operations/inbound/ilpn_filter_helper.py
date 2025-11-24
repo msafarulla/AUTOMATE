@@ -504,8 +504,6 @@ def _open_single_filtered_ilpn_row(target, ilpn: str, screenshot_mgr: Screenshot
     app_log("🐛 DEBUG: Entered _open_single_filtered_ilpn_row")
     _wait_for_ext_mask(target, timeout_ms=3000)
 
-    tab_target = getattr(target, "page", None) or target
-
     tab_capture_kwargs = {
         "screenshot_mgr": screenshot_mgr,
         "screenshot_tag": "ilpn_tab",
@@ -517,7 +515,7 @@ def _open_single_filtered_ilpn_row(target, ilpn: str, screenshot_mgr: Screenshot
     if _dom_open_ilpn_row(target, ilpn):
         app_log("🐛 DEBUG: DOM open succeeded, about to call _click_ilpn_detail_tabs")
         target.wait_for_timeout(2000)  # Wait for detail view to load
-        _click_ilpn_detail_tabs(tab_target, **tab_capture_kwargs)
+        _click_ilpn_detail_tabs(target, **tab_capture_kwargs)
         app_log("🐛 DEBUG: Returned from _click_ilpn_detail_tabs")
         return True
     else:
@@ -575,7 +573,7 @@ def _open_single_filtered_ilpn_row(target, ilpn: str, screenshot_mgr: Screenshot
         app_log("✅ Opened single iLPN row via ExtJS API")
         app_log("🐛 DEBUG: About to call _click_ilpn_detail_tabs (ExtJS path)")
         target.wait_for_timeout(2000)
-        _click_ilpn_detail_tabs(tab_target, **tab_capture_kwargs)
+        _click_ilpn_detail_tabs(target, **tab_capture_kwargs)
         app_log("🐛 DEBUG: Returned from _click_ilpn_detail_tabs (ExtJS path)")
         return True
 
@@ -584,7 +582,7 @@ def _open_single_filtered_ilpn_row(target, ilpn: str, screenshot_mgr: Screenshot
     if _dom_open_ilpn_row(target, ilpn):
         app_log("🐛 DEBUG: Second DOM open succeeded, about to call _click_ilpn_detail_tabs")
         target.wait_for_timeout(2000)
-        _click_ilpn_detail_tabs(tab_target, **tab_capture_kwargs)
+        _click_ilpn_detail_tabs(target, **tab_capture_kwargs)
         app_log("🐛 DEBUG: Returned from _click_ilpn_detail_tabs (DOM retry path)")
         return True
     # Final attempt using raw locators if we did count rows
@@ -613,7 +611,7 @@ def _open_single_filtered_ilpn_row(target, ilpn: str, screenshot_mgr: Screenshot
                 app_log("✅ Opened single iLPN row to view details")
                 app_log("🐛 DEBUG: About to call _click_ilpn_detail_tabs (locator path)")
                 target.wait_for_timeout(2000)
-                _click_ilpn_detail_tabs(tab_target, **tab_capture_kwargs)
+                _click_ilpn_detail_tabs(target, **tab_capture_kwargs)
                 app_log("🐛 DEBUG: Returned from _click_ilpn_detail_tabs (locator path)")
                 return True
             except Exception as exc:
