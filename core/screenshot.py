@@ -40,8 +40,8 @@ class ScreenshotManager:
             app_log("⚠️ Screenshot capture skipped due to onDemand=False.")
             return None
         """Capture full page screenshot"""
-        self.sequence += 1
-        filename = self._build_filename(label)
+        next_seq = self.sequence + 1
+        filename = self._build_filename(label, next_seq)
         overlay_added = False
         timestamp_added = False
         overlay_text_val = overlay_text or self._default_overlay_text()
@@ -95,17 +95,19 @@ class ScreenshotManager:
         if not saved:
             return None
 
+        self.sequence = next_seq
         app_log(f"📸 Screenshot saved: {filename}")
         return filename
 
     def capture_rf_window(self, page: Page, label: str, overlay_text: str | None = None) -> Path | None:
         """Capture RF Menu window screenshot"""
-        self.sequence += 1
-        filename = self._build_filename(label)
+        next_seq = self.sequence + 1
+        filename = self._build_filename(label, next_seq)
         overlay_added = False
         timestamp_added = False
         overlay_text_val = overlay_text or self._default_overlay_text()
         target = None
+        saved = False
 
         try:
             self._run_rf_hook(self._rf_pre_capture_hook)
@@ -127,17 +129,17 @@ class ScreenshotManager:
                 app_log("⚠️ RF window decorations skipped because the page/context closed.")
 
             target.screenshot(**self._screenshot_kwargs(filename))
+            saved = True
         except PageUnavailableError:
             app_log("⚠️ Unable to capture RF window because the page/context closed.")
-            return None
         except PlaywrightTimeoutError:
             app_log(f"⚠️ RF screenshot timed out after {self._screenshot_timeout_ms}ms; skipping.")
-            return None
         except Exception as e:
             app_log(f"Failed to capture RF window: {e}")
             self._add_timestamp(page)
             timestamp_added = True
             page.screenshot(**self._screenshot_kwargs(filename))
+            saved = True
         finally:
             if overlay_added and target:
                 try:
@@ -151,12 +153,16 @@ class ScreenshotManager:
                     pass
             self._run_rf_hook(self._rf_post_capture_hook)
 
+        if not saved:
+            return None
+        self.sequence = next_seq
         app_log(f"📸 RF Screenshot saved: {filename}")
         return filename
 
-    def _build_filename(self, label: str) -> Path:
+    def _build_filename(self, label: str, sequence: int | None = None) -> Path:
         suffix = ".jpg" if self.image_format == "jpeg" else ".png"
-        return self.current_output_dir / f"{self.sequence:03d}_{label}{suffix}"
+        seq = self.sequence if sequence is None else sequence
+        return self.current_output_dir / f"{seq:03d}_{label}{suffix}"
 
     def _screenshot_kwargs(self, filename: Path) -> dict[str, Any]:
         kwargs: dict[str, Any] = {"path": str(filename), "type": self.image_format}
