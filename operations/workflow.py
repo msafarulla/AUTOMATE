@@ -1,4 +1,4 @@
-from typing import Any, Tuple
+from typing import Any, Sequence, Tuple
 
 from core.logger import app_log
 from core.orchestrator import AutomationOrchestrator
@@ -89,36 +89,74 @@ class WorkflowStageExecutor:
     ) -> Tuple[dict[str, Any], bool]:
         if not stage_cfg:
             return metadata, True
+
         override_asn = metadata.get("asn_id")
         receive_asn = override_asn if override_asn else stage_cfg.get("asn")
-        receive_items = metadata.get("receive_items") or []
-        receive_default = receive_items[0] if receive_items else {}
-        receive_item = stage_cfg.get("item") or receive_default.get("item")
-        quantity_cfg = stage_cfg.get("quantity", 0)
-        receive_quantity = (
-            quantity_cfg if quantity_cfg else receive_default.get("quantity")
-        )
-        if receive_quantity is None:
-            receive_quantity = 1
+        flow_hint = stage_cfg.get("flow")
+        quantity_override = stage_cfg.get("quantity", 0)
+        auto_handle = stage_cfg.get("auto_handle_deviation", False)
         # Support either legacy "tasks" detour or the newer "ilpns" config
         open_ui_cfg = (
             stage_cfg.get("open_ui")
             or stage_cfg.get("tasks")
             or stage_cfg.get("ilpns")
         )
-        receive_result = self.orchestrator.run_with_retry(
-            self.step_execution.run_receive,
-            f"Receive (Workflow {workflow_idx})",
-            asn=receive_asn,
-            item=receive_item,
-            quantity=receive_quantity,
-            flow_hint=stage_cfg.get("flow"),
-            auto_handle=stage_cfg.get("auto_handle_deviation", False),
-            open_ui_cfg=open_ui_cfg,
-        )
-        if not receive_result.success:
-            app_log(f"⏹️ Halting workflow {workflow_idx} due to receive failure")
-            return metadata, False
+
+        def _normalize_items() -> list[dict[str, Any]]:
+            """Build a list of items to receive from cfg or metadata."""
+            cfg_items = stage_cfg.get("items")
+            if isinstance(cfg_items, Sequence) and not isinstance(cfg_items, (str, bytes)):
+                return [item for item in cfg_items if item]
+
+            # Explicit single item on the stage config should take precedence
+            explicit_item = stage_cfg.get("item")
+            if explicit_item:
+                return [{"item": explicit_item, "quantity": quantity_override}]
+
+            meta_items = metadata.get("receive_items") or []
+            if isinstance(meta_items, Sequence):
+                return [item for item in meta_items if item]
+
+            return []
+
+        items_to_receive = _normalize_items()
+        if not items_to_receive:
+            # Fall back to a single attempt using whatever is in the stage config
+            items_to_receive = [{
+                "item": stage_cfg.get("item"),
+                "quantity": quantity_override,
+            }]
+
+        for idx, item_cfg in enumerate(items_to_receive, start=1):
+            receive_item = (
+                item_cfg.get("item")
+                or item_cfg.get("ItemName")
+                or item_cfg.get("item_name")
+            )
+            if not receive_item:
+                app_log(f"⚠️ Receive step {workflow_idx}: skipping item entry {idx} with no item code.")
+                continue
+
+            item_quantity = item_cfg.get("quantity")
+            receive_quantity = (
+                quantity_override if quantity_override else item_quantity
+            )
+            if receive_quantity in (None, 0, ""):
+                receive_quantity = 1
+
+            receive_result = self.orchestrator.run_with_retry(
+                self.step_execution.run_receive,
+                f"Receive {receive_item} (Workflow {workflow_idx}, item {idx}/{len(items_to_receive)})",
+                asn=receive_asn,
+                item=receive_item,
+                quantity=receive_quantity,
+                flow_hint=flow_hint,
+                auto_handle=auto_handle,
+                open_ui_cfg=open_ui_cfg,
+            )
+            if not receive_result.success:
+                app_log(f"⏹️ Halting workflow {workflow_idx} due to receive failure")
+                return metadata, False
         return metadata, True
 
     def handle_loading_step(

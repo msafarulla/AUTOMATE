@@ -246,6 +246,7 @@ def create_default_workflows() -> list[Workflow]:
             db_env="prod",
             asn_items=[
                 ASNItem(item_name="81402XC01C", shipped_qty=20000),
+                ASNItem(item_name="45119VA010", shipped_qty=10000),
             ],
         ))
         .receivingStep(ReceivingStep(
