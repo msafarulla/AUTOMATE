@@ -92,6 +92,7 @@ class BrowserConfig:
 
 @dataclass
 class AppConfig:
+    credentials_env: str = "dev"
     change_warehouse: str = "SDC"
     timeout_default: int = 5000
     check_interval: int = 200
@@ -144,12 +145,18 @@ class Settings:
         cls.app.auto_close_post_login_windows = _env_flag(
             "AUTO_CLOSE_POST_LOGIN_WINDOWS", cls.app.auto_close_post_login_windows
         )
+        cls.app.credentials_env = os.getenv(
+            "APP_CREDENTIALS_ENV", cls.app.credentials_env
+        )
         set_general_verbose(cls.app.app_verbose_logging)
         set_rf_verbose(cls.app.rf_verbose_logging)
         try:
-            credentials = DB.get_credentials("qa")
+            credentials = DB.get_credentials(cls.app.credentials_env)
         except Exception as exc:
-            app_log(f"⚠️ Failed to load App logon credentials from config in dev: {exc}")
+            app_log(
+                f"⚠️ Failed to load App logon credentials "
+                f"(env={cls.app.credentials_env}): {exc}"
+            )
             credentials = {}
         cls.app.app_server = os.getenv(
             "APP_SERVER",
