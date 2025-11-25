@@ -19,7 +19,7 @@ class FlowType(Enum):
 
 
 @dataclass
-class ASNItem:
+class AsnItem:
     """Single item in an ASN."""
     item_name: str
     shipped_qty: int = 2000
@@ -114,7 +114,7 @@ class PostMessageStep:
     db_env: str | None = None
     lookback_days: int = 14
     message: str | None = None  # Manual XML override
-    asn_items: list[ASNItem] = field(default_factory=list)
+    asn_items: list[AsnItem] = field(default_factory=list)
     enabled: bool = True
 
     def to_dict(self) -> dict[str, Any]:
@@ -245,8 +245,8 @@ def create_default_workflows() -> list[Workflow]:
             lookback_days=14,
             db_env="prod",
             asn_items=[
-                ASNItem(item_name="81402XC01C", shipped_qty=20000),
-                ASNItem(item_name="45119VA010", shipped_qty=10000),
+                AsnItem(item_name="81402XC01C", shipped_qty=20000),
+                AsnItem(item_name="45119VA010", shipped_qty=10000),
             ],
         ))
         .receivingStep(ReceivingStep(

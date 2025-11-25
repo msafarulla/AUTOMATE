@@ -4,7 +4,7 @@ Tests for the workflow configuration system.
 import pytest
 
 from config.workflow_config import (
-    ASNItem,
+    AsnItem,
     FlowType,
     OpenUIConfig,
     PostMessageStep,
@@ -25,14 +25,14 @@ class TestASNItem:
     """Tests for ASNItem dataclass."""
 
     def test_default_values(self):
-        item = ASNItem(item_name="TEST123")
+        item = AsnItem(item_name="TEST123")
         assert item.item_name == "TEST123"
         assert item.shipped_qty == 2000
         assert item.received_qty == 0
         assert item.qty_uom == "Unit"
 
     def test_to_dict(self):
-        item = ASNItem(item_name="PART456", shipped_qty=500)
+        item = AsnItem(item_name="PART456", shipped_qty=500)
         result = item.to_dict()
         
         assert result["ItemName"] == "PART456"
@@ -87,8 +87,8 @@ class TestPostStage:
         stage = PostMessageStep(
             message_type="ASN",
             asn_items=[
-                ASNItem(item_name="ITEM1", shipped_qty=100),
-                ASNItem(item_name="ITEM2", shipped_qty=200),
+                AsnItem(item_name="ITEM1", shipped_qty=100),
+                AsnItem(item_name="ITEM2", shipped_qty=200),
             ]
         )
         result = stage.to_dict()
