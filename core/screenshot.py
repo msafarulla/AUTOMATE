@@ -164,6 +164,18 @@ class ScreenshotManager:
         seq = self.sequence if sequence is None else sequence
         return self.current_output_dir / f"{seq:03d}_{label}{suffix}"
 
+    def capture_with_next_sequence(self, label: str, capture_fn: Callable[[Path], Any]) -> Path | None:
+        """Run a manual capture function while keeping sequence numbering in sync."""
+        next_seq = self.sequence + 1
+        filename = self._build_filename(label, next_seq)
+        try:
+            capture_fn(filename)
+        except Exception as exc:
+            app_log(f"⚠️ Manual capture failed for {label}: {exc}")
+            return None
+        self.sequence = next_seq
+        return filename
+
     def _screenshot_kwargs(self, filename: Path) -> dict[str, Any]:
         kwargs: dict[str, Any] = {"path": str(filename), "type": self.image_format}
         if self.image_quality is not None:
