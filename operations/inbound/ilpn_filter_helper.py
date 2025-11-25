@@ -622,6 +622,8 @@ def _click_ilpn_detail_tabs(
                         combined.paste(img, (0, y))
                         y += img.height
 
+                    # Increment sequence to avoid reusing prior numbering.
+                    screenshot_mgr.sequence += 1
                     filename = screenshot_mgr._build_filename(f"{safe_tag}_combined")
                     fmt = "JPEG" if screenshot_mgr.image_format == "jpeg" else "PNG"
                     save_kwargs = {}
