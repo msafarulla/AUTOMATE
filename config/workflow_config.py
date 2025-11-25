@@ -43,6 +43,7 @@ class OpenTasksUiStep:
     search_term: str = "tasks"
     match_text: str = "Tasks (Configuration)"
     drill_detail: bool = False
+    tab_click_timeout_ms: int = 3000
     operation_note: str | None = None
     screenshot_tag: str | None = None
     fill_ilpn: bool = False
@@ -55,6 +56,7 @@ class OpenTasksUiStep:
             "search_term": self.search_term,
             "match_text": self.match_text,
             "drill_detail": self.drill_detail,
+            "tab_click_timeout_ms": self.tab_click_timeout_ms,
             "operation_note": self.operation_note,
             "screenshot_tag": self.screenshot_tag,
             "fill_ilpn": self.fill_ilpn,
@@ -72,6 +74,7 @@ class OpenIlpnUiStep:
     fill_ilpn: bool = True
     close_after_open: bool = False
     drill_detail: bool = False
+    tab_click_timeout_ms: int = 3000
     enabled: bool = True
 
     def to_dict(self) -> dict[str, Any]:
@@ -84,6 +87,7 @@ class OpenIlpnUiStep:
             "fill_ilpn": self.fill_ilpn,
             "close_after_open": self.close_after_open,
             "drill_detail": self.drill_detail,
+            "tab_click_timeout_ms": self.tab_click_timeout_ms,
         }
 
 

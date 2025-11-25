@@ -144,7 +144,12 @@ def run_open_ui_detours(
             if entry.get("drill_detail") or base_cfg.get("drill_detail"):
                 app_log("ℹ️ Attempting to drill into iLPN details and tabs")
             ilpn_val = screen_context.get("ilpn")
-            if not fill_ilpn_cb(str(ilpn_val), page=use_page):
+            timeout_ms = (
+                entry.get("tab_click_timeout_ms")
+                or base_cfg.get("tab_click_timeout_ms")
+                or None
+            )
+            if not fill_ilpn_cb(str(ilpn_val), page=use_page, tab_click_timeout_ms=timeout_ms):
                 return False
             use_page.wait_for_timeout(5000)
     return True

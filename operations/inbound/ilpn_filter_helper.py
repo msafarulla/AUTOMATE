@@ -457,6 +457,7 @@ def _click_ilpn_detail_tabs(
     *,
     screenshot_tag: str = "ilpn_tab",
     operation_note: str | None = None,
+    click_timeout_ms: int = 3000,
 ):
     """
     Click through all visible iLPN detail tabs sequentially.
@@ -503,8 +504,8 @@ def _click_ilpn_detail_tabs(
                     for i in range(count):
                         try:
                             el = elements.nth(i)
-                            el.scroll_into_view_if_needed(timeout=3000)
-                            el.click(force=True, timeout=3000)
+                            el.scroll_into_view_if_needed(timeout=click_timeout_ms)
+                            el.click(force=True, timeout=click_timeout_ms)
                             app_log(f"    ✅ Clicked element {i}")
                             clicked = True
                             page_target.wait_for_timeout(800)
@@ -581,7 +582,13 @@ def _click_ilpn_detail_tabs(
     return True
 
 
-def _open_single_filtered_ilpn_row(target, ilpn: str, screenshot_mgr: ScreenshotManager | None = None) -> bool:
+def _open_single_filtered_ilpn_row(
+    target,
+    ilpn: str,
+    screenshot_mgr: ScreenshotManager | None = None,
+    *,
+    tab_click_timeout_ms: int | None = None,
+) -> bool:
     """
     Open the filtered iLPN row quickly.
     - First try DOM fallback immediately (no long waits)
@@ -595,6 +602,7 @@ def _open_single_filtered_ilpn_row(target, ilpn: str, screenshot_mgr: Screenshot
         "screenshot_mgr": screenshot_mgr,
         "screenshot_tag": "ilpn_tab",
         "operation_note": f"iLPN {ilpn} detail tabs",
+        "click_timeout_ms": tab_click_timeout_ms or 3000,
     }
 
     # Fast path: DOM scan across all iframe docs
@@ -718,6 +726,8 @@ def fill_ilpn_filter(
     page,
     ilpn: str,
     screenshot_mgr: ScreenshotManager | None = None,
+    *,
+    tab_click_timeout_ms: int | None = None,
 ) -> bool:
     """Populate the iLPN quick filter and open the matching row."""
     target_frame = _find_ilpn_frame(page)
@@ -878,4 +888,9 @@ def fill_ilpn_filter(
         rf_log("❌ Unable to trigger iLPN filter apply")
         return False
 
-    return _open_single_filtered_ilpn_row(target, ilpn, screenshot_mgr=screenshot_mgr)
+    return _open_single_filtered_ilpn_row(
+        target,
+        ilpn,
+        screenshot_mgr=screenshot_mgr,
+        tab_click_timeout_ms=tab_click_timeout_ms,
+    )

@@ -58,11 +58,11 @@ class ReceiveOperation(BaseOperation):
         self._cache_screen_context()
         return success
 
-    def _fill_ilpn_quick_filter(self, ilpn: str, page=None) -> bool:
+    def _fill_ilpn_quick_filter(self, ilpn: str, page=None, **kwargs: Any) -> bool:
         """Fill the iLPN quick filter using the debug helper logic (shared)."""
         page = page or self.page
         try:
-            return bool(fill_ilpn_filter(page, ilpn, screenshot_mgr=self.screenshot_mgr))
+            return bool(fill_ilpn_filter(page, ilpn, screenshot_mgr=self.screenshot_mgr, **kwargs))
         except Exception as exc:
             rf_log(f"❌ iLPN filter via helper failed: {exc}")
             return False
