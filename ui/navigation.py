@@ -383,6 +383,34 @@ class NavigationManager:
 
         resized = clicked + (ext_resized or 0)
 
+        # Fallback: some windows may not be registered with WindowManager; size them via ComponentQuery.
+        if resized == 0:
+            fallback_resized = safe_page_evaluate(self.page, """
+                () => {
+                    if (!window.Ext?.ComponentQuery) return 0;
+                    const wins = Ext.ComponentQuery.query('window');
+                    let changed = 0;
+                    wins.forEach(win => {
+                        const title = (win.title || '').toLowerCase();
+                        if (title.includes('rf menu') || title === 'rf') return;
+                        try {
+                            const w = Math.max(400, window.innerWidth * 0.95);
+                            const h = Math.max(300, window.innerHeight * 0.95);
+                            const x = Math.max(4, (window.innerWidth - w) / 2);
+                            const y = Math.max(4, window.innerHeight * 0.03);
+                            win.setSize?.(w, h);
+                            win.setPosition?.(x, y);
+                            win.setPagePosition?.(x, y);
+                            win.toFront?.();
+                            win.updateLayout?.();
+                            changed += 1;
+                        } catch (e) {}
+                    });
+                    return changed;
+                }
+            """, description="maximize_non_rf_windows_fallback")
+            resized = fallback_resized or 0
+
         if resized:
             app_log(f"🪟 Maximized {resized} non-RF window(s)")
         else:
