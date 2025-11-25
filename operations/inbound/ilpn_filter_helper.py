@@ -638,7 +638,7 @@ def _click_ilpn_detail_tabs(
                         combined.paste(img, (0, y))
                         y += img.height
 
-                    # Overlay text + timestamp with readable background.
+                    # Overlay text (scenario/stage/note) top-center and timestamp bottom-right.
                     try:
                         overlay_parts = []
                         scenario = getattr(screenshot_mgr, "current_scenario_label", None)
@@ -649,26 +649,44 @@ def _click_ilpn_detail_tabs(
                             overlay_parts.append(str(stage))
                         if base_note:
                             overlay_parts.append(str(base_note))
-                        timestamp_text = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                        overlay_parts.append(timestamp_text)
                         overlay_text = " / ".join(part for part in overlay_parts if part)
+                        timestamp_text = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
                         font = ImageFont.load_default()
-                        # Build an RGBA overlay to allow semi-transparent background.
                         overlay = Image.new("RGBA", combined.size, (0, 0, 0, 0))
                         draw = ImageDraw.Draw(overlay)
                         padding = 10
-                        text_bbox = font.getbbox(overlay_text)
-                        text_width = text_bbox[2] - text_bbox[0]
-                        text_height = text_bbox[3] - text_bbox[1]
-                        box = (
-                            padding,
-                            padding,
-                            padding + text_width + padding,
-                            padding + text_height + padding,
+
+                        # Top-center overlay text with soft background.
+                        if overlay_text:
+                            text_bbox = font.getbbox(overlay_text)
+                            tw = text_bbox[2] - text_bbox[0]
+                            th = text_bbox[3] - text_bbox[1]
+                            top = padding
+                            left = max(padding, (combined.width - tw) // 2 - padding)
+                            box = (left, top, left + tw + padding * 2, top + th + padding * 2)
+                            draw.rectangle(box, fill=(255, 255, 255, 180))
+                            draw.text((left + padding, top + padding), overlay_text, fill="black", font=font)
+
+                        # Bottom-right timestamp with light background.
+                        ts_bbox = font.getbbox(timestamp_text)
+                        tsw = ts_bbox[2] - ts_bbox[0]
+                        tsh = ts_bbox[3] - ts_bbox[1]
+                        right_box = (
+                            combined.width - tsw - padding * 2,
+                            combined.height - tsh - padding * 2,
+                            combined.width,
+                            combined.height,
                         )
-                        draw.rectangle(box, fill=(255, 255, 255, 210))
-                        draw.text((padding * 1.5, padding * 1.5), overlay_text, fill="black", font=font)
+                            # rectangle fill semi-transparent white
+                        draw.rectangle(right_box, fill=(255, 255, 255, 180))
+                        draw.text(
+                            (combined.width - tsw - padding, combined.height - tsh - padding),
+                            timestamp_text,
+                            fill="black",
+                            font=font,
+                        )
+
                         combined = Image.alpha_composite(combined.convert("RGBA"), overlay).convert("RGB")
                     except Exception as exc:
                         app_log(f"⚠️ Failed to add overlay to combined image: {exc}")
