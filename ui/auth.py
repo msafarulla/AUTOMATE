@@ -32,19 +32,29 @@ class AuthManager:
         self.page.dispatch_event('#username', 'keyup')
         self.page.dispatch_event('#password', 'keyup')
 
-        app_log("Waiting for button to be enabled...")
-        self.page.wait_for_timeout(2000)
-
-        # Verify button is enabled before clicking
-        is_disabled = safe_page_evaluate(self.page,
-                                         "document.getElementById('loginButton').disabled",
-                                         description="AuthManager.is_login_disabled")
-        if is_disabled:
-            raise Exception("Login button is still disabled after filling credentials")
+        app_log("Waiting for login button to enable...")
+        try:
+            self.page.wait_for_function(
+                "!document.getElementById('loginButton').disabled",
+                timeout=15000,
+            )
+        except PlaywrightTimeoutError:
+            is_disabled = safe_page_evaluate(
+                self.page,
+                "(() => { const btn = document.getElementById('loginButton'); return btn ? btn.disabled : true; })()",
+                description="AuthManager.is_login_disabled",
+                suppress_log=True,
+            )
+            raise Exception(
+                f"Login button did not enable within 15s (disabled={is_disabled})"
+            )
 
         app_log("Clicking login button...")
-        self.page.click('#loginButton')
-        self.page.wait_for_timeout(10000)
+        try:
+            with self.page.expect_navigation(wait_until="networkidle", timeout=30000):
+                self.page.click('#loginButton')
+        except PlaywrightTimeoutError as exc:
+            raise Exception("Login click did not trigger navigation within 30s") from exc
 
         if self.settings.app.auto_close_post_login_windows:
             self._close_default_windows()

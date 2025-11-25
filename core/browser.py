@@ -32,6 +32,7 @@ class BrowserManager:
         window_height = int(cfg.height / scale)
 
         launch_args = [
+            "--start-fullscreen",
             f"--window-size={window_width},{window_height}",
             "--window-position=0,0",
             "--allow-running-insecure-content",
