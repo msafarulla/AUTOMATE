@@ -7,6 +7,7 @@ import re
 import time
 import hashlib
 from io import BytesIO
+from typing import Any
 from config.settings import Settings
 from core.logger import app_log, rf_log
 from core.screenshot import ScreenshotManager
@@ -102,6 +103,27 @@ def _wait_for_stable_view(
         target.wait_for_timeout(interval_ms)
     rf_log("⚠️ View did not stabilize in time")
     return False
+
+
+def _maximize_page_for_capture(page: Any):
+    """Best-effort maximize/bring-to-front before screenshots."""
+    try:
+        page.bring_to_front()
+    except Exception:
+        pass
+    try:
+        page.evaluate(
+            """
+            () => {
+                try {
+                    window.moveTo(0, 0);
+                    window.resizeTo(screen.availWidth, screen.availHeight);
+                } catch (e) {}
+            }
+            """
+        )
+    except Exception:
+        pass
 
 
 def _ext_store_count(target) -> int | None:
@@ -476,6 +498,7 @@ def _click_ilpn_detail_tabs(
     base_note = operation_note or "iLPN detail tab"
     tab_images: list[bytes] = []
     safe_tag = screenshot_tag or "ilpn_tab"
+    _maximize_page_for_capture(use_page)
 
     try:
         for frame in target.frames:
