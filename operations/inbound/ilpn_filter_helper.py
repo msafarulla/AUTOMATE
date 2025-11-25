@@ -503,8 +503,8 @@ def _click_ilpn_detail_tabs(
                     for i in range(count):
                         try:
                             el = elements.nth(i)
-                            el.scroll_into_view_if_needed(timeout=500)
-                            el.click(force=True, timeout=1000)
+                            el.scroll_into_view_if_needed(timeout=3000)
+                            el.click(force=True, timeout=3000)
                             app_log(f"    ✅ Clicked element {i}")
                             clicked = True
                             page_target.wait_for_timeout(800)
