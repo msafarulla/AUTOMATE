@@ -5,6 +5,7 @@ Moved here to avoid circular imports between receive and the debug script.
 
 import re
 import time
+import hashlib
 from config.settings import Settings
 from core.logger import app_log, rf_log
 from core.screenshot import ScreenshotManager
@@ -66,6 +67,40 @@ def _wait_for_ext_mask(target, timeout_ms: int = 4000):
             return True
         target.wait_for_timeout(150)
     return True
+
+
+def _compute_view_hash(target) -> str | None:
+    """Compute a coarse hash of the current view for stability checks."""
+    try:
+        content = target.evaluate("() => document.body?.innerText || ''")
+        return hashlib.sha1(content.encode("utf-8", "ignore")).hexdigest()
+    except Exception:
+        return None
+
+
+def _wait_for_stable_view(
+    target,
+    *,
+    stable_samples: int = 3,
+    interval_ms: int = 250,
+    timeout_ms: int = 5000,
+) -> bool:
+    """Poll the view hash until it stops changing to infer load completion."""
+    last = None
+    stable = 0
+    deadline = time.time() + timeout_ms / 1000
+    while time.time() < deadline:
+        h = _compute_view_hash(target)
+        if h and h == last:
+            stable += 1
+            if stable >= stable_samples:
+                return True
+        else:
+            stable = 1 if h else 0
+            last = h
+        target.wait_for_timeout(interval_ms)
+    rf_log("⚠️ View did not stabilize in time")
+    return False
 
 
 def _ext_store_count(target) -> int | None:
@@ -662,10 +697,14 @@ def _open_single_filtered_ilpn_row(target, ilpn: str, screenshot_mgr: Screenshot
                 app_log(f"🐛 DEBUG: Trying open attempt {idx + 1}...")
                 attempt()
                 app_log("✅ Opened single iLPN row to view details")
+                if not _wait_for_stable_view(target):
+                    app_log("⚠️ Detail view not stable after open; retrying")
+                    continue
                 app_log("🐛 DEBUG: About to call _click_ilpn_detail_tabs (locator path)")
                 target.wait_for_timeout(2000)
                 _click_ilpn_detail_tabs(target, **tab_capture_kwargs)
                 app_log("🐛 DEBUG: Returned from _click_ilpn_detail_tabs (locator path)")
+                _wait_for_stable_view(target)
                 return True
             except Exception as exc:
                 app_log(f"➖ Row open attempt {idx + 1} did not succeed: {exc}")
