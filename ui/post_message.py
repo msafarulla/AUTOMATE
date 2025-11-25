@@ -91,11 +91,12 @@ class PostMessageManager:
             f"{label}: {info['summary'][:60]}",
         )
         try:
-            self.screenshot_mgr.capture_with_next_sequence(
+            filename = self.screenshot_mgr.capture_with_next_sequence(
                 f"post_message_response_{label.lower()}_frame",
                 lambda path: frame.screenshot(path=str(path), timeout=5000),
-                log_message="📸 Post Message frame screenshot saved",
             )
+            if filename:
+                app_log(f"📸 Post Message frame screenshot saved: {filename}")
         except Exception as exc:
             app_log(f"⚠️ Frame-level response capture failed: {exc}")
         return info

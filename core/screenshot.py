@@ -164,18 +164,8 @@ class ScreenshotManager:
         seq = self.sequence if sequence is None else sequence
         return self.current_output_dir / f"{seq:03d}_{label}{suffix}"
 
-    def capture_with_next_sequence(
-        self,
-        label: str,
-        capture_fn: Callable[[Path], Any],
-        *,
-        log_message: str | None = None,
-    ) -> Path | None:
-        """Run a manual capture function while keeping sequence numbering in sync.
-
-        Useful for bespoke captures (e.g., individual iframes) so callers stay agnostic
-        to sequence bookkeeping.
-        """
+    def capture_with_next_sequence(self, label: str, capture_fn: Callable[[Path], Any]) -> Path | None:
+        """Run a manual capture function while keeping sequence numbering in sync."""
         next_seq = self.sequence + 1
         filename = self._build_filename(label, next_seq)
         try:
@@ -184,7 +174,6 @@ class ScreenshotManager:
             app_log(f"⚠️ Manual capture failed for {label}: {exc}")
             return None
         self.sequence = next_seq
-        app_log(log_message or f"📸 Screenshot saved: {filename}")
         return filename
 
     def _screenshot_kwargs(self, filename: Path) -> dict[str, Any]:
