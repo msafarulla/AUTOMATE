@@ -57,13 +57,19 @@ class TestOpenUIConfig:
     def test_with_entries(self):
         config = OpenUIConfig(entries=[
             OpenIlpnUiStep(),
+            OpenTasksUiStep(),
         ])
         result = config.to_dict()
         
         assert result["enabled"] is True
-        assert len(result["entries"]) == 1
-        assert result["entries"][0]["search_term"] == "ILPNS"
-        assert result["entries"][0]["fill_ilpn"] is True
+        assert len(result["entries"]) == 2
+        ilpn_entry = result["entries"][0]
+        tasks_entry = result["entries"][1]
+        assert ilpn_entry["search_term"] == "ILPNS"
+        assert ilpn_entry["drill_detail"] is False
+        assert ilpn_entry["fill_ilpn"] is True
+        assert tasks_entry["search_term"] == "tasks"
+        assert tasks_entry["drill_detail"] is False
 
 
 class TestPostStage:

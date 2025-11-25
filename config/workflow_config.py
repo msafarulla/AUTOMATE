@@ -42,6 +42,7 @@ class OpenTasksUiStep:
     """Tasks UI stage configuration."""
     search_term: str = "tasks"
     match_text: str = "Tasks (Configuration)"
+    drill_detail: bool = False
     operation_note: str | None = None
     screenshot_tag: str | None = None
     fill_ilpn: bool = False
@@ -53,6 +54,7 @@ class OpenTasksUiStep:
             "enabled": self.enabled,
             "search_term": self.search_term,
             "match_text": self.match_text,
+            "drill_detail": self.drill_detail,
             "operation_note": self.operation_note,
             "screenshot_tag": self.screenshot_tag,
             "fill_ilpn": self.fill_ilpn,
@@ -69,6 +71,7 @@ class OpenIlpnUiStep:
     screenshot_tag: str | None = None
     fill_ilpn: bool = True
     close_after_open: bool = False
+    drill_detail: bool = False
     enabled: bool = True
 
     def to_dict(self) -> dict[str, Any]:
@@ -80,6 +83,7 @@ class OpenIlpnUiStep:
             "screenshot_tag": self.screenshot_tag,
             "fill_ilpn": self.fill_ilpn,
             "close_after_open": self.close_after_open,
+            "drill_detail": self.drill_detail,
         }
 
 
@@ -244,7 +248,7 @@ def create_default_workflows() -> list[Workflow]:
             flow=FlowType.HAPPY_PATH,
             auto_handle_deviation=True,
             open_ui=OpenUIConfig(entries=[
-                OpenIlpnUiStep(),
+                OpenIlpnUiStep(drill_detail=True),
             ]),
         ))
         .build()

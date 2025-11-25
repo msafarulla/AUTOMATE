@@ -1,6 +1,6 @@
 from typing import Any, Callable
 
-from core.logger import rf_log
+from core.logger import rf_log, app_log
 from ui.navigation import NavigationManager
 
 
@@ -141,6 +141,8 @@ def run_open_ui_detours(
                 pass
 
         if entry.get("fill_ilpn") and fill_ilpn_cb and screen_context and screen_context.get("ilpn"):
+            if entry.get("drill_detail") or base_cfg.get("drill_detail"):
+                app_log("ℹ️ Attempting to drill into iLPN details and tabs")
             ilpn_val = screen_context.get("ilpn")
             if not fill_ilpn_cb(str(ilpn_val), page=use_page):
                 return False
