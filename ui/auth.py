@@ -16,14 +16,19 @@ class AuthManager:
 
     def login(self):
         base_url = self.settings.app.app_server
+        app_log(f"🌐 Navigating to login page: {base_url} (creds env={self.credentials_env})")
         self.page.goto(base_url, wait_until="networkidle")
-        self.page.wait_for_selector("#username", timeout=5000)
+        self.page.wait_for_selector("#username", timeout=10000)
+        self.page.wait_for_selector("#password", timeout=10000)
 
         credentials = self._get_credentials()
+        app_log(f"Using credentials for user: {credentials.get('app_server_user')}")
         app_log("Filling username...")
+        self.page.click('#username')
         self.page.fill('#username', credentials["app_server_user"])
 
         app_log("Filling password...")
+        self.page.click('#password')
         self.page.fill('#password', credentials["app_server_pass"])
 
         app_log("Dispatching events...")
@@ -31,6 +36,8 @@ class AuthManager:
         self.page.dispatch_event('#password', 'input')
         self.page.dispatch_event('#username', 'keyup')
         self.page.dispatch_event('#password', 'keyup')
+        self.page.dispatch_event('#username', 'change')
+        self.page.dispatch_event('#password', 'change')
 
         app_log("Waiting for login button to enable...")
         try:
@@ -50,11 +57,24 @@ class AuthManager:
             )
 
         app_log("Clicking login button...")
+        nav_succeeded = False
         try:
             with self.page.expect_navigation(wait_until="networkidle", timeout=30000):
                 self.page.click('#loginButton')
-        except PlaywrightTimeoutError as exc:
-            raise Exception("Login click did not trigger navigation within 30s") from exc
+            nav_succeeded = True
+        except PlaywrightTimeoutError:
+            app_log("⚠️ Login click did not navigate; retrying with Enter...")
+            try:
+                with self.page.expect_navigation(wait_until="networkidle", timeout=20000):
+                    self.page.keyboard.press("Enter")
+                nav_succeeded = True
+            except PlaywrightTimeoutError as exc:
+                self.screenshot_mgr.capture(self.page, "login_failed", "Login did not navigate")
+                raise Exception("Login click/Enter did not trigger navigation") from exc
+
+        if not nav_succeeded:
+            self.screenshot_mgr.capture(self.page, "login_failed", "Login did not navigate")
+            raise Exception("Login flow ended without navigation")
 
         if self.settings.app.auto_close_post_login_windows:
             self._close_default_windows()
