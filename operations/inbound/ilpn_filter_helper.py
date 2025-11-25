@@ -6,6 +6,7 @@ Moved here to avoid circular imports between receive and the debug script.
 import re
 import time
 import hashlib
+from datetime import datetime
 from io import BytesIO
 from typing import Any
 from config.settings import Settings
@@ -623,6 +624,7 @@ def _click_ilpn_detail_tabs(
         try:
             if tab_images:
                 from PIL import Image
+                from PIL import ImageDraw, ImageFont
 
                 images = [Image.open(BytesIO(b)) for b in tab_images if b]
                 if images:
@@ -635,6 +637,36 @@ def _click_ilpn_detail_tabs(
                     for img in images:
                         combined.paste(img, (0, y))
                         y += img.height
+
+                    # Overlay text + timestamp similar to ScreenshotManager.
+                    try:
+                        overlay_lines = []
+                        scenario = getattr(screenshot_mgr, "current_scenario_label", None)
+                        stage = getattr(screenshot_mgr, "current_stage_label", None)
+                        if scenario:
+                            overlay_lines.append(scenario)
+                        if stage:
+                            overlay_lines.append(stage)
+                        if base_note:
+                            overlay_lines.append(base_note)
+                        timestamp_text = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                        overlay_lines.append(timestamp_text)
+
+                        font = ImageFont.load_default()
+                        draw = ImageDraw.Draw(combined)
+                        line_height = font.getbbox("Hg")[3] + 4
+                        padding = 8
+                        overlay_height = padding * 2 + line_height * len(overlay_lines)
+                        overlay_width = max(font.getbbox(line)[2] for line in overlay_lines) + padding * 2
+                        # Draw semi-transparent white overlay at top-left.
+                        overlay_box = [0, 0, overlay_width, overlay_height]
+                        draw.rectangle(overlay_box, fill=(255, 255, 255, 200))
+                        y_text = padding
+                        for line in overlay_lines:
+                            draw.text((padding, y_text), line, fill="black", font=font)
+                            y_text += line_height
+                    except Exception as exc:
+                        app_log(f"⚠️ Failed to add overlay to combined image: {exc}")
 
                     # Increment sequence to avoid reusing prior numbering.
                     screenshot_mgr.sequence += 1
