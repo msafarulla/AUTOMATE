@@ -94,7 +94,7 @@ class BrowserConfig:
 class AppConfig:
     credentials_env: str = "dev"
     change_warehouse: str = "SDC"
-    timeout_default: int = 5000
+    timeout_default: int = 6000
     check_interval: int = 200
     post_message_text: str = """place holder"""
     rf_verbose_logging: bool = True
