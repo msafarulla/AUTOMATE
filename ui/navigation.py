@@ -325,10 +325,98 @@ class NavigationManager:
 
     def _maximize_non_rf_windows(self):
         """Maximize all visible non-RF windows for better capture."""
-        # To keep sizing consistent, use a single DOM-first pass to set ~95% viewport size.
-        resized = safe_page_evaluate(self.page, """
+        # First, try the native maximize buttons on visible windows (if present).
+        clicked = 0
+        try:
+            windows = self.page.locator("div.x-window:visible")
+            count = windows.count()
+            for i in range(count):
+                win = windows.nth(i)
+                try:
+                    title = (win.locator(".x-window-header-text").inner_text(timeout=300) or "").lower()
+                    if "rf menu" in title or title == "rf":
+                        continue
+                except Exception:
+                    title = ""
+                try:
+                    btn = win.locator(".x-tool-maximize:visible").first
+                    if btn.count() > 0:
+                        btn.click(timeout=800)
+                        clicked += 1
+                        continue
+                except Exception:
+                    pass
+        except Exception:
+            pass
+
+        ext_resized = safe_page_evaluate(self.page, """
             () => {
-                const wins = Array.from(document.querySelectorAll('div.x-window'));
+                if (!window.Ext?.WindowManager?.getAll) return 0;
+                const wins = Ext.WindowManager.getAll().items || [];
+                let changed = 0;
+                wins.forEach(win => {
+                    const title = (win.title || '').toLowerCase();
+                    if (title.includes('rf menu') || title === 'rf') return;
+                    try {
+                        if (typeof win.maximize === 'function') {
+                            win.maximize();
+                        } else {
+                            const w = Math.max(400, window.innerWidth * 0.95);
+                            const h = Math.max(300, window.innerHeight * 0.95);
+                            const x = Math.max(4, (window.innerWidth - w) / 2);
+                            const y = Math.max(4, window.innerHeight * 0.03);
+                            win.setSize?.(w, h);
+                            win.setPosition?.(x, y);
+                            win.setPagePosition?.(x, y);
+                        }
+                        win.toFront?.();
+                        win.updateLayout?.();
+                        changed += 1;
+                    } catch (e) {}
+                });
+                return changed;
+            }
+        """, description="maximize_non_rf_windows")
+
+        resized = clicked + (ext_resized or 0)
+
+        # Fallback: some windows may not be registered with WindowManager; size them via ComponentQuery.
+        if resized == 0:
+            fallback_resized = safe_page_evaluate(self.page, """
+                () => {
+                    if (!window.Ext?.ComponentQuery) return 0;
+                    const wins = Ext.ComponentQuery.query('window');
+                    let changed = 0;
+                    wins.forEach(win => {
+                        const title = (win.title || '').toLowerCase();
+                        if (title.includes('rf menu') || title === 'rf') return;
+                        try {
+                            const w = Math.max(400, window.innerWidth * 0.95);
+                            const h = Math.max(300, window.innerHeight * 0.95);
+                            const x = Math.max(4, (window.innerWidth - w) / 2);
+                            const y = Math.max(4, window.innerHeight * 0.03);
+                            win.setSize?.(w, h);
+                            win.setPosition?.(x, y);
+                            win.setPagePosition?.(x, y);
+                            win.toFront?.();
+                            win.updateLayout?.();
+                            changed += 1;
+                        } catch (e) {}
+                    });
+                    return changed;
+                }
+            """, description="maximize_non_rf_windows_fallback")
+            resized = fallback_resized or 0
+
+        if resized:
+            app_log(f"🪟 Maximized {resized} non-RF window(s)")
+        else:
+            app_log("ℹ️ No non-RF windows maximized (none found or already excluded)")
+
+        # Final normalization: force all non-RF windows to ~95% viewport via DOM to keep sizing consistent.
+        normalized = safe_page_evaluate(self.page, """
+            () => {
+                const wins = Array.from(document.querySelectorAll('div.x-window:visible, div.x-window'));
                 let changed = 0;
                 const vw = window.innerWidth;
                 const vh = window.innerHeight;
@@ -352,7 +440,6 @@ class NavigationManager:
                         win.style.zIndex = '99999';
                         win.style.position = 'fixed';
 
-                        // If an Ext instance exists, update its layout to match.
                         const cmpId = win.getAttribute('id');
                         if (cmpId && window.Ext?.getCmp) {
                             const cmp = window.Ext.getCmp(cmpId);
@@ -369,12 +456,9 @@ class NavigationManager:
                 });
                 return changed;
             }
-        """, description="maximize_non_rf_windows") or 0
-
-        if resized:
-            app_log(f"🪟 Maximized {resized} non-RF window(s) to 95% viewport")
-        else:
-            app_log("ℹ️ No non-RF windows maximized (none found or already excluded)")
+        """, description="maximize_non_rf_windows_normalize") or 0
+        if normalized:
+            app_log(f"🪟 Normalized {normalized} non-RF window(s) to 95% viewport")
 
     def maximize_non_rf_windows(self):
         """Public wrapper to maximize non-RF windows."""
