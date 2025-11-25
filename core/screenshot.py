@@ -35,17 +35,7 @@ class ScreenshotManager:
         self._rf_pre_capture_hook = pre_hook
         self._rf_post_capture_hook = post_hook
 
-    def capture(
-        self,
-        page: Page,
-        label: str,
-        overlay_text: str | None = None,
-        onDemand: bool = True,
-        *,
-        decorate: bool = True,
-        custom_capture: Callable[[Path], Any] | None = None,
-        log_message: str | None = None,
-    ) -> Path | None:
+    def capture(self, page: Page, label: str, overlay_text: str | None = None, onDemand: bool = True) -> Path | None:
         if not onDemand:
             app_log("⚠️ Screenshot capture skipped due to onDemand=False.")
             return None
@@ -58,22 +48,18 @@ class ScreenshotManager:
         saved = False
 
         try:
-            if decorate and custom_capture is None:
-                try:
-                    if overlay_text_val:
-                        self._add_overlay(page, overlay_text_val)
-                        overlay_added = True
+            try:
+                if overlay_text_val:
+                    self._add_overlay(page, overlay_text_val)
+                    overlay_added = True
 
-                    self._add_timestamp(page)
-                    timestamp_added = True
-                except PageUnavailableError:
-                    app_log("⚠️ Page unavailable while decorating screenshot; continuing without overlays.")
+                self._add_timestamp(page)
+                timestamp_added = True
+            except PageUnavailableError:
+                app_log("⚠️ Page unavailable while decorating screenshot; continuing without overlays.")
 
             try:
-                if custom_capture is not None:
-                    custom_capture(filename)
-                else:
-                    page.screenshot(**self._screenshot_kwargs(filename))
+                page.screenshot(**self._screenshot_kwargs(filename))
                 saved = True
             except PlaywrightTimeoutError:
                 app_log(f"⚠️ Screenshot timed out after {self._screenshot_timeout_ms}ms for {label}; retrying without overlays...")
@@ -86,10 +72,7 @@ class ScreenshotManager:
                     }
                     if self.image_quality is not None:
                         basic_kwargs["quality"] = self.image_quality
-                    if custom_capture is not None:
-                        custom_capture(filename)
-                    else:
-                        page.screenshot(**basic_kwargs)
+                    page.screenshot(**basic_kwargs)
                     saved = True
                 except PlaywrightTimeoutError:
                     app_log(f"⚠️ Screenshot retry also timed out for {label}; skipping.")
@@ -113,7 +96,7 @@ class ScreenshotManager:
             return None
 
         self.sequence = next_seq
-        app_log(log_message or f"📸 Screenshot saved: {filename}")
+        app_log(f"📸 Screenshot saved: {filename}")
         return filename
 
     def capture_rf_window(self, page: Page, label: str, overlay_text: str | None = None) -> Path | None:
@@ -180,6 +163,29 @@ class ScreenshotManager:
         suffix = ".jpg" if self.image_format == "jpeg" else ".png"
         seq = self.sequence if sequence is None else sequence
         return self.current_output_dir / f"{seq:03d}_{label}{suffix}"
+
+    def capture_with_next_sequence(
+        self,
+        label: str,
+        capture_fn: Callable[[Path], Any],
+        *,
+        log_message: str | None = None,
+    ) -> Path | None:
+        """Run a manual capture function while keeping sequence numbering in sync.
+
+        Useful for bespoke captures (e.g., individual iframes) so callers stay agnostic
+        to sequence bookkeeping.
+        """
+        next_seq = self.sequence + 1
+        filename = self._build_filename(label, next_seq)
+        try:
+            capture_fn(filename)
+        except Exception as exc:
+            app_log(f"⚠️ Manual capture failed for {label}: {exc}")
+            return None
+        self.sequence = next_seq
+        app_log(log_message or f"📸 Screenshot saved: {filename}")
+        return filename
 
     def _screenshot_kwargs(self, filename: Path) -> dict[str, Any]:
         kwargs: dict[str, Any] = {"path": str(filename), "type": self.image_format}
