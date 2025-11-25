@@ -638,33 +638,26 @@ def _click_ilpn_detail_tabs(
                         combined.paste(img, (0, y))
                         y += img.height
 
-                    # Overlay text + timestamp similar to ScreenshotManager.
+                    # Overlay text + timestamp (lightweight, no background block).
                     try:
-                        overlay_lines = []
+                        overlay_parts = []
                         scenario = getattr(screenshot_mgr, "current_scenario_label", None)
                         stage = getattr(screenshot_mgr, "current_stage_label", None)
                         if scenario:
-                            overlay_lines.append(scenario)
+                            overlay_parts.append(str(scenario))
                         if stage:
-                            overlay_lines.append(stage)
+                            overlay_parts.append(str(stage))
                         if base_note:
-                            overlay_lines.append(base_note)
+                            overlay_parts.append(str(base_note))
                         timestamp_text = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                        overlay_lines.append(timestamp_text)
+                        overlay_parts.append(timestamp_text)
+                        overlay_text = " / ".join(part for part in overlay_parts if part)
 
                         font = ImageFont.load_default()
                         draw = ImageDraw.Draw(combined)
-                        line_height = font.getbbox("Hg")[3] + 4
+                        # Place text near top-left with slight padding.
                         padding = 8
-                        overlay_height = padding * 2 + line_height * len(overlay_lines)
-                        overlay_width = max(font.getbbox(line)[2] for line in overlay_lines) + padding * 2
-                        # Draw semi-transparent white overlay at top-left.
-                        overlay_box = [0, 0, overlay_width, overlay_height]
-                        draw.rectangle(overlay_box, fill=(255, 255, 255, 200))
-                        y_text = padding
-                        for line in overlay_lines:
-                            draw.text((padding, y_text), line, fill="black", font=font)
-                            y_text += line_height
+                        draw.text((padding, padding), overlay_text, fill="black", font=font)
                     except Exception as exc:
                         app_log(f"⚠️ Failed to add overlay to combined image: {exc}")
 
