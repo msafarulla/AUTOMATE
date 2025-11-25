@@ -91,9 +91,11 @@ class PostMessageManager:
             f"{label}: {info['summary'][:60]}",
         )
         try:
-            self.screenshot_mgr.capture_with_next_sequence(
+            self.screenshot_mgr.capture(
+                self.page,
                 f"post_message_response_{label.lower()}_frame",
-                lambda path: frame.screenshot(path=str(path), timeout=5000),
+                decorate=False,
+                custom_capture=lambda path: frame.screenshot(path=str(path), timeout=5000),
                 log_message="📸 Post Message frame screenshot saved",
             )
         except Exception as exc:
