@@ -40,8 +40,8 @@ class ScreenshotManager:
             app_log("⚠️ Screenshot capture skipped due to onDemand=False.")
             return None
         """Capture full page screenshot"""
-        next_seq = self.sequence + 1
-        filename = self._build_filename(label, next_seq)
+        self.sequence += 1
+        filename = self._build_filename(label)
         overlay_added = False
         timestamp_added = False
         overlay_text_val = overlay_text or self._default_overlay_text()
@@ -76,14 +76,13 @@ class ScreenshotManager:
                 except PageUnavailableError:
                     pass
 
-        self.sequence = next_seq
         app_log(f"📸 Screenshot saved: {filename}")
         return filename
 
     def capture_rf_window(self, page: Page, label: str, overlay_text: str | None = None) -> Path | None:
         """Capture RF Menu window screenshot"""
-        next_seq = self.sequence + 1
-        filename = self._build_filename(label, next_seq)
+        self.sequence += 1
+        filename = self._build_filename(label)
         overlay_added = False
         timestamp_added = False
         overlay_text_val = overlay_text or self._default_overlay_text()
@@ -133,13 +132,12 @@ class ScreenshotManager:
                     pass
             self._run_rf_hook(self._rf_post_capture_hook)
 
-        self.sequence = next_seq
         app_log(f"📸 RF Screenshot saved: {filename}")
         return filename
 
-    def _build_filename(self, label: str, sequence: int) -> Path:
+    def _build_filename(self, label: str) -> Path:
         suffix = ".jpg" if self.image_format == "jpeg" else ".png"
-        return self.current_output_dir / f"{sequence:03d}_{label}{suffix}"
+        return self.current_output_dir / f"{self.sequence:03d}_{label}{suffix}"
 
     def _screenshot_kwargs(self, filename: Path) -> dict[str, Any]:
         kwargs: dict[str, Any] = {"path": str(filename), "type": self.image_format}
