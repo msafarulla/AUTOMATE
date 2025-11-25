@@ -413,53 +413,6 @@ class NavigationManager:
         else:
             app_log("ℹ️ No non-RF windows maximized (none found or already excluded)")
 
-        # Final normalization: force all non-RF windows to ~95% viewport via DOM to keep sizing consistent.
-        normalized = safe_page_evaluate(self.page, """
-            () => {
-                const wins = Array.from(document.querySelectorAll('div.x-window:visible, div.x-window'));
-                let changed = 0;
-                const vw = window.innerWidth;
-                const vh = window.innerHeight;
-                const w = Math.max(400, vw * 0.95);
-                const h = Math.max(300, vh * 0.95);
-                const x = Math.max(4, (vw - w) / 2);
-                const y = Math.max(4, vh * 0.03);
-
-                wins.forEach(win => {
-                    try {
-                        const titleEl = win.querySelector('.x-window-header-text');
-                        const title = (titleEl ? titleEl.textContent : '').trim().toLowerCase();
-                        if (title.includes('rf menu') || title === 'rf') return;
-
-                        win.style.width = `${w}px`;
-                        win.style.height = `${h}px`;
-                        win.style.left = `${x}px`;
-                        win.style.top = `${y}px`;
-                        win.style.right = '';
-                        win.style.bottom = '';
-                        win.style.zIndex = '99999';
-                        win.style.position = 'fixed';
-
-                        const cmpId = win.getAttribute('id');
-                        if (cmpId && window.Ext?.getCmp) {
-                            const cmp = window.Ext.getCmp(cmpId);
-                            try {
-                                cmp?.setSize?.(w, h);
-                                cmp?.setPosition?.(x, y);
-                                cmp?.setPagePosition?.(x, y);
-                                cmp?.toFront?.();
-                                cmp?.updateLayout?.();
-                            } catch (e) {}
-                        }
-                        changed += 1;
-                    } catch (e) {}
-                });
-                return changed;
-            }
-        """, description="maximize_non_rf_windows_normalize") or 0
-        if normalized:
-            app_log(f"🪟 Normalized {normalized} non-RF window(s) to 95% viewport")
-
     def maximize_non_rf_windows(self):
         """Public wrapper to maximize non-RF windows."""
         return self._maximize_non_rf_windows()
