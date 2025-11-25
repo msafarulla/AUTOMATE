@@ -90,13 +90,6 @@ class PostMessageManager:
             f"post_message_response_{label.lower()}",
             f"{label}: {info['summary'][:60]}",
         )
-        try:
-            self.screenshot_mgr.sequence += 1
-            filename = self.screenshot_mgr._build_filename(f"post_message_response_{label.lower()}_frame")
-            frame.screenshot(path=str(filename), timeout=5000)
-            app_log(f"📸 Post Message frame screenshot saved: {filename}")
-        except Exception as exc:
-            app_log(f"⚠️ Frame-level response capture failed: {exc}")
         return info
 
     def _reset_form(self, frame: Frame):
