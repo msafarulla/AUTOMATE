@@ -45,6 +45,7 @@ class ScreenshotManager:
         overlay_added = False
         timestamp_added = False
         overlay_text_val = overlay_text or self._default_overlay_text()
+        saved = False
 
         try:
             try:
@@ -57,13 +58,28 @@ class ScreenshotManager:
             except PageUnavailableError:
                 app_log("⚠️ Page unavailable while decorating screenshot; continuing without overlays.")
 
-            page.screenshot(**self._screenshot_kwargs(filename))
+            try:
+                page.screenshot(**self._screenshot_kwargs(filename))
+                saved = True
+            except PlaywrightTimeoutError:
+                app_log(f"⚠️ Screenshot timed out after {self._screenshot_timeout_ms}ms for {label}; retrying without overlays...")
+                # Fallback: retry with a simpler capture and extended timeout.
+                try:
+                    basic_kwargs = {
+                        "path": str(filename),
+                        "type": self.image_format,
+                        "timeout": self._screenshot_timeout_ms * 2,
+                    }
+                    if self.image_quality is not None:
+                        basic_kwargs["quality"] = self.image_quality
+                    page.screenshot(**basic_kwargs)
+                    saved = True
+                except PlaywrightTimeoutError:
+                    app_log(f"⚠️ Screenshot retry also timed out for {label}; skipping.")
+                except PageUnavailableError:
+                    app_log("⚠️ Unable to capture screenshot because the page/context closed during retry.")
         except PageUnavailableError:
             app_log("⚠️ Unable to capture screenshot because the page/context closed.")
-            return None
-        except PlaywrightTimeoutError:
-            app_log(f"⚠️ Screenshot timed out after {self._screenshot_timeout_ms}ms for {label}; skipping.")
-            return None
         finally:
             if overlay_added:
                 try:
@@ -75,6 +91,9 @@ class ScreenshotManager:
                     self._remove_timestamp(page)
                 except PageUnavailableError:
                     pass
+
+        if not saved:
+            return None
 
         app_log(f"📸 Screenshot saved: {filename}")
         return filename
