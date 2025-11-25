@@ -102,7 +102,7 @@ class AppConfig:
     requires_prod_confirmation: bool = False
     auto_accept_rf_messages: bool = True
     auto_click_info_icon: bool = False
-    verify_tran_id_marker: bool = False
+    verify_tran_id_marker: bool = True
     auto_close_post_login_windows: bool = False
     app_server: str = ""
     app_server_user: str = ""
