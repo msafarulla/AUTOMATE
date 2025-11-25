@@ -107,6 +107,20 @@ def _wait_for_stable_view(
 
 def _maximize_page_for_capture(page: Any):
     """Best-effort maximize/bring-to-front before screenshots."""
+    # Give the window a brief chance to finish loading.
+    try:
+        deadline = time.time() + 3  # seconds
+        while time.time() < deadline:
+            try:
+                ready = page.evaluate("document.readyState")
+                if ready == "complete":
+                    break
+            except Exception:
+                pass
+            page.wait_for_timeout(200)
+    except Exception:
+        pass
+
     try:
         page.bring_to_front()
     except Exception:
