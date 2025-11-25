@@ -668,22 +668,16 @@ def _click_ilpn_detail_tabs(
                             draw.rectangle(box, fill=(255, 255, 255, 180))
                             draw.text((left + padding, top + padding), overlay_text, fill="black", font=font)
 
-                        # Bottom-right timestamp with light background.
+                        # Bottom-right timestamp styled similar to ScreenshotManager (no heavy background).
                         ts_bbox = font.getbbox(timestamp_text)
                         tsw = ts_bbox[2] - ts_bbox[0]
                         tsh = ts_bbox[3] - ts_bbox[1]
-                        right_box = (
-                            combined.width - tsw - padding * 2,
-                            combined.height - tsh - padding * 2,
-                            combined.width,
-                            combined.height,
-                        )
-                            # rectangle fill semi-transparent white
-                        draw.rectangle(right_box, fill=(255, 255, 255, 180))
+                        ts_x = combined.width - tsw - padding
+                        ts_y = combined.height - tsh - padding
                         draw.text(
-                            (combined.width - tsw - padding, combined.height - tsh - padding),
+                            (ts_x, ts_y),
                             timestamp_text,
-                            fill="black",
+                            fill=(0, 0, 0, 165),
                             font=font,
                         )
 
