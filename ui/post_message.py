@@ -7,6 +7,7 @@ from typing import Any, Dict, Tuple
 from playwright.sync_api import Frame, Locator, Page
 
 from core.screenshot import ScreenshotManager
+from pathlib import Path
 from utils.hash_utils import HashUtils
 from utils.wait_utils import WaitUtils
 from core.logger import app_log
@@ -83,11 +84,19 @@ class PostMessageManager:
         response = self._read_response(frame)
         info = self._interpret_response(response)
         label = "Success" if not info["is_error"] else "Error"
+        # Capture full page and frame to ensure response is recorded.
         self.screenshot_mgr.capture(
             self.page,
             f"post_message_response_{label.lower()}",
             f"{label}: {info['summary'][:60]}",
         )
+        try:
+            self.screenshot_mgr.sequence += 1
+            filename = self.screenshot_mgr._build_filename(f"post_message_response_{label.lower()}_frame")
+            frame.screenshot(path=str(filename), timeout=5000)
+            app_log(f"📸 Post Message frame screenshot saved: {filename}")
+        except Exception as exc:
+            app_log(f"⚠️ Frame-level response capture failed: {exc}")
         return info
 
     def _reset_form(self, frame: Frame):
