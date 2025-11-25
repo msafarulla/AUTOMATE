@@ -686,7 +686,7 @@ def _open_single_filtered_ilpn_row(
         app_log("🐛 DEBUG: Trying locator-based row open...")
         row = rows_locator.first
         try:
-            row.scroll_into_view_if_needed(timeout=1000)
+            row.scroll_into_view_if_needed(timeout=tab_click_timeout_ms or 3000)
         except Exception:
             pass
         try:
@@ -695,7 +695,7 @@ def _open_single_filtered_ilpn_row(
         except Exception as exc:
             app_log(f"➖ Row click warning: {exc}")
         open_attempts = [
-            lambda: row.dblclick(timeout=1200),
+            lambda: row.dblclick(timeout=2000),
             lambda: row.press("Enter"),
             lambda: row.press("Space"),
             lambda: target.keyboard.press("Enter"),
