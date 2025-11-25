@@ -6,6 +6,7 @@ Moved here to avoid circular imports between receive and the debug script.
 import re
 import time
 import hashlib
+from io import BytesIO
 from config.settings import Settings
 from core.logger import app_log, rf_log
 from core.screenshot import ScreenshotManager
@@ -473,6 +474,8 @@ def _click_ilpn_detail_tabs(
 
     use_page = getattr(target, "page", None) or target
     base_note = operation_note or "iLPN detail tab"
+    tab_images: list[bytes] = []
+    safe_tag = screenshot_tag or "ilpn_tab"
 
     try:
         for frame in target.frames:
@@ -510,7 +513,13 @@ def _click_ilpn_detail_tabs(
                             app_log(f"    ✅ Clicked element {i}")
                             clicked = True
                             page_target.wait_for_timeout(800)
-                            # Per-tab captures removed in favor of a single combined capture after all tabs.
+                            # Capture per-tab image bytes for combined capture later.
+                            if screenshot_mgr:
+                                try:
+                                    img_bytes = use_page.screenshot(full_page=True, type="jpeg")
+                                    tab_images.append(img_bytes)
+                                except Exception as exc:
+                                    app_log(f"⚠️ Could not capture tab {tab_name}: {exc}")
                             break
                         except Exception as e:
                             app_log(f"    ⚠️ Element {i} click failed: {e}")
@@ -575,12 +584,32 @@ def _click_ilpn_detail_tabs(
     app_log("\n✅ Tab clicking process complete")
     if capture_after_tabs and screenshot_mgr:
         try:
-            safe_tag = (screenshot_tag or "ilpn_tab") + "_combined"
-            screenshot_mgr.capture(
-                use_page,
-                safe_tag,
-                f"{base_note}: all tabs",
-            )
+            if tab_images:
+                from PIL import Image
+
+                images = [Image.open(BytesIO(b)) for b in tab_images if b]
+                if images:
+                    widths, heights = zip(*(img.size for img in images))
+                    combined_height = sum(heights)
+                    max_width = max(widths)
+                    combined = Image.new("RGB", (max_width, combined_height), "white")
+
+                    y = 0
+                    for img in images:
+                        combined.paste(img, (0, y))
+                        y += img.height
+
+                    filename = screenshot_mgr._build_filename(f"{safe_tag}_combined")
+                    fmt = "JPEG" if screenshot_mgr.image_format == "jpeg" else "PNG"
+                    save_kwargs = {}
+                    if fmt == "JPEG" and screenshot_mgr.image_quality:
+                        save_kwargs["quality"] = screenshot_mgr.image_quality
+                    combined.save(filename, format=fmt, **save_kwargs)
+                    app_log(f"📸 Combined tab screenshot saved: {filename}")
+                else:
+                    screenshot_mgr.capture(use_page, f"{safe_tag}_combined", f"{base_note}: all tabs")
+            else:
+                screenshot_mgr.capture(use_page, f"{safe_tag}_combined", f"{base_note}: all tabs")
         except Exception as exc:
             app_log(f"⚠️ Combined tab capture failed: {exc}")
     return True
