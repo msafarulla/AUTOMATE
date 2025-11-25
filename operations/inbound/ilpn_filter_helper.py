@@ -638,7 +638,7 @@ def _click_ilpn_detail_tabs(
                         combined.paste(img, (0, y))
                         y += img.height
 
-                    # Overlay text + timestamp (lightweight, no background block).
+                    # Overlay text + timestamp with readable background.
                     try:
                         overlay_parts = []
                         scenario = getattr(screenshot_mgr, "current_scenario_label", None)
@@ -654,10 +654,22 @@ def _click_ilpn_detail_tabs(
                         overlay_text = " / ".join(part for part in overlay_parts if part)
 
                         font = ImageFont.load_default()
-                        draw = ImageDraw.Draw(combined)
-                        # Place text near top-left with slight padding.
-                        padding = 8
-                        draw.text((padding, padding), overlay_text, fill="black", font=font)
+                        # Build an RGBA overlay to allow semi-transparent background.
+                        overlay = Image.new("RGBA", combined.size, (0, 0, 0, 0))
+                        draw = ImageDraw.Draw(overlay)
+                        padding = 10
+                        text_bbox = font.getbbox(overlay_text)
+                        text_width = text_bbox[2] - text_bbox[0]
+                        text_height = text_bbox[3] - text_bbox[1]
+                        box = (
+                            padding,
+                            padding,
+                            padding + text_width + padding,
+                            padding + text_height + padding,
+                        )
+                        draw.rectangle(box, fill=(255, 255, 255, 210))
+                        draw.text((padding * 1.5, padding * 1.5), overlay_text, fill="black", font=font)
+                        combined = Image.alpha_composite(combined.convert("RGBA"), overlay).convert("RGB")
                     except Exception as exc:
                         app_log(f"⚠️ Failed to add overlay to combined image: {exc}")
 
