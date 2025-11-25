@@ -458,6 +458,7 @@ def _click_ilpn_detail_tabs(
     screenshot_tag: str = "ilpn_tab",
     operation_note: str | None = None,
     click_timeout_ms: int = 3000,
+    capture_after_tabs: bool = True,
 ):
     """
     Click through all visible iLPN detail tabs sequentially.
@@ -509,14 +510,7 @@ def _click_ilpn_detail_tabs(
                             app_log(f"    ✅ Clicked element {i}")
                             clicked = True
                             page_target.wait_for_timeout(800)
-                            if screenshot_mgr:
-                                safe_tag = screenshot_tag or "ilpn_tab"
-                                tab_slug = tab_name.lower().replace(" ", "_")
-                                screenshot_mgr.capture(
-                                    use_page,
-                                    f"{safe_tag}_{tab_slug}",
-                                    f"{base_note}: {tab_name}",
-                                )
+                            # Per-tab captures removed in favor of a single combined capture after all tabs.
                             break
                         except Exception as e:
                             app_log(f"    ⚠️ Element {i} click failed: {e}")
@@ -579,6 +573,16 @@ def _click_ilpn_detail_tabs(
             app_log(f"  ❌ FAILED to click tab: {tab_name}")
 
     app_log("\n✅ Tab clicking process complete")
+    if capture_after_tabs and screenshot_mgr:
+        try:
+            safe_tag = (screenshot_tag or "ilpn_tab") + "_combined"
+            screenshot_mgr.capture(
+                use_page,
+                safe_tag,
+                f"{base_note}: all tabs",
+            )
+        except Exception as exc:
+            app_log(f"⚠️ Combined tab capture failed: {exc}")
     return True
 
 
