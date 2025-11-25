@@ -38,21 +38,55 @@ class ASNItem:
 
 
 @dataclass
-class OpenUIEntry:
-    """Configuration for opening a UI during a workflow."""
-    search_term: str
-    match_text: str
+class OpenTasksUiStep:
+    """Tasks UI stage configuration."""
+    search_term: str = "tasks"
+    match_text: str = "Tasks (Configuration)"
     operation_note: str | None = None
     screenshot_tag: str | None = None
     fill_ilpn: bool = False
     close_after_open: bool = False
     enabled: bool = True
 
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "enabled": self.enabled,
+            "search_term": self.search_term,
+            "match_text": self.match_text,
+            "operation_note": self.operation_note,
+            "screenshot_tag": self.screenshot_tag,
+            "fill_ilpn": self.fill_ilpn,
+            "close_after_open": self.close_after_open,
+        }
+
+
+@dataclass
+class OpenIlpnUiStep:
+    """iLPNs UI stage configuration."""
+    search_term: str = "ILPNS"
+    match_text: str = "iLPNs (Distribution)"
+    operation_note: str | None = "verify iLPN from the UI"
+    screenshot_tag: str | None = None
+    fill_ilpn: bool = True
+    close_after_open: bool = False
+    enabled: bool = True
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "enabled": self.enabled,
+            "search_term": self.search_term,
+            "match_text": self.match_text,
+            "operation_note": self.operation_note,
+            "screenshot_tag": self.screenshot_tag,
+            "fill_ilpn": self.fill_ilpn,
+            "close_after_open": self.close_after_open,
+        }
+
 
 @dataclass
 class OpenUIConfig:
     """Configuration for UI detours during operations."""
-    entries: list[OpenUIEntry] = field(default_factory=list)
+    entries: list[OpenTasksUiStep | OpenIlpnUiStep] = field(default_factory=list)
     enabled: bool = True
 
     def to_dict(self) -> dict[str, Any]:
@@ -60,18 +94,7 @@ class OpenUIConfig:
             return {}
         return {
             "enabled": self.enabled,
-            "entries": [
-                {
-                    "search_term": e.search_term,
-                    "match_text": e.match_text,
-                    "operation_note": e.operation_note,
-                    "screenshot_tag": e.screenshot_tag,
-                    "fill_ilpn": e.fill_ilpn,
-                    "close_after_open": e.close_after_open,
-                    "enabled": e.enabled,
-                }
-                for e in self.entries
-            ],
+            "entries": [entry.to_dict() for entry in self.entries if entry],
         }
 
 
@@ -135,36 +158,6 @@ class LoadingStep:
             "shipment": self.shipment,
             "dock_door": self.dock_door,
             "bol": self.bol,
-        }
-
-
-@dataclass
-class OpenTasksUiStep:
-    """Tasks UI stage configuration."""
-    search_term: str = "tasks"
-    match_text: str = "Tasks (Configuration)"
-    enabled: bool = True
-
-    def to_dict(self) -> dict[str, Any]:
-        return {
-            "enabled": self.enabled,
-            "search_term": self.search_term,
-            "match_text": self.match_text,
-        }
-
-
-@dataclass
-class OpenIlpnUiStep:
-    """iLPNs UI stage configuration."""
-    search_term: str = "ilpns"
-    match_text: str = "iLPNs (Distribution)"
-    enabled: bool = True
-
-    def to_dict(self) -> dict[str, Any]:
-        return {
-            "enabled": self.enabled,
-            "search_term": self.search_term,
-            "match_text": self.match_text,
         }
 
 
@@ -251,12 +244,7 @@ def create_default_workflows() -> list[Workflow]:
             flow=FlowType.HAPPY_PATH,
             auto_handle_deviation=True,
             open_ui=OpenUIConfig(entries=[
-                OpenUIEntry(
-                    search_term="ILPNS",
-                    match_text="iLPNs (Distribution)",
-                    operation_note="verify iLPN from the UI",
-                    fill_ilpn=True,
-                ),
+                OpenIlpnUiStep(),
             ]),
         ))
         .build()
