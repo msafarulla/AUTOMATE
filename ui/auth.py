@@ -7,10 +7,10 @@ from config.settings import Settings
 
 
 class AuthManager:
-    def __init__(self, page: Page, screenshot_mgr: ScreenshotManager, settings: Settings, credentials_env: str = "qa"):
+    def __init__(self, page: Page, screenshot_mgr: ScreenshotManager, settings: Settings, credentials_env: str | None = None):
         self.page = page
         self.screenshot_mgr = screenshot_mgr
-        self.credentials_env = credentials_env
+        self.credentials_env = credentials_env or settings.app.credentials_env
         self._credentials: dict[str, str] | None = None
         self.settings = settings
 
