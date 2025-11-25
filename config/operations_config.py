@@ -118,6 +118,10 @@ class OperationConfig:
                             'ItemName': '81402XC01C',
                             'Quantity': {'ShippedQty': 20000},
                         },
+                                              {
+                            'ItemName': '45119VA010',
+                            'Quantity': {'ShippedQty': 10000},
+                        },
                     ],
                 },
                 STEP_NAMES.runReceiving: {
