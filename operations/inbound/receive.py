@@ -101,6 +101,7 @@ class ReceiveOperation(BaseOperation):
 
     def _handle_open_ui(self, cfg: dict | list[dict] | None):
         """Invoke shared detour runner."""
+        self._ensure_detour_nav()
         return run_open_ui_detours(
             cfg,
             main_page=self.page,
@@ -112,3 +113,16 @@ class ReceiveOperation(BaseOperation):
             fill_ilpn_cb=self._fill_ilpn_quick_filter,
             screen_context=self._screen_context,
         )
+
+    def _ensure_detour_nav(self):
+        """Lazily create a detour page/nav only when detours are requested."""
+        if self.detour_nav and self.detour_page:
+            return
+        try:
+            new_page = self.page.context.new_page()
+        except Exception:
+            self.detour_page = None
+            self.detour_nav = None
+            return
+        self.detour_page = new_page
+        self.detour_nav = NavigationManager(new_page, self.screenshot_mgr)

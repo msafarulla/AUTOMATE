@@ -150,7 +150,6 @@ def create_operation_services(settings: Any) -> Generator[OperationServices, Non
     with BrowserManager(settings) as browser_mgr:
         # Main tab
         page = browser_mgr.new_page()
-        detour_page = None
         screenshot_mgr = ScreenshotManager(
             settings.browser.screenshot_dir,
             image_format=settings.browser.screenshot_format,
@@ -158,11 +157,7 @@ def create_operation_services(settings: Any) -> Generator[OperationServices, Non
         )
         page_mgr = PageManager(page)
         auth_mgr = AuthManager(page, screenshot_mgr, settings)
-        # Create detour tab after main tab is ready; ignore failures silently.
-        try:
-            detour_page = browser_mgr.context.new_page()
-        except Exception:
-            detour_page = None
+        detour_page = None
 
         nav_mgr = NavigationManager(page, screenshot_mgr)
         post_message_mgr = PostMessageManager(page, screenshot_mgr)
