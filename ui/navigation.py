@@ -85,9 +85,13 @@ class NavigationManager:
                 except PlaywrightTimeout:
                     app_log("⚠️ Menu went stale while clicking match.")
                     return False
-
                 self._post_selection_adjustments(normalized_match)
                 self.page.wait_for_timeout(4000)
+                if "rf menu" not in normalized_match:
+                    try:
+                        self.maximize_non_rf_windows()
+                    except Exception:
+                        pass
                 return True
 
         app_log(f"⚠️ No exact match found for '{match_text}'")
