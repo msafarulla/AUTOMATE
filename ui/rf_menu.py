@@ -37,7 +37,6 @@ class RFMenuManager:
 
     def reset_to_home(self):
         """Send Ctrl+B so RF navigation always starts from the home menu."""
-        self._close_rf_windows()
         self._ensure_maximized()
         rf_iframe = self.get_iframe()
         body = rf_iframe.locator("body")
@@ -261,30 +260,3 @@ class RFMenuManager:
     def _log(self, message: str):
         if self.verbose_logging:
             rf_log(message)
-
-    def _close_rf_windows(self):
-        """Close any visible RF windows to ensure a clean home state."""
-        try:
-            windows = self.page.locator("div.x-window:visible")
-            count = windows.count()
-            if count == 0:
-                return
-            # Attempt to close all visible windows, starting from the last (topmost).
-            for idx in range(count - 1, -1, -1):
-                try:
-                    win = windows.nth(idx)
-                    close_btn = win.locator(".x-tool-close").first
-                    if close_btn.is_visible():
-                        close_btn.click()
-                        self.page.wait_for_timeout(200)
-                except Exception:
-                    try:
-                        # Fallback: send Escape to the window.
-                        self.page.keyboard.press("Escape")
-                        self.page.wait_for_timeout(200)
-                    except Exception:
-                        pass
-            # Give ExtJS a moment to settle.
-            self.page.wait_for_timeout(300)
-        except Exception:
-            pass
