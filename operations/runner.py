@@ -54,7 +54,11 @@ class OperationRunner:
         self.screenshot_mgr = screenshot_mgr
         self.auth_mgr = auth_mgr
         self.nav_mgr = nav_mgr
+        # Shared detour resources (lazily created)
         self.detour_page = detour_page
+        self.detour_nav = (
+            NavigationManager(detour_page, screenshot_mgr) if detour_page else None
+        )
         self.post_message_mgr = post_message_mgr
         self.rf_menu = rf_menu
         self.conn_guard = conn_guard
@@ -89,12 +93,14 @@ class OperationRunner:
     ) -> bool:
         self.nav_mgr.close_windows_matching(self.nav_mgr._normalize("RF Menu (Distribution)"))
         self.nav_mgr.open_menu_item("RF MENU", "RF Menu (Distribution)")
+        detour_page, detour_nav = self._get_detour_resources()
         receive_op = ReceiveOperation(
             self.page,
             self.page_mgr,
             self.screenshot_mgr,
             self.rf_menu,
-            detour_page=self.detour_page,
+            detour_page=detour_page,
+            detour_nav=detour_nav,
             settings=self.settings,
         )
         return receive_op.execute(
@@ -109,7 +115,15 @@ class OperationRunner:
     def _loading_impl(self, shipment: str, dock_door: str, bol: str) -> bool:
         self.nav_mgr.close_windows_matching(self.nav_mgr._normalize("RF Menu (Distribution)"))
         self.nav_mgr.open_menu_item("RF MENU", "RF Menu (Distribution)")
-        load_op = LoadingOperation(self.page, self.page_mgr, self.screenshot_mgr, self.rf_menu)
+        detour_page, detour_nav = self._get_detour_resources()
+        load_op = LoadingOperation(
+            self.page,
+            self.page_mgr,
+            self.screenshot_mgr,
+            self.rf_menu,
+            detour_page=detour_page,
+            detour_nav=detour_nav,
+        )
         return load_op.execute(shipment, dock_door, bol)
 
     def _run_post_message(self, payload: str | None = None) -> bool:
@@ -143,6 +157,20 @@ class OperationRunner:
         if not succeeded:
             app_log(f"❌ UI navigation failed for '{match_text}'")
         return succeeded
+
+    def _get_detour_resources(self):
+        """Create detour page/nav once and reuse for all detours."""
+        if self.detour_page and self.detour_nav:
+            return self.detour_page, self.detour_nav
+        try:
+            new_page = self.page.context.new_page()
+        except Exception:
+            self.detour_page = None
+            self.detour_nav = None
+            return None, None
+        self.detour_page = new_page
+        self.detour_nav = NavigationManager(new_page, self.screenshot_mgr)
+        return self.detour_page, self.detour_nav
 
 
 @contextmanager
@@ -178,7 +206,7 @@ def create_operation_services(settings: Any) -> Generator[OperationServices, Non
             screenshot_mgr,
             auth_mgr,
             nav_mgr,
-            detour_page,
+            None,  # detour_page (lazily created and reused)
             post_message_mgr,
             rf_menu,
             conn_guard,
