@@ -22,13 +22,17 @@ def detect_screen_metrics():
                 user32.SetProcessDPIAware()
             except Exception:
                 pass  # Already DPI aware or unsupported; continue
-            width = user32.GetSystemMetrics(0)
-            height = user32.GetSystemMetrics(1)
+            try:
+                width = user32.GetSystemMetrics(0)
+                height = user32.GetSystemMetrics(1)
+            except Exception:
+                pass  # Fall back to defaults below
 
             try:
                 dc = user32.GetDC(0)
                 dpi = ctypes.windll.gdi32.GetDeviceCaps(dc, 88)  # LOGPIXELSX
-                user32.ReleaseDC(0, dc)
+                if hasattr(user32, "ReleaseDC"):
+                    user32.ReleaseDC(0, dc)
                 scale = round(dpi / 96.0, 2)
             except Exception:
                 pass  # Fall back to 1.0 below if needed
