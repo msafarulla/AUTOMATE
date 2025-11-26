@@ -209,6 +209,9 @@ class NavigationManager:
         if "post message" in match:
             self._center_window('window[title*="Post Message"]', "Post Message")
         self._maximize_non_rf_windows()
+        # Targeted bump for Post Message to ~95% viewport in case maximize buttons fail.
+        if "post message" in match:
+            self.maximize_window_by_title("post message", width_pct=0.95, height_pct=0.95)
 
     # =========================================================================
     # WINDOW HELPERS
@@ -420,6 +423,33 @@ class NavigationManager:
     def maximize_non_rf_windows(self):
         """Public wrapper to maximize non-RF windows."""
         return self._maximize_non_rf_windows()
+
+    def maximize_window_by_title(self, title_substring: str, width_pct: float = 0.95, height_pct: float = 0.95):
+        """Set size/position for windows whose title contains the substring."""
+        if not title_substring:
+            return False
+        title_substring = title_substring.lower()
+        return safe_page_evaluate(self.page, """
+            ({ title_substring, width_pct, height_pct }) => {
+                if (!window.Ext?.WindowManager?.getAll) return false;
+                const wins = Ext.WindowManager.getAll().items || [];
+                let adjusted = 0;
+                wins.forEach(win => {
+                    const title = (win.title || '').toLowerCase();
+                    if (!title.includes(title_substring)) return;
+                    if (title.includes('rf menu') || title === 'rf') return;
+                    const w = Math.max(400, window.innerWidth * width_pct);
+                    const h = Math.max(300, window.innerHeight * height_pct);
+                    const x = Math.max(8, (window.innerWidth - w) / 2);
+                    const y = Math.max(8, window.innerHeight * 0.04);
+                    win.setSize?.(w, h);
+                    win.setPosition?.(x, y);
+                    win.toFront?.();
+                    adjusted += 1;
+                });
+                return adjusted > 0;
+            }
+        """, {"title_substring": title_substring, "width_pct": width_pct, "height_pct": height_pct}, description="maximize_by_title")
 
     # =========================================================================
     # UTILITIES

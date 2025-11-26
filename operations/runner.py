@@ -116,6 +116,8 @@ class OperationRunner:
         # Leave existing windows open to allow post-run inspection.
         self.nav_mgr.open_menu_item("POST", "Post Message (Integration)")
         try:
+            # Explicitly size the Post Message window first, then maximize others.
+            self.nav_mgr.maximize_window_by_title("post message", width_pct=0.95, height_pct=0.95)
             self.nav_mgr.maximize_non_rf_windows()
         except Exception:
             pass
