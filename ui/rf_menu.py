@@ -21,7 +21,6 @@ class RFMenuManager:
         self.page = page
         self.page_mgr = page_mgr
         self.screenshot_mgr = screenshot_mgr
-        self._maximized = False
         self._verify_tran_marker = verify_tran_id_marker
         self._tran_marker_verified = not verify_tran_id_marker
         self._last_home_hash = None
@@ -130,7 +129,6 @@ class RFMenuManager:
             except Exception:
                 pass
 
-        self._maximized = True
         return True
 
     def enter_choice(self, choice: str, ui_name: str) -> tuple[bool, str]:
@@ -207,15 +205,11 @@ class RFMenuManager:
         return slug[:max_len]
 
     def _ensure_maximized(self):
-        if self._maximized:
-            return
         try:
             if self.maximize_window():
                 return
         except Exception:
             pass
-        # If maximizing failed (window not available yet), try again later.
-        self._maximized = False
 
     def click_info_icon(self) -> bool:
         """Click the blue info icon inside the RF iframe when available."""
