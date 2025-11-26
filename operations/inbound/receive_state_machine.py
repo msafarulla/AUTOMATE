@@ -12,6 +12,7 @@ from core.logger import rf_log
 from core.screenshot import ScreenshotManager
 from operations.rf_primitives import RFWorkflows
 from config.operations_config import OperationConfig
+from utils.retry import retry_with_context
 
 
 class ReceiveState(Enum):
@@ -512,21 +513,18 @@ class CompleteHandler(StateHandler):
 
 class ErrorHandler(StateHandler):
     state = ReceiveState.ERROR
-    
+
     def execute(self, m: ReceiveStateMachine) -> ReceiveState:
         # Attempt recovery if retries remaining
-        if m.context.retry_count < m.context.max_retries:
-            m.context.retry_count += 1
-            rf_log(f"🔄 Retry {m.context.retry_count}/{m.context.max_retries}")
-            
+        if retry_with_context(m.context):
             # Try to detect current state and continue from there
             detected = m.detect_current_state()
             if detected != ReceiveState.ERROR:
                 return detected
-        
+
         m.capture("error", m.context.error_message or "Error")
         return ReceiveState.ERROR
-    
+
     def detect(self, m: ReceiveStateMachine) -> bool:
         text = m.read_screen_text()
         return 'error' in text or 'invalid' in text

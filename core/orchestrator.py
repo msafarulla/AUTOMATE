@@ -7,6 +7,7 @@ from typing import Callable, Optional, Any
 from config.settings import Settings
 from core.connection_guard import ConnectionResetDetected
 from core.logger import app_log
+from utils.retry import retry, RetryExhausted
 
 
 @dataclass
@@ -34,39 +35,50 @@ class AutomationOrchestrator:
         **kwargs: Any
     ) -> OperationResult:
         """Execute an operation with automatic retry on failure."""
-        retry_count = 0
-        last_error: Optional[str] = None
+        attempt_count = [0]  # Mutable to capture in callback
 
-        while retry_count < self.max_retries:
-            try:
-                prefix = "🔄 Retry" if retry_count else "▶️ Starting"
-                app_log(f"{prefix} {operation_name} (attempt {retry_count + 1}/{self.max_retries})")
+        def on_retry_callback(attempt: int, max_attempts: int, error: Exception):
+            attempt_count[0] = attempt
 
-                success = operation_func(*args, **kwargs)
-                if success:
-                    result = OperationResult(True, operation_name, retry_count=retry_count)
-                    app_log(f"✅ {operation_name} completed successfully")
-                    self.results.append(result)
-                    return result
+        # Wrap function with retry decorator
+        retried_func = retry(
+            max_attempts=self.max_retries,
+            catch=(Exception,),
+            exclude=(ConnectionResetDetected,),
+            log_prefix=operation_name,
+            reraise=False,
+            on_retry=on_retry_callback
+        )(operation_func)
 
-                last_error = "Operation returned False"
-                retry_count += 1
-                if retry_count < self.max_retries:
-                    app_log(f"⚠️ {operation_name} failed, retrying...")
+        try:
+            success = retried_func(*args, **kwargs)
+            final_attempt = attempt_count[0] if attempt_count[0] > 0 else 1
 
-            except ConnectionResetDetected:
-                raise
-            except Exception as exc:  # noqa: BLE001 - capture to retry
-                last_error = str(exc)
-                retry_count += 1
-                app_log(f"❌ {operation_name} error: {exc}")
-                if retry_count < self.max_retries:
-                    app_log(f"🔄 Retrying {operation_name}...")
+            if success:
+                result = OperationResult(True, operation_name, retry_count=final_attempt - 1)
+                self.results.append(result)
+                return result
+            else:
+                result = OperationResult(
+                    False,
+                    operation_name,
+                    error="Operation returned False",
+                    retry_count=final_attempt
+                )
+                self.results.append(result)
+                return result
 
-        result = OperationResult(False, operation_name, error=last_error, retry_count=retry_count)
-        app_log(f"❌ {operation_name} failed after {retry_count} attempts")
-        self.results.append(result)
-        return result
+        except ConnectionResetDetected:
+            raise
+        except RetryExhausted as exc:
+            result = OperationResult(
+                False,
+                operation_name,
+                error=str(exc.last_error),
+                retry_count=exc.attempts
+            )
+            self.results.append(result)
+            return result
 
     def print_summary(self):
         """Print summary of all operations executed in the current run."""
