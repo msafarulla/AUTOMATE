@@ -10,35 +10,64 @@ DEFAULT_SCREEN_WIDTH = 1920
 DEFAULT_SCREEN_HEIGHT = 1080
 
 
-def detect_platform_scale():
-    """OS-specific DPI/scaling detection that can be reused elsewhere."""
+def detect_screen_metrics():
+    """Single platform-aware screen probe: returns (width, height, scale)."""
+    width = height = None
+    scale = None
+
     try:
         if os.name == "nt":  # Windows
-            ctypes.windll.user32.SetProcessDPIAware()
             user32 = ctypes.windll.user32
-            dc = user32.GetDC(0)
-            dpi = ctypes.windll.gdi32.GetDeviceCaps(dc, 88)  # LOGPIXELSX
-            user32.ReleaseDC(0, dc)
-            return round(dpi / 96.0, 2)
+            try:
+                user32.SetProcessDPIAware()
+            except Exception:
+                pass  # Already DPI aware or unsupported; continue
+            width = user32.GetSystemMetrics(0)
+            height = user32.GetSystemMetrics(1)
+
+            try:
+                dc = user32.GetDC(0)
+                dpi = ctypes.windll.gdi32.GetDeviceCaps(dc, 88)  # LOGPIXELSX
+                user32.ReleaseDC(0, dc)
+                scale = round(dpi / 96.0, 2)
+            except Exception:
+                pass  # Fall back to 1.0 below if needed
         else:
             import tkinter as tk
 
             root = tk.Tk()
             root.withdraw()
-            scaling = root.tk.call("tk", "scaling")
+            width = root.winfo_screenwidth()
+            height = root.winfo_screenheight()
+            scale = round(float(root.tk.call("tk", "scaling")), 2)
             root.destroy()
-            return round(float(scaling), 2)
     except Exception as exc:
-        app_log(f"⚠️ DPI detection failed: {exc}")
-        return 1.0
+        app_log(f"⚠️ Screen/DPI detection failed: {exc}")
+
+    width = width or DEFAULT_SCREEN_WIDTH
+    height = height or DEFAULT_SCREEN_HEIGHT
+    scale = scale or 1.0
+    return width, height, scale
+
+
+def get_screen_size_safe():
+    """Backward-compatible wrapper for callers that only need size."""
+    width, height, _ = detect_screen_metrics()
+    return width, height
+
+
+def detect_platform_scale():
+    """Backward-compatible wrapper for callers that only need scale."""
+    _, _, scale = detect_screen_metrics()
+    return scale
 
 
 def get_scale_factor():
-    # Kept for compatibility; delegates to the reusable platform detector.
+    """Legacy alias."""
     return detect_platform_scale()
 
 
-_SCREEN_WIDTH, _SCREEN_HEIGHT = detect_platform_scale()
+_SCREEN_WIDTH, _SCREEN_HEIGHT, _SCREEN_SCALE = detect_screen_metrics()
 
 
 def _env_flag(name: str, default: bool) -> bool:
