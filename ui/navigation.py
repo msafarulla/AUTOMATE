@@ -89,7 +89,7 @@ class NavigationManager:
                 self.page.wait_for_timeout(4000)
                 try:
                     if "rf menu" in normalized_match:
-                        self._maximize_rf_window()
+                        self.maximize_rf_window()
                     else:
                         self.maximize_non_rf_windows()
                 except Exception:
@@ -423,7 +423,7 @@ class NavigationManager:
         else:
             app_log("ℹ️ No non-RF windows maximized (none found or already excluded)")
 
-    def _maximize_rf_window(self):
+    def maximize_rf_window(self):
         """Ensure the RF Menu window uses most of the viewport height."""
         try:
             rf_window = self.page.locator("div.x-window:has-text('RF Menu')").last
