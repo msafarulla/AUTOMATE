@@ -56,10 +56,7 @@ class NavigationManager:
         """Open a menu item by searching and selecting exact match."""
         normalized_match = self._normalize(match_text)
 
-        # Always start with a clean slate of windows before opening a new UI.
         self.close_active_windows()
-
-        # Open menu and search
         self._open_menu_panel()
         self._reset_menu_filter()
         self._do_search(search_term)
@@ -94,14 +91,6 @@ class NavigationManager:
 
         app_log(f"⚠️ No exact match found for '{match_text}'")
         app_log(f"❌ Could not find: '{match_text}'")
-        return False
-
-    def open_tasks_ui(self, search: str = "tasks", match: str = "Tasks (Configuration)") -> bool:
-        """Open Tasks UI."""
-        self.close_active_windows()
-        if self.open_menu_item(search, match):
-            self.screenshot_mgr.capture(self.page, "tasks_ui", "Tasks UI")
-            return True
         return False
 
     def focus_window_by_title(self, title: str) -> bool:
