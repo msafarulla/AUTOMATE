@@ -12,6 +12,7 @@ from core.logger import rf_log
 from core.screenshot import ScreenshotManager
 from operations.rf_primitives import RFWorkflows
 from config.operations_config import OperationConfig
+from core.detour import DetourManager, NullDetourManager
 
 
 class ReceiveState(Enum):
@@ -95,6 +96,7 @@ class ReceiveStateMachine:
         deviation_selectors: Optional[Any] = None,
         post_qty_hook: Optional[Callable[['ReceiveStateMachine'], None]] = None,
         post_location_hook: Optional[Callable[['ReceiveStateMachine'], None]] = None,
+        detour_manager: Optional[DetourManager] = None,
     ):
         self.rf = rf
         self.screenshot_mgr = screenshot_mgr
@@ -102,6 +104,7 @@ class ReceiveStateMachine:
         self.deviation_selectors = deviation_selectors or OperationConfig.RECEIVE_DEVIATION_SELECTORS
         self.post_qty_hook = post_qty_hook
         self.post_location_hook = post_location_hook
+        self.detours = detour_manager or NullDetourManager()
         
         self.state = ReceiveState.INIT
         self.context = ReceiveContext()
@@ -377,27 +380,37 @@ class QtyEnteredHandler(StateHandler):
     def execute(self, m: ReceiveStateMachine) -> ReceiveState:
         m.invoke_post_qty_hook()
         screen_text = m.read_screen_text()
-        
-        for next_state, detector_name in self.BRANCH_DETECTORS:
+
+        next_state: Optional[ReceiveState] = None
+        for candidate_state, detector_name in self.BRANCH_DETECTORS:
             detector = getattr(self, detector_name)
             if detector(m, screen_text):
                 # Check if this matches expected flow
                 if m.context.flow_hint:
-                    expected = self._state_to_flow_name(next_state)
+                    expected = self._state_to_flow_name(candidate_state)
                     if expected != m.context.flow_hint:
                         rf_log(f"⚠️ Flow deviation: expected {m.context.flow_hint}, got {expected}")
                         m.capture("deviation", f"Expected {m.context.flow_hint}")
                         if not m.context.auto_handle_deviation:
                             m.context.error_message = f"Flow deviation: {expected}"
                             return ReceiveState.ERROR
-                
-                return next_state
-        
+
+                next_state = candidate_state
+                break
+
+        if not next_state:
+            # Unknown screen state
+            rf_log(f"⚠️ Unknown screen after qty entry: {screen_text[:100]}")
+            m.capture("unknown_state", "Unknown screen")
+            m.context.error_message = "Unknown screen state after quantity"
+            return ReceiveState.ERROR
+
+        if not m.detours.run("post_qty", context=m.context):
+            m.context.error_message = "Post-quantity detour failed"
+            return ReceiveState.ERROR
+
         # Unknown screen state
-        rf_log(f"⚠️ Unknown screen after qty entry: {screen_text[:100]}")
-        m.capture("unknown_state", "Unknown screen")
-        m.context.error_message = "Unknown screen state after quantity"
-        return ReceiveState.ERROR
+        return next_state
     
     def detect(self, m: ReceiveStateMachine) -> bool:
         # QTY_ENTERED is transitional, not directly detectable
@@ -436,6 +449,10 @@ class AwaitingLocationHandler(StateHandler):
         
         if not location:
             m.context.error_message = "Could not read suggested location"
+            return ReceiveState.ERROR
+
+        if not m.detours.run("post_location", context=m.context):
+            m.context.error_message = "Post-location detour failed"
             return ReceiveState.ERROR
         
         has_error, msg = m.rf.confirm_location(m.selectors.location, location)
