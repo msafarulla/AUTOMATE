@@ -87,11 +87,13 @@ class NavigationManager:
                     return False
                 self._post_selection_adjustments(normalized_match)
                 self.page.wait_for_timeout(4000)
-                if "rf menu" not in normalized_match:
-                    try:
+                try:
+                    if "rf menu" in normalized_match:
+                        self._maximize_rf_window()
+                    else:
                         self.maximize_non_rf_windows()
-                    except Exception:
-                        pass
+                except Exception:
+                    pass
                 return True
 
         app_log(f"⚠️ No exact match found for '{match_text}'")
@@ -420,6 +422,28 @@ class NavigationManager:
             app_log(f"🪟 Maximized {resized} non-RF window(s)")
         else:
             app_log("ℹ️ No non-RF windows maximized (none found or already excluded)")
+
+    def _maximize_rf_window(self):
+        """Ensure the RF Menu window uses most of the viewport height."""
+        try:
+            rf_window = self.page.locator("div.x-window:has-text('RF Menu')").last
+            rf_window.wait_for(state="visible", timeout=3000)
+        except Exception:
+            return False
+
+        try:
+            rf_window.evaluate("""
+                (el) => {
+                    const vh = window.innerHeight || document.documentElement?.clientHeight || 900;
+                    const target = Math.max(600, vh - 40);
+                    el.style.setProperty("height", `${target}px`, "important");
+                    el.style.setProperty("min-height", `${target}px`, "important");
+                    el.style.setProperty("top", "0px", "important");
+                }
+            """)
+            return True
+        except Exception:
+            return False
 
     def maximize_non_rf_windows(self):
         """Public wrapper to maximize non-RF windows."""
