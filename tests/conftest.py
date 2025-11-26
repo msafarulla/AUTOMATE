@@ -15,7 +15,6 @@ class MockFrame:
     def locator(self, selector: str):
         mock = MagicMock()
         mock.inner_text.return_value = self._text
-        mock.evaluate.return_value = self._text  # For hash utils
         mock.first = mock
         mock.wait_for = MagicMock()
         mock.fill = MagicMock()
@@ -43,9 +42,6 @@ class MockPage:
     def __post_init__(self):
         if self._frame is None:
             self._frame = MockFrame()
-        # Setup keyboard mock
-        self.keyboard = MagicMock()
-        self.keyboard.press = MagicMock()
 
     @property
     def frames(self) -> list[MockFrame]:
@@ -60,6 +56,11 @@ class MockPage:
 
     def wait_for_timeout(self, ms: int):
         pass
+
+    def keyboard(self):
+        mock = MagicMock()
+        mock.press = MagicMock()
+        return mock
 
     def evaluate(self, script, arg=None):
         return None
@@ -103,8 +104,6 @@ def mock_rf_primitives(mock_page, mock_screenshot_mgr):
     primitives.go_home = MagicMock()
     primitives.accept_message = MagicMock()
     primitives._should_auto_accept = MagicMock(return_value=True)
-    # Add the sentinel constant for invalid test data
-    primitives.INVALID_TEST_DATA_MSG = RFPrimitives.INVALID_TEST_DATA_MSG
 
     return primitives
 

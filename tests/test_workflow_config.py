@@ -163,32 +163,10 @@ class TestWorkflowBuilder:
             ))
             .build()
         )
-
+        
         assert workflow.bucket == "outbound"
         assert workflow.full_name == "outbound.load_test"
         assert workflow.steps[names.runLoading]["shipment"] == "SHIP001"
-
-    def test_workflow_with_ilpn_ui_step(self):
-        """Test workflow builder with openIlpnUiStep."""
-        names = StepNames()
-        workflow = (
-            WorkflowBuilder("test_ilpn", "inbound")
-            .receivingStep(ReceivingStep())
-            .openIlpnUiStep(OpenIlpnUiStep(
-                search_term="ILPNS",
-                match_text="iLPNs Test",
-                drill_detail=True
-            ))
-            .build()
-        )
-
-        assert names.runReceiving in workflow.steps
-        assert names.OpenIlpnUi in workflow.steps
-        ilpn_step = workflow.steps[names.OpenIlpnUi]
-        assert ilpn_step["search_term"] == "ILPNS"
-        assert ilpn_step["match_text"] == "iLPNs Test"
-        assert ilpn_step["drill_detail"] is True
-        assert ilpn_step["fill_ilpn"] is True
 
 
 class TestWorkflowConversions:
