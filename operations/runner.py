@@ -87,7 +87,7 @@ class OperationRunner:
         auto_handle: bool = False,
         open_ui_cfg: dict[str, Any] | None = None,
     ) -> bool:
-        self.nav_mgr.close_active_windows()
+        self.nav_mgr.close_windows_matching(self.nav_mgr._normalize("RF Menu (Distribution)"))
         self.nav_mgr.open_menu_item("RF MENU", "RF Menu (Distribution)")
         receive_op = ReceiveOperation(
             self.page,
@@ -107,7 +107,7 @@ class OperationRunner:
         )
 
     def _loading_impl(self, shipment: str, dock_door: str, bol: str) -> bool:
-        self.nav_mgr.close_active_windows()
+        self.nav_mgr.close_windows_matching(self.nav_mgr._normalize("RF Menu (Distribution)"))
         self.nav_mgr.open_menu_item("RF MENU", "RF Menu (Distribution)")
         load_op = LoadingOperation(self.page, self.page_mgr, self.screenshot_mgr, self.rf_menu)
         return load_op.execute(shipment, dock_door, bol)

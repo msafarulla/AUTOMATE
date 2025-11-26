@@ -56,7 +56,8 @@ class NavigationManager:
         """Open a menu item by searching and selecting exact match."""
         normalized_match = self._normalize(match_text)
 
-        self.close_active_windows()
+        # Close any existing window with the same title to avoid duplicates, leave others intact.
+        self.close_windows_matching(normalized_match)
         self._open_menu_panel()
         self._reset_menu_filter()
         self._do_search(search_term)
@@ -117,6 +118,18 @@ class NavigationManager:
             if not self._close_window(window):
                 break
             self.page.wait_for_timeout(200)
+
+    def close_windows_matching(self, normalized_title: str):
+        """Close only windows whose title matches the provided normalized string."""
+        if not normalized_title:
+            return
+        for window in self._get_visible_windows():
+            title = self._normalize(self._get_title(window) or "")
+            if not title:
+                continue
+            if normalized_title in title or title in normalized_title:
+                self._close_window(window)
+                self.page.wait_for_timeout(150)
 
     def close_menu_overlay_after_sign_on(self):
         """Close menu overlay if open after login."""
