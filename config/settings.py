@@ -15,13 +15,19 @@ def get_screen_size_safe():
     width = height = None
 
     try:
-        import tkinter as tk
+        if os.name == "nt":
+            user32 = ctypes.windll.user32
+            user32.SetProcessDPIAware()
+            width = user32.GetSystemMetrics(0)
+            height = user32.GetSystemMetrics(1)
+        else:
+            import tkinter as tk
 
-        root = tk.Tk()
-        root.withdraw()
-        width = root.winfo_screenwidth()
-        height = root.winfo_screenheight()
-        root.destroy()
+            root = tk.Tk()
+            root.withdraw()
+            width = root.winfo_screenwidth()
+            height = root.winfo_screenheight()
+            root.destroy()
     except Exception as e:
         app_log(f"⚠️ Screen size detection failed: {e}")
 
