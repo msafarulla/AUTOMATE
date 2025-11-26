@@ -33,7 +33,7 @@ def build_post_message_payload(
         app_log("⚠️ Post message payload requires facility or explicit object_id.")
         return None, {}
 
-    db_target = resolved_db_env or "qa"
+    db_target = resolved_db_env
 
     with DB(db_target) as db:
         if not object_id:
