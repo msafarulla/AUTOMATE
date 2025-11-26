@@ -36,7 +36,7 @@ class RFMenuManager:
 
     def reset_to_home(self):
         """Send Ctrl+B so RF navigation always starts from the home menu."""
-        self.maximize_window()
+        self._maximize_window()
         rf_iframe = self.get_iframe()
         body = rf_iframe.locator("body")
         body.wait_for(state="visible", timeout=2000)
@@ -66,7 +66,7 @@ class RFMenuManager:
                 self._tran_marker_verified = True
         self.screenshot_mgr.capture_rf_window(self.page, "RF_HOME", "RF Home")
 
-    def maximize_window(self):
+    def _maximize_window(self):
         """Increase the RF Menu window height with a fixed target per screen size."""
         rf_window = self.page.locator("div.x-window:has-text('RF Menu')").first
         try:
@@ -133,7 +133,6 @@ class RFMenuManager:
 
     def enter_choice(self, choice: str, ui_name: str) -> tuple[bool, str]:
         """Enter a choice in RF Menu and press Enter"""
-        self.maximize_window()
         rf_iframe = self.get_iframe()
         choice_input = rf_iframe.locator("input[type='text']:visible").first
         choice_input.wait_for(timeout=1000)
