@@ -1,4 +1,4 @@
-from typing import Any, Callable
+from typing import Any, Callable, Dict, Optional
 
 from core.logger import rf_log, app_log
 from ui.navigation import NavigationManager
@@ -40,6 +40,71 @@ def ensure_detour_page_ready(detour_page, main_page=None, settings=None, screens
         return True
     except Exception:
         return False
+
+
+class NullDetourManager:
+    """No-op detour handler."""
+
+    def run(self, stage: str, context: Any = None) -> bool:
+        return True
+
+
+class DetourManager:
+    """
+    Simple stage-aware detour runner.
+
+    - stage_map lets callers wire different configs to specific stages.
+    - falls back to open_ui_cfg when no stage-specific config is found.
+    """
+
+    def __init__(
+        self,
+        *,
+        open_ui_cfg: Optional[Dict[str, Any]] | Optional[list[dict[str, Any]]] = None,
+        stage_map: Optional[Dict[str, Any]] = None,
+        main_page=None,
+        screenshot_mgr=None,
+        main_nav: NavigationManager | None = None,
+        detour_page=None,
+        detour_nav: NavigationManager | None = None,
+        settings=None,
+        fill_ilpn_cb: Callable[[str, Any], bool] | None = None,
+    ):
+        self.open_ui_cfg = open_ui_cfg
+        self.stage_map = stage_map or {}
+        self.main_page = main_page
+        self.screenshot_mgr = screenshot_mgr
+        self.main_nav = main_nav
+        self.detour_page = detour_page
+        self.detour_nav = detour_nav
+        self.settings = settings
+        self.fill_ilpn_cb = fill_ilpn_cb
+
+    def _context_to_dict(self, context: Any) -> Optional[Dict[str, Any]]:
+        if context is None:
+            return None
+        if isinstance(context, dict):
+            return context
+        try:
+            return {k: v for k, v in vars(context).items() if not k.startswith("_")}
+        except Exception:
+            return None
+
+    def run(self, stage: str, context: Any = None) -> bool:
+        cfg = self.stage_map.get(stage, self.open_ui_cfg)
+        if not cfg:
+            return True
+        return run_open_ui_detours(
+            cfg,
+            main_page=self.main_page,
+            screenshot_mgr=self.screenshot_mgr,
+            main_nav=self.main_nav,
+            detour_page=self.detour_page,
+            detour_nav=self.detour_nav,
+            settings=self.settings,
+            fill_ilpn_cb=self.fill_ilpn_cb,
+            screen_context=self._context_to_dict(context),
+        )
 
 
 def run_open_ui_detours(
