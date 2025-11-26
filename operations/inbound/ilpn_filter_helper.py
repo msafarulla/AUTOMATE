@@ -121,11 +121,6 @@ def _maximize_page_for_capture(page: Any):
             page.wait_for_timeout(200)
     except Exception:
         pass
-
-    try:
-        page.bring_to_front()
-    except Exception:
-        pass
     try:
         page.evaluate(
             """
