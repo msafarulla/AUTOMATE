@@ -1,4 +1,4 @@
-"""Additional coverage for post_message_payload helpers."""
+"""Extra coverage for post_message_payload helpers."""
 import xml.etree.ElementTree as ET
 from types import SimpleNamespace
 from unittest.mock import MagicMock
@@ -9,6 +9,8 @@ import core.post_message_payload as pmp
 
 
 class StubDB:
+    """Lightweight DB stub to mimic context manager methods."""
+
     def __init__(self, rows=None, columns=None, fetchone_result=None):
         self.rows = rows or []
         self.columns = columns or []
@@ -33,6 +35,7 @@ class StubDB:
 
 
 def test_build_post_message_payload_handles_missing_object(monkeypatch):
+    """When no object id is found, payload should be None with metadata empty."""
     stub_db = StubDB(rows=[], columns=[])
     monkeypatch.setattr(pmp, "DB", lambda env: stub_db)
 
@@ -43,7 +46,8 @@ def test_build_post_message_payload_handles_missing_object(monkeypatch):
     assert meta == {}
 
 
-def test_fetch_recent_object_id_distribution_order(monkeypatch):
+def test_fetch_recent_object_id_uses_distribution_order_query(monkeypatch):
+    """Ensure DistributionOrder branch is exercised and selection is deterministic."""
     stub_db = StubDB(rows=[("DO-1",)], columns=["OBJECT_ID"])
     monkeypatch.setattr("random.choice", lambda seq: 0)
     result = pmp._fetch_recent_object_id(
@@ -54,6 +58,7 @@ def test_fetch_recent_object_id_distribution_order(monkeypatch):
 
 
 def test_fetch_message_xml_uses_clob_helpers(monkeypatch):
+    """Cover payload accessor helpers and whitespace trimming."""
     class Payload:
         def getvalue(self):
             return "  <xml>payload</xml>  "
@@ -64,6 +69,7 @@ def test_fetch_message_xml_uses_clob_helpers(monkeypatch):
 
 
 def test_fetch_message_xml_falls_back_on_exception(monkeypatch):
+    """Exceptions during payload extraction should fall back to str(payload)."""
     class BadPayload:
         def getSubString(self, *_args, **_kwargs):
             raise RuntimeError("boom")
@@ -80,6 +86,7 @@ def test_fetch_message_xml_falls_back_on_exception(monkeypatch):
 
 
 def test_build_detail_from_template_handles_purchase_order_fields():
+    """Exercise purchase order branches and quantity defaults."""
     template = ET.Element("ASNDetail")
     ET.SubElement(template, "SequenceNumber").text = None
     qty = ET.SubElement(template, "Quantity")
@@ -120,5 +127,6 @@ def test_build_detail_from_template_handles_purchase_order_fields():
 
 
 def test_derive_quantity_for_receive_handles_invalid_shipped():
+    """Invalid shipped quantities should fall back to default."""
     item = {"Quantity": {"ShippedQty": "not-a-number"}}
     assert pmp._derive_quantity_for_receive(item) == 2000

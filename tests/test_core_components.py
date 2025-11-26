@@ -1,4 +1,4 @@
-"""Coverage for core components: BaseOperation, PageManager, ScreenshotManager, Workflow, Runner."""
+"""Additional coverage for core components and orchestration helpers."""
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
@@ -15,6 +15,8 @@ from config.settings import StepNames
 
 
 class DummyOp(BaseOperation):
+    """Concrete subclass for testing BaseOperation behavior."""
+
     def execute(self, *args, **kwargs):
         return "executed"
 
@@ -80,6 +82,7 @@ class _FakePage:
 
 
 def test_page_manager_skips_error_frames_and_returns_rfmenu():
+    """Exception during frame inspection should be skipped."""
     good = _FakeFrame(name="uxiframe_rf", url="http://test/RFMenu")
     bad = _FakeFrame(raise_on_name=True)
     page = _FakePage([good, bad], main_frame=MagicMock())
@@ -90,7 +93,8 @@ def test_page_manager_skips_error_frames_and_returns_rfmenu():
     assert result is good
 
 
-def test_page_manager_falls_back_to_main_frame():
+def test_page_manager_falls_back_to_main_frame(monkeypatch):
+    """When no usable frames exist, main_frame is returned."""
     bad = _FakeFrame(raise_on_name=True)
     page = _FakePage([bad], main_frame=MagicMock())
 
@@ -102,6 +106,7 @@ def test_page_manager_falls_back_to_main_frame():
 
 @patch("core.screenshot.Path")
 def test_capture_handles_overlay_cleanup_errors(mock_path_class):
+    """Ensure overlay/timestamp cleanup errors are swallowed."""
     mock_path = MagicMock()
     mock_path_class.return_value = mock_path
     mock_filename = MagicMock()
@@ -123,6 +128,7 @@ def test_capture_handles_overlay_cleanup_errors(mock_path_class):
 
 @patch("core.screenshot.Path")
 def test_capture_timeout_retry_with_quality_and_page_unavailable(mock_path_class):
+    """Retry path should include quality flag and handle retry failures."""
     mock_path = MagicMock()
     mock_path_class.return_value = mock_path
 
@@ -133,19 +139,51 @@ def test_capture_timeout_retry_with_quality_and_page_unavailable(mock_path_class
 
     mock_page = MagicMock()
     mock_page.screenshot.side_effect = [
-        PlaywrightTimeoutError("Timeout"),
-        PageUnavailableError("closed"),
+        PlaywrightTimeoutError("Timeout"),  # initial attempt
+        PageUnavailableError("closed"),     # retry attempt
     ]
 
     result = mgr.capture(mock_page, "label", overlay_text=None)
     assert result is None
     assert mgr.sequence == 0
+    # Quality flag should be included on retry call
     retry_kwargs = mock_page.screenshot.call_args_list[1].kwargs
     assert retry_kwargs.get("quality") == 75
 
 
 @patch("core.screenshot.Path")
+def test_capture_rf_window_with_overlay_and_cleanup_errors(mock_path_class):
+    """Cover overlay and cleanup branches in RF capture."""
+    mock_path = MagicMock()
+    mock_path_class.return_value = mock_path
+    mock_filename = MagicMock()
+    mock_path.__truediv__.return_value = mock_filename
+
+    mgr = ScreenshotManager()
+    mgr._get_element_rect = MagicMock(return_value={"top": 0, "right": 0})
+    mgr._add_overlay_to_target = MagicMock()
+    mgr._add_timestamp = MagicMock(side_effect=PageUnavailableError("nope"))
+    mgr._remove_overlay_from_target = MagicMock(side_effect=PageUnavailableError("gone"))
+    mgr._remove_timestamp = MagicMock()
+
+    mock_page = MagicMock()
+    mock_target = MagicMock()
+    mock_target.wait_for = MagicMock()
+    mock_target.screenshot = MagicMock()
+    mock_locator = MagicMock(first=mock_target)
+    mock_page.locator.return_value = mock_locator
+
+    result = mgr.capture_rf_window(mock_page, "rf_label", overlay_text="Overlay")
+
+    assert result == mock_filename
+    assert mgr.sequence == 1
+    mgr._add_overlay_to_target.assert_called_once()
+    mgr._remove_overlay_from_target.assert_called_once()
+
+
+@patch("core.screenshot.Path")
 def test_capture_rf_window_handles_page_unavailable(mock_path_class):
+    """PageUnavailableError during RF capture should return None."""
     mock_path = MagicMock()
     mock_path_class.return_value = mock_path
 
@@ -153,12 +191,14 @@ def test_capture_rf_window_handles_page_unavailable(mock_path_class):
     mock_page = MagicMock()
     mock_page.locator.side_effect = PageUnavailableError("closed")
 
-    assert mgr.capture_rf_window(mock_page, "rf_label") is None
+    result = mgr.capture_rf_window(mock_page, "rf_label")
+    assert result is None
     assert mgr.sequence == 0
 
 
 @patch("core.screenshot.safe_page_evaluate")
 def test_overlay_helpers_execute_scripts(mock_safe_eval):
+    """Directly exercise overlay helper methods."""
     mock_safe_eval.return_value = None
     mock_page = MagicMock()
     mock_page.wait_for_timeout = MagicMock()
@@ -172,6 +212,7 @@ def test_overlay_helpers_execute_scripts(mock_safe_eval):
 
 
 def test_overlay_target_helpers():
+    """Ensure target overlay helpers invoke evaluate."""
     mgr = ScreenshotManager()
     target = MagicMock()
 
@@ -262,6 +303,7 @@ def test_workflow_post_step_variants(monkeypatch):
         3,
     )
     assert cont is True
+    assert meta_out is metadata
     assert steps.calls[-1] == "hi"
 
 
@@ -271,17 +313,21 @@ def test_workflow_loading_and_tasks(monkeypatch):
     steps = DummyStepExecution()
     executor = WorkflowStageExecutor(settings, orchestrator, steps)
 
+    # Loading failure should halt
     _, cont = executor.handle_loading_step({"shipment": "S1"}, {}, 1)
     assert cont is False
 
+    # Disabled tasks step
     _, cont = executor.handle_tasks_step({"enabled": False}, {}, 2)
     assert cont is True
 
+    # Failed tasks step
     steps_fail = DummyStepExecution(succeed=False)
     executor_fail = WorkflowStageExecutor(settings, orchestrator, steps_fail)
     _, cont = executor_fail.handle_tasks_step({}, {}, 3)
     assert cont is False
 
+    # iLPNs success with custom args
     steps_success = DummyStepExecution(succeed=True)
     executor_success = WorkflowStageExecutor(settings, orchestrator, steps_success)
     _, cont = executor_success.handle_ilpns_step(
@@ -347,15 +393,18 @@ class DummyGuard:
         return func(*args, **kwargs)
 
 
+class DummySettingsApp:
+    def __init__(self):
+        self.change_warehouse = "WH1"
+        self.post_message_text = "DEFAULT"
+        self.rf_verbose_logging = False
+        self.auto_click_info_icon = False
+        self.verify_tran_id_marker = False
+
+
 class DummySettingsRunner:
     def __init__(self):
-        self.app = SimpleNamespace(
-            change_warehouse="WH1",
-            post_message_text="DEFAULT",
-            rf_verbose_logging=False,
-            auto_click_info_icon=False,
-            verify_tran_id_marker=False,
-        )
+        self.app = DummySettingsApp()
 
 
 def _build_runner(monkeypatch, settings=None):
@@ -370,6 +419,7 @@ def _build_runner(monkeypatch, settings=None):
     rf_menu = MagicMock()
     conn_guard = DummyGuard()
 
+    # Patch operations to avoid real Playwright usage
     receive_instances = {}
     loading_instances = {}
 
