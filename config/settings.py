@@ -32,21 +32,12 @@ def get_screen_size_safe():
 
 def get_scale_factor():
     try:
-        if os.name == "nt":  # Windows
-            ctypes.windll.user32.SetProcessDPIAware()
-            user32 = ctypes.windll.user32
-            dc = user32.GetDC(0)
-            dpi = ctypes.windll.gdi32.GetDeviceCaps(dc, 88)  # LOGPIXELSX
-            user32.ReleaseDC(0, dc)
-            return round(dpi / 96.0, 2)
-        else:
-            import tkinter as tk
-
-            root = tk.Tk()
-            root.withdraw()
-            scaling = root.tk.call("tk", "scaling")
-            root.destroy()
-            return round(float(scaling), 2)
+        import tkinter as tk
+        root = tk.Tk()
+        root.withdraw()
+        scaling = root.tk.call("tk", "scaling")
+        root.destroy()
+        return round(float(scaling), 2)
     except Exception as exc:
         app_log(f"⚠️ DPI detection failed: {exc}")
         return 1.0
