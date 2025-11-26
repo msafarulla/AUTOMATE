@@ -56,6 +56,9 @@ class NavigationManager:
         """Open a menu item by searching and selecting exact match."""
         normalized_match = self._normalize(match_text)
 
+        # Always start with a clean slate of windows before opening a new UI.
+        self.close_active_windows()
+
         # Open menu and search
         self._open_menu_panel()
         self._reset_menu_filter()
@@ -199,8 +202,6 @@ class NavigationManager:
     def _post_selection_adjustments(self, match: str):
         """Adjust window position/size after selection (maximize non-RF windows)."""
         if "rf menu" in match:
-            # Keep only the newest RF window to avoid stacked instances.
-            self._close_rf_windows(keep_latest=True)
             return
 
         # Center specific windows first if needed, then maximize for more visibility.
@@ -259,33 +260,6 @@ class NavigationManager:
             return True
         except Exception:
             return False
-
-    def _close_rf_windows(self, keep_latest: bool = True):
-        """
-        Close visible RF windows; optionally keep the most recent one.
-        Helps avoid multiple RF windows when RF Menu is opened repeatedly.
-        """
-        windows = self._get_visible_windows()
-        rf_windows = []
-        for win in windows:
-            try:
-                title = (self._get_title(win) or "").lower()
-            except Exception:
-                continue
-            if "rf menu" in title:
-                rf_windows.append(win)
-
-        if not rf_windows:
-            return
-
-        # Keep the last window (likely newest) if requested.
-        targets = rf_windows[:-1] if keep_latest else rf_windows
-        for win in targets:
-            try:
-                self._close_window(win)
-                self.page.wait_for_timeout(150)
-            except Exception:
-                continue
 
     def _wait_for_mask(self, timeout_ms: int = 4000):
         """Wait for ExtJS loading mask to clear."""
