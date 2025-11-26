@@ -36,7 +36,7 @@ class RFMenuManager:
 
     def reset_to_home(self):
         """Send Ctrl+B so RF navigation always starts from the home menu."""
-        self._ensure_maximized()
+        self.maximize_window()
         rf_iframe = self.get_iframe()
         body = rf_iframe.locator("body")
         body.wait_for(state="visible", timeout=2000)
@@ -133,7 +133,7 @@ class RFMenuManager:
 
     def enter_choice(self, choice: str, ui_name: str) -> tuple[bool, str]:
         """Enter a choice in RF Menu and press Enter"""
-        self._ensure_maximized()
+        self.maximize_window()
         rf_iframe = self.get_iframe()
         choice_input = rf_iframe.locator("input[type='text']:visible").first
         choice_input.wait_for(timeout=1000)
@@ -203,13 +203,6 @@ class RFMenuManager:
         if not slug:
             slug = "response"
         return slug[:max_len]
-
-    def _ensure_maximized(self):
-        try:
-            if self.maximize_window():
-                return
-        except Exception:
-            pass
 
     def click_info_icon(self) -> bool:
         """Click the blue info icon inside the RF iframe when available."""
