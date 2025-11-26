@@ -10,33 +10,8 @@ DEFAULT_SCREEN_WIDTH = 1920
 DEFAULT_SCREEN_HEIGHT = 1080
 
 
-def get_screen_size_safe():
-    """Best-effort screen detection that works across desktop platforms."""
-    width = height = None
-
-    try:
-        if os.name == "nt":
-            user32 = ctypes.windll.user32
-            user32.SetProcessDPIAware()
-            width = user32.GetSystemMetrics(0)
-            height = user32.GetSystemMetrics(1)
-        else:
-            import tkinter as tk
-
-            root = tk.Tk()
-            root.withdraw()
-            width = root.winfo_screenwidth()
-            height = root.winfo_screenheight()
-            root.destroy()
-    except Exception as e:
-        app_log(f"⚠️ Screen size detection failed: {e}")
-
-    width = width or DEFAULT_SCREEN_WIDTH
-    height = height or DEFAULT_SCREEN_HEIGHT
-    return width, height
-
-
-def get_scale_factor():
+def detect_platform_scale():
+    """OS-specific DPI/scaling detection that can be reused elsewhere."""
     try:
         if os.name == "nt":  # Windows
             ctypes.windll.user32.SetProcessDPIAware()
@@ -58,7 +33,12 @@ def get_scale_factor():
         return 1.0
 
 
-_SCREEN_WIDTH, _SCREEN_HEIGHT = get_screen_size_safe()
+def get_scale_factor():
+    # Kept for compatibility; delegates to the reusable platform detector.
+    return detect_platform_scale()
+
+
+_SCREEN_WIDTH, _SCREEN_HEIGHT = detect_platform_scale()
 
 
 def _env_flag(name: str, default: bool) -> bool:
