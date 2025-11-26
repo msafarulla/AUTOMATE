@@ -164,6 +164,11 @@ class OperationRunner:
             return self.detour_page, self.detour_nav
         try:
             new_page = self.page.context.new_page()
+            # Keep the main tab active; leave detour in background.
+            try:
+                self.page.bring_to_front()
+            except Exception:
+                pass
         except Exception:
             self.detour_page = None
             self.detour_nav = None
