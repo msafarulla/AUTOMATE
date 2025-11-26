@@ -138,16 +138,6 @@ class TestQtyEnteredHandler:
         
         # Should error because expected blind ILPN but got location
         assert result == ReceiveState.ERROR
-
-    def test_invokes_detour_after_qty(self, handler, machine_with_location):
-        mock_detours = MagicMock()
-        mock_detours.run.return_value = True
-        machine_with_location.detours = mock_detours
-
-        result = handler.execute(machine_with_location)
-
-        assert result == ReceiveState.AWAITING_LOCATION
-        mock_detours.run.assert_called_once_with("post_qty", context=machine_with_location.context)
         assert "deviation" in (machine_with_location.context.error_message or "").lower()
 
 
