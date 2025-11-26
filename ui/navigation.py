@@ -57,8 +57,7 @@ class NavigationManager:
         normalized_match = self._normalize(match_text)
 
         # Always start with a clean slate of windows before opening a new UI.
-        is_rf_menu = "rf menu" in normalized_match
-        self.close_active_windows(keep_menu=not is_rf_menu)
+        self.close_active_windows()
 
         # Open menu and search
         self._open_menu_panel()
@@ -116,11 +115,9 @@ class NavigationManager:
         app_log(f"⚠️ Window not found: {title}")
         return False
 
-    def close_active_windows(self, skip_titles: list[str] = None, keep_menu: bool = True):
+    def close_active_windows(self, skip_titles: list[str] = None):
         """Close all workspace windows except those in skip list."""
         skip = {t.lower() for t in (skip_titles or []) if t}
-        if keep_menu:
-            skip.add("menu")  # Never close main menu
 
         while True:
             window = self._find_closeable_window(skip)
