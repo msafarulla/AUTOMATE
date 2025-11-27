@@ -270,16 +270,13 @@ class NavigationManager:
 
     def _wait_for_mask(self, timeout_ms: int = 4000):
         """Wait for ExtJS loading mask to clear."""
-        mask = self.page.locator("div.x-mask:visible")
-        deadline = time.time() + timeout_ms / 1000
-        
-        while time.time() < deadline:
-            try:
-                if mask.count() == 0:
-                    return
-            except Exception:
-                return
+        if WaitUtils.wait_for_mask_clear(self.page, timeout_ms=timeout_ms):
+            return
+        # Fallback to a short pause if mask check failed (e.g., page detached).
+        try:
             self.page.wait_for_timeout(150)
+        except Exception:
+            pass
 
     # =========================================================================
     # EXTJS WINDOW MANIPULATION

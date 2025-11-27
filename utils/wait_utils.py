@@ -81,6 +81,31 @@ class WaitUtils:
             return False
 
     @staticmethod
+    def wait_for_mask_clear(target, timeout_ms: int = 4000, selector: str = ".x-mask") -> bool:
+        """Wait until no visible ExtJS mask is present."""
+        try:
+            target.wait_for_function(
+                """
+                (sel) => {
+                    const masks = Array.from(document.querySelectorAll(sel));
+                    if (!masks.length) return true;
+                    return masks.every(el => {
+                        const style = window.getComputedStyle(el);
+                        const hidden = style.display === 'none' || style.visibility === 'hidden' || style.opacity === '0';
+                        const rect = el.getBoundingClientRect();
+                        const collapsed = rect.width < 2 || rect.height < 2;
+                        return hidden || collapsed;
+                    });
+                }
+                """,
+                selector,
+                timeout=timeout_ms,
+            )
+            return True
+        except Exception:
+            return False
+
+    @staticmethod
     def _is_navigation_error(exc: Exception) -> bool:
         """Check if error indicates frame navigation."""
         msg = str(exc).lower()

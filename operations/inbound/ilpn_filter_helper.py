@@ -15,6 +15,7 @@ from typing import TYPE_CHECKING
 from config.settings import Settings
 from core.logger import app_log, rf_log
 from core.screenshot import ScreenshotManager
+from utils.wait_utils import WaitUtils
 
 from .ilpn_js_scripts import (
     DOM_OPEN_ILPN_ROW_SCRIPT,
@@ -86,15 +87,12 @@ class ViewStabilizer:
     @staticmethod
     def wait_for_ext_mask(target, timeout_ms: int = 4000) -> bool:
         """Wait for ExtJS loading mask to disappear."""
-        mask = target.locator("div.x-mask:visible")
-        deadline = time.time() + timeout_ms / 1000
-        while time.time() < deadline:
-            try:
-                if mask.count() == 0:
-                    return True
-            except Exception:
-                return True
+        if WaitUtils.wait_for_mask_clear(target, timeout_ms=timeout_ms):
+            return True
+        try:
             target.wait_for_timeout(150)
+        except Exception:
+            pass
         return True
 
     @staticmethod
