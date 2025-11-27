@@ -1,7 +1,6 @@
 from typing import Callable, Any
 from playwright.sync_api import Page, Frame
 from core.screenshot import ScreenshotManager
-from utils.hash_utils import HashUtils
 from utils.wait_utils import WaitUtils
 from core.logger import rf_log
 from config.settings import Settings
@@ -57,16 +56,13 @@ class RFPrimitives:
             screenshot_text
         )
 
-        # Get hash before submit if we need to wait
-        prev_snapshot = HashUtils.get_frame_snapshot(rf_iframe) if wait_for_change else None
-
         # Submit
         input_field.press("Enter")
 
         # Wait for screen change
         screen_changed = True
         if wait_for_change:
-            screen_changed = WaitUtils.wait_for_screen_change(self.get_iframe, prev_snapshot)
+            screen_changed = WaitUtils.wait_for_screen_change()
 
         # If we were waiting for a change but it never happened, treat it as an error.
         if wait_for_change and not screen_changed:
@@ -134,11 +130,10 @@ class RFPrimitives:
             screenshot_text
         )
 
-        prev_snapshot = HashUtils.get_frame_snapshot(rf_iframe) if wait_for_change else None
         target_input.press("Enter")
 
         if wait_for_change:
-            WaitUtils.wait_for_screen_change(self.get_iframe, prev_snapshot)
+            WaitUtils.wait_for_screen_change()
 
         if check_errors:
             has_error, msg = self._check_for_errors()
@@ -199,12 +194,10 @@ class RFPrimitives:
     ):
         rf_iframe = self.get_iframe()
 
-        prev_snapshot = HashUtils.get_frame_snapshot(rf_iframe) if wait_for_change else None
-
         self.page.keyboard.press(key)
 
         if wait_for_change:
-            WaitUtils.wait_for_screen_change(self.get_iframe, prev_snapshot)
+            WaitUtils.wait_for_screen_change()
 
         screenshot_text = screenshot_text or f"Pressed {key}"
         self.screenshot_mgr.capture_rf_window(self.page, screenshot_label, screenshot_text)

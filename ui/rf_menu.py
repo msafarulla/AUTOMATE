@@ -1,7 +1,6 @@
 from playwright.sync_api import Page, Frame
 from core.page_manager import PageManager
 from core.screenshot import ScreenshotManager
-from utils.hash_utils import HashUtils
 from utils.wait_utils import WaitUtils
 from utils.eval_utils import safe_page_evaluate, safe_locator_evaluate
 import re
@@ -45,18 +44,12 @@ class RFMenuManager:
         except Exception:
             pass
 
-        prev_snapshot = HashUtils.get_frame_snapshot(rf_iframe)
         self.page.keyboard.press("Control+b")
-        WaitUtils.wait_for_screen_change(
-            self.get_iframe,
-            prev_snapshot,
-            warn_on_timeout=False,
-        )
+        WaitUtils.wait_for_screen_change()
         if self._verify_tran_marker and not self._tran_marker_verified:
             if not self._home_menu_has_hash(rf_iframe):
-                tran_prev_snapshot = HashUtils.get_frame_snapshot(rf_iframe)
                 self.page.keyboard.press("Control+p")
-                WaitUtils.wait_for_screen_change(rf_iframe, tran_prev_snapshot)
+                WaitUtils.wait_for_screen_change()
                 if not self._home_menu_has_hash(rf_iframe):
                     self._log("⚠️ RF home menu never showed # marker after Control+P.")
                     self._tran_marker_verified = False
@@ -155,9 +148,8 @@ class RFMenuManager:
         self.screenshot_mgr.capture_rf_window(self.page, f"choice_{ui_name}",
                                               f"Selected {ui_name}")
 
-        prev_snapshot = HashUtils.get_frame_snapshot(rf_iframe)
         choice_input.press("Enter")
-        WaitUtils.wait_for_screen_change(self.get_iframe, prev_snapshot)
+        WaitUtils.wait_for_screen_change()
 
         return self.check_for_response(rf_iframe)
 
@@ -191,9 +183,8 @@ class RFMenuManager:
         if rf_iframe.locator("div.error").count() == 0:
             return False
 
-        prev_snapshot = HashUtils.get_frame_snapshot(rf_iframe)
         self.page.keyboard.press("Control+a")
-        WaitUtils.wait_for_screen_change(self.get_iframe, prev_snapshot)
+        WaitUtils.wait_for_screen_change()
 
         self.screenshot_mgr.capture_rf_window(self.page, "after_accept","Accepted/Proceeded")
         return True
@@ -226,27 +217,16 @@ class RFMenuManager:
         except Exception:
             return False
 
-        prev_snapshot = None
-        try:
-            prev_snapshot = HashUtils.get_frame_snapshot(rf_iframe)
-        except Exception:
-            prev_snapshot = None
-
         try:
             icon.click()
             self._log("🛈 Clicked RF info icon inside iframe.")
         except Exception:
             return False
 
-        if prev_snapshot is not None:
-            try:
-                WaitUtils.wait_for_screen_change(
-                    self.get_iframe,
-                    prev_snapshot,
-                    warn_on_timeout=False,
-                )
-            except Exception:
-                pass
+        try:
+            WaitUtils.wait_for_screen_change()
+        except Exception:
+            pass
         return True
 
     def _before_rf_snapshot(self):

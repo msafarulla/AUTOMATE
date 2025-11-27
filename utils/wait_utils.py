@@ -4,33 +4,17 @@
 """Wait utilities for screen change detection."""
 
 import time
-from typing import Callable, Union
-from playwright.sync_api import Frame
-
-from utils.hash_utils import HashUtils
-from utils.eval_utils import safe_page_evaluate, PageUnavailableError
 from core.logger import app_log
-
-
-FrameProvider = Callable[[], Frame]
 
 
 class WaitUtils:
     """Wait utilities."""
 
     @staticmethod
-    def wait_for_screen_change(
-        frame_or_provider: Union[Frame, FrameProvider],
-        prev_snapshot: str,
-        timeout_ms: int = 25000,
-        interval_ms: int = 200,
-        warn_on_timeout: bool = True,
-    ) -> bool:
-        """
-        Pause briefly instead of hashing snapshots; returns after ~1s.
-        """
+    def wait_for_screen_change(delay_ms: int = 500) -> bool:
+        """Simple pause used in place of snapshot comparisons."""
         try:
-            time.sleep(1)
+            time.sleep(max(0, delay_ms) / 1000)
             return True
         except Exception as e:
             app_log(f"Error waiting for change: {e}")
@@ -84,15 +68,3 @@ class WaitUtils:
                 time.sleep(max(0, remaining) / 1000)
             except Exception:
                 pass
-
-    @staticmethod
-    def _is_navigation_error(exc: Exception) -> bool:
-        """Check if error indicates frame navigation."""
-        msg = str(exc).lower()
-        markers = (
-            "execution context was destroyed",
-            "cannot find context",
-            "frame was detached",
-            "target closed",
-        )
-        return any(m in msg for m in markers) or isinstance(exc, PageUnavailableError)
