@@ -4,21 +4,73 @@
 """Wait utilities for screen change detection."""
 
 import time
+from typing import Callable, Union
+from playwright.sync_api import Frame
+
 from core.logger import app_log
+
+
+FrameProvider = Callable[[], Frame]
 
 
 class WaitUtils:
     """Wait utilities."""
 
     @staticmethod
-    def wait_for_screen_change(*args, timeout_ms: int = 25000, **kwargs) -> bool:
+    def wait_for_screen_change(
+        frame_or_provider: Union[Frame, FrameProvider, None] = None,
+        prev_snapshot: str | None = None,
+        timeout_ms: int = 25000,
+        interval_ms: int = 200,
+        warn_on_timeout: bool = True,
+    ) -> bool:
         """
-        Simple pause used in place of snapshot comparisons.
-        Accepts any positional/keyword args for backward compatibility.
+        Lightweight screen-change detection: compare the first 3 lines of body text.
+        Falls back to a simple sleep if no frame is provided.
         """
+        if frame_or_provider is None:
+            try:
+                time.sleep(max(0, timeout_ms) / 1000)
+                return True
+            except Exception as e:
+                app_log(f"Error waiting for change: {e}")
+                return False
+
+        def get_frame() -> Frame:
+            if callable(frame_or_provider):
+                f = frame_or_provider()
+                if f is None:
+                    raise RuntimeError("Frame provider returned None")
+                return f
+            return frame_or_provider
+
+        def snapshot(frame: Frame) -> str:
+            try:
+                text = frame.locator("body").inner_text(timeout=1000)
+                # Use only the first few lines to detect movement; normalize whitespace.
+                lines = text.splitlines()
+                head = "\n".join(lines[:3])
+                return " ".join(head.split())
+            except Exception:
+                return ""
+
         try:
-            time.sleep(max(0, timeout_ms) / 1000)
-            return True
+            frame = get_frame()
+            baseline = prev_snapshot if prev_snapshot is not None else snapshot(frame)
+            start = time.time()
+
+            while True:
+                time.sleep(max(0, interval_ms) / 1000)
+                current = snapshot(get_frame())
+                if current != (baseline or ""):
+                    app_log("✅ Screen changed")
+                    return True
+
+                if (time.time() - start) * 1000 >= timeout_ms:
+                    if warn_on_timeout:
+                        app_log(f"⚠️ No change after {timeout_ms}ms")
+                    return False
+
         except Exception as e:
             app_log(f"Error waiting for change: {e}")
             return False
