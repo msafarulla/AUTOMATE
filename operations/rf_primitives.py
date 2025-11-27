@@ -216,18 +216,7 @@ class RFPrimitives:
     def accept_message(self):
         """Accept/proceed from info or error screen (Ctrl+A)."""
         self.press_rf_hot_key("Control+a", "accepted_message", "Accepted/Proceeded")
-
-    def handle_error_and_continue(self) -> bool:
-        has_error, msg = self._check_for_errors()
-        if msg:  # If there's any message (error or info)
-            rf_log(f"{'❌ Error' if has_error else 'ℹ️ Info'}: {msg[:100]}")
-            self.accept_message()
-            return has_error
-        return False
-
-    # ========================================================================
-    # HELPER: Error checking
-    # ========================================================================
+                  
 
     def _check_for_errors(self) -> tuple[bool, str | None]:
         try:

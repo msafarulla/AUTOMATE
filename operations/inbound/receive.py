@@ -89,6 +89,7 @@ class ReceiveOperation(BaseOperation):
         """Hook invoked immediately after quantity entry to run configured detours."""
         if not cfg:
             return
+        WaitUtils.wait_brief(self.page)
         self._cache_screen_context()
         self._handle_open_ui(cfg)
 

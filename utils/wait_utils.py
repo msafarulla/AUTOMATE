@@ -22,8 +22,6 @@ class WaitUtils:
 
     @staticmethod
     def wait_for_mask_clear(target, timeout_ms: int = 4000, selector: str = ".x-mask") -> bool:
-        """Wait until no visible ExtJS mask is present (tolerant to detached pages/frames)."""
-        timeout_ms = 4000  # Standardized mask wait
         try:
             mask = target.locator(f"{selector}:visible")
         except Exception:
