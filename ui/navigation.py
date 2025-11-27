@@ -86,7 +86,7 @@ class NavigationManager:
                     app_log("⚠️ Menu went stale while clicking match.")
                     return False
                 self._post_selection_adjustments(normalized_match)
-                WaitUtils.wait_brief(self.page, 4000)
+                WaitUtils.wait_brief(self.page)
                 try:
                     if "rf menu" in normalized_match:
                         self.maximize_rf_window()
@@ -123,7 +123,7 @@ class NavigationManager:
             app_log(f"🧹 Closing: {title}")
             if not self._close_window(window):
                 break
-            WaitUtils.wait_brief(self.page, 200)
+            WaitUtils.wait_brief(self.page)
 
     def close_windows_matching(self, normalized_title: str):
         """Close only windows whose title matches the provided normalized string."""
@@ -135,7 +135,7 @@ class NavigationManager:
                 continue
             if normalized_title in title or title in normalized_title:
                 self._close_window(window)
-                WaitUtils.wait_brief(self.page, 150)
+                WaitUtils.wait_brief(self.page)
 
     def close_menu_overlay_after_sign_on(self):
         """Close menu overlay if open after login."""
@@ -169,7 +169,7 @@ class NavigationManager:
         try:
             btn.wait_for(state="visible", timeout=500)
             btn.click()
-            WaitUtils.wait_brief(self.page, 200)
+            WaitUtils.wait_brief(self.page)
         except Exception:
             pass
 
@@ -182,7 +182,7 @@ class NavigationManager:
         except Exception:
             pass
         search_box.fill(term)
-        WaitUtils.wait_brief(self.page, 300)
+        WaitUtils.wait_brief(self.page)
 
     def _wait_for_results(self, locator: Locator, retries: int = 10) -> int:
         """Wait for menu search results to populate."""
@@ -190,7 +190,7 @@ class NavigationManager:
             count = locator.count()
             if count > 0:
                 return count
-            WaitUtils.wait_brief(self.page, 200)
+            WaitUtils.wait_brief(self.page)
         return locator.count()
 
     def _click_menu_item(self, item: Locator, use_info_button: bool):
@@ -274,7 +274,7 @@ class NavigationManager:
             return
         # Fallback to a short pause if mask check failed (e.g., page detached).
         try:
-            WaitUtils.wait_brief(self.page, 150)
+            WaitUtils.wait_brief(self.page)
         except Exception:
             pass
 
@@ -305,7 +305,7 @@ class NavigationManager:
             if success:
                 app_log(f"🪟 Centered {label}")
                 return
-            WaitUtils.wait_brief(self.page, 200)
+            WaitUtils.wait_brief(self.page)
 
     def _maximize_active_window(self):
         """Maximize the active non-RF window."""

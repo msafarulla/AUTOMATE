@@ -83,7 +83,7 @@ def snap(page, label, env):
 
     try:
         # Wait a moment for any animations/rendering to complete
-        WaitUtils.wait_brief(page, 300)
+        WaitUtils.wait_brief(page)
 
         # Inject a bright cyan pulsating cursor at current mouse position
         page.evaluate("""
@@ -127,7 +127,7 @@ def snap(page, label, env):
         """)
 
         # Small delay to ensure cursor is rendered
-        WaitUtils.wait_brief(page, 100)
+        WaitUtils.wait_brief(page)
 
         # Disable animations for cleaner screenshot
         page.evaluate("""
@@ -184,7 +184,7 @@ def close_visible_windows_dom(page: Page, env_name: Optional[str] = None):
                 if close_btn.is_visible():
                     close_btn.click()
                     closed += 1
-                    WaitUtils.wait_brief(page, 200)
+                    WaitUtils.wait_brief(page)
                     continue
             except Exception:
                 pass
@@ -193,7 +193,7 @@ def close_visible_windows_dom(page: Page, env_name: Optional[str] = None):
             try:
                 page.keyboard.press("Escape")
                 closed += 1
-                WaitUtils.wait_brief(page, 200)
+                WaitUtils.wait_brief(page)
             except Exception:
                 break
 
@@ -228,7 +228,7 @@ def select_facility(page: Page, env_name: str, warehouse: str):
 
         # Click Apply button
         page.get_by_text("Apply", exact=True).click()
-        WaitUtils.wait_brief(page, 200)
+        WaitUtils.wait_brief(page)
 
         # Wait for UI to be ready
         page.locator("a.x-btn").first.wait_for(timeout=1000)

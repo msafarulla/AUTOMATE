@@ -69,7 +69,7 @@ def run_post_message(
 
             if hold_seconds > 0:
                 app_log(f"⏸️ Holding browser open for {hold_seconds}s.")
-                WaitUtils.wait_brief(page, hold_seconds * 1000)
+                WaitUtils.wait_brief(page)
 
             if wait:
                 input("Press Enter to exit and close the browser...")
@@ -77,7 +77,7 @@ def run_post_message(
             if keep_open:
                 app_log("⏳ Keeping browser session open until Ctrl+C.")
                 while True:
-                    WaitUtils.wait_brief(page, 5000)
+                    WaitUtils.wait_brief(page)
 
             return success
         except KeyboardInterrupt:

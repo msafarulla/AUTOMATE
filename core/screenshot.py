@@ -249,7 +249,7 @@ class ScreenshotManager:
             {"text": text, "top": float(top_offset)},
             description="ScreenshotManager._add_overlay",
         )
-        WaitUtils.wait_brief(page, 100)
+        WaitUtils.wait_brief(page)
 
     def _remove_overlay(self, page: Page):
         safe_page_evaluate(page, """

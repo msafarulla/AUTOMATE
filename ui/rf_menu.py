@@ -164,7 +164,7 @@ class RFMenuManager:
     def check_for_response(self, rf_iframe: Frame) -> tuple[bool, str] | tuple[bool, None]:
         """Check if an error or info screen appeared"""
         try:
-            WaitUtils.wait_brief(self.page, 500)
+            WaitUtils.wait_brief(self.page)
             visible_text = rf_iframe.locator("body").inner_text().strip()[:80]
             visible_text = re.sub(r"\s+", " ", visible_text)
 
@@ -187,7 +187,7 @@ class RFMenuManager:
         if rf_iframe is None:
             rf_iframe = self.get_iframe()
 
-        WaitUtils.wait_brief(self.page, 500)
+        WaitUtils.wait_brief(self.page)
         if rf_iframe.locator("div.error").count() == 0:
             return False
 

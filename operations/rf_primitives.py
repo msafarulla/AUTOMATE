@@ -239,7 +239,7 @@ class RFPrimitives:
     def _check_for_errors(self) -> tuple[bool, str | None]:
         try:
             rf_iframe = self.get_iframe()
-            WaitUtils.wait_brief(self.page, 500)
+            WaitUtils.wait_brief(self.page)
 
             # Get full text and normalize whitespace/newlines
             visible_text = rf_iframe.locator("body").inner_text().strip()

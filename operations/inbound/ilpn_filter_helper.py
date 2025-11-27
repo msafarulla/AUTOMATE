@@ -90,7 +90,7 @@ class ViewStabilizer:
         if WaitUtils.wait_for_mask_clear(target, timeout_ms=timeout_ms):
             return True
         try:
-            WaitUtils.wait_brief(target, 150)
+            WaitUtils.wait_brief(target)
         except Exception:
             pass
         return True
@@ -126,7 +126,7 @@ class ViewStabilizer:
             else:
                 stable = 1 if h else 0
                 last = h
-            WaitUtils.wait_brief(target, interval_ms)
+            WaitUtils.wait_brief(target)
         
         rf_log("⚠️ View did not stabilize in time")
         return False
@@ -142,7 +142,7 @@ class ViewStabilizer:
                         break
                 except Exception:
                     pass
-                WaitUtils.wait_brief(page, 200)
+                WaitUtils.wait_brief(page)
         except Exception:
             pass
         
@@ -297,7 +297,7 @@ class TabNavigator:
     def click_detail_tabs(target, config: TabClickConfig) -> bool:
         """Click through all visible iLPN detail tabs sequentially."""
         TabNavigator.diagnose_tabs(target)
-        WaitUtils.wait_brief(target, 2000)
+        WaitUtils.wait_brief(target)
 
         app_log("🎯 Starting tab clicking process...")
 
@@ -315,7 +315,7 @@ class TabNavigator:
             )
             
             if clicked:
-                WaitUtils.wait_brief(target, 800)
+                WaitUtils.wait_brief(target)
                 if config.screenshot_mgr:
                     try:
                         img_bytes = use_page.screenshot(full_page=True, type="jpeg")
@@ -541,7 +541,7 @@ class FilteredRowOpener:
 
         # Fast path: DOM scan
         if DOMRowOpener.open_ilpn_row(target, ilpn):
-            WaitUtils.wait_brief(target, 2000)
+            WaitUtils.wait_brief(target)
             TabNavigator.click_detail_tabs(target, tab_config)
             return True
 
@@ -551,13 +551,13 @@ class FilteredRowOpener:
         # Try ExtJS-native open
         if row_count == 1 and ExtJSGridHelper.open_first_row(target):
             app_log("✅ Opened single iLPN row via ExtJS API")
-            WaitUtils.wait_brief(target, 2000)
+            WaitUtils.wait_brief(target)
             TabNavigator.click_detail_tabs(target, tab_config)
             return True
 
         # DOM fallback retry
         if DOMRowOpener.open_ilpn_row(target, ilpn):
-            WaitUtils.wait_brief(target, 2000)
+            WaitUtils.wait_brief(target)
             TabNavigator.click_detail_tabs(target, tab_config)
             return True
 
@@ -601,7 +601,7 @@ class FilteredRowOpener:
                 break
             if row_count > 1:
                 app_log(f"ℹ️ Filter shows {row_count} rows; retrying quickly...")
-            WaitUtils.wait_brief(target, 300)
+            WaitUtils.wait_brief(target)
             
         return row_count, rows_locator
 
@@ -632,7 +632,7 @@ class FilteredRowOpener:
                 if not ViewStabilizer.wait_for_stable_view(target):
                     app_log("⚠️ Detail view not stable after open; retrying")
                     continue
-                WaitUtils.wait_brief(target, 2000)
+                WaitUtils.wait_brief(target)
                 TabNavigator.click_detail_tabs(target, tab_config)
                 ViewStabilizer.wait_for_stable_view(target)
                 return True

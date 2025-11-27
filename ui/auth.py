@@ -110,11 +110,11 @@ class AuthManager:
                 self.screenshot_mgr.capture(self.page, "Default Windows", "Default Windows, will be closed")
 
                 try:
-                    close_btn = windows.first.locator(".x-tool-close").first
-                    if close_btn.is_visible():
-                        close_btn.click()
-                        closed += 1
-                        WaitUtils.wait_brief(self.page, 200)
+                        close_btn = windows.first.locator(".x-tool-close").first
+                        if close_btn.is_visible():
+                            close_btn.click()
+                            closed += 1
+                        WaitUtils.wait_brief(self.page)
                         continue
                 except Exception:
                     pass
@@ -122,7 +122,7 @@ class AuthManager:
                 try:
                     self.page.keyboard.press("Escape")
                     closed += 1
-                    WaitUtils.wait_brief(self.page, 200)
+                    WaitUtils.wait_brief(self.page)
                 except Exception:
                     break
 
