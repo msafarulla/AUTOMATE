@@ -27,56 +27,11 @@ class WaitUtils:
         warn_on_timeout: bool = True,
     ) -> bool:
         """
-        Wait until frame content changes from previous snapshot.
-        
-        Args:
-            frame_or_provider: Frame or callable that returns frame
-            prev_snapshot: Previous snapshot to compare against
-            timeout_ms: Maximum wait time
-            interval_ms: Poll interval
-            warn_on_timeout: Log warning if timeout reached
-        
-        Returns:
-            True if content changed, False if timeout
+        Pause briefly instead of hashing snapshots; returns after ~1s.
         """
-        def get_frame() -> Frame:
-            if callable(frame_or_provider):
-                f = frame_or_provider()
-                if f is None:
-                    raise RuntimeError("Frame provider returned None")
-                return f
-            return frame_or_provider
-
         try:
-            frame = get_frame()
-            page = frame.page
-            start = safe_page_evaluate(page, "Date.now()", description="timer")
-
-            while True:
-                time.sleep(interval_ms / 1000)
-
-                # Get current snapshot
-                try:
-                    frame = get_frame()
-                    current = HashUtils.get_frame_snapshot(frame)
-                except Exception as e:
-                    if WaitUtils._is_navigation_error(e):
-                        app_log("ℹ️ Frame navigated - treating as change")
-                        return True
-                    raise
-
-                # Check if changed
-                if current != (prev_snapshot or ""):
-                    app_log("✅ Screen changed")
-                    return True
-
-                # Check timeout
-                elapsed = safe_page_evaluate(page, "Date.now()", description="timer") - start
-                if elapsed >= timeout_ms:
-                    if warn_on_timeout:
-                        app_log(f"⚠️ No change after {timeout_ms}ms")
-                    return False
-
+            time.sleep(1)
+            return True
         except Exception as e:
             app_log(f"Error waiting for change: {e}")
             return False
