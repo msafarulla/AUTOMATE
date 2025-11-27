@@ -20,20 +20,25 @@ class WaitUtils:
 
     @staticmethod
     def wait_for_screen_change(
-        frame_or_provider: Union[Frame, FrameProvider, None] = None,
-        prev_snapshot: str | None = None,
+        frame_or_provider: Union[Frame, FrameProvider],
+        prev_snapshot: str,
         timeout_ms: int = 25000,
         interval_ms: int = 200,
         warn_on_timeout: bool = True,
     ) -> bool:
         """
         Wait until frame content changes from previous snapshot.
-        If no frame is provided, fall back to a simple pause.
-        """
-        if frame_or_provider is None:
-            time.sleep(max(0, timeout_ms) / 1000)
-            return True
 
+        Args:
+            frame_or_provider: Frame or callable that returns frame
+            prev_snapshot: Previous snapshot to compare against
+            timeout_ms: Maximum wait time
+            interval_ms: Poll interval
+            warn_on_timeout: Log warning if timeout reached
+
+        Returns:
+            True if content changed, False if timeout
+        """
         def get_frame() -> Frame:
             if callable(frame_or_provider):
                 f = frame_or_provider()
@@ -46,11 +51,11 @@ class WaitUtils:
             frame = get_frame()
             page = frame.page
             start = safe_page_evaluate(page, "Date.now()", description="timer")
-            baseline = prev_snapshot or HashUtils.get_frame_snapshot(frame)
 
             while True:
-                time.sleep(interval_ms / 1000)
+                page.wait_for_timeout(interval_ms)
 
+                # Get current snapshot
                 try:
                     frame = get_frame()
                     current = HashUtils.get_frame_snapshot(frame)
@@ -60,10 +65,12 @@ class WaitUtils:
                         return True
                     raise
 
-                if current != (baseline or ""):
+                # Check if changed
+                if current != (prev_snapshot or ""):
                     app_log("✅ Screen changed")
                     return True
 
+                # Check timeout
                 elapsed = safe_page_evaluate(page, "Date.now()", description="timer") - start
                 if elapsed >= timeout_ms:
                     if warn_on_timeout:

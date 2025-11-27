@@ -77,14 +77,9 @@ class PostMessageManager:
 
     def _submit_and_capture(self, frame: Frame) -> Dict[str, Any]:
         send_button = self._locate_send_button(frame)
-        baseline = HashUtils.get_frame_snapshot(frame)
+        prev_snapshot = HashUtils.get_frame_snapshot(frame)
         send_button.click()
-        WaitUtils.wait_for_screen_change(
-            frame,
-            prev_snapshot=baseline,
-            timeout_ms=6000,
-            warn_on_timeout=False,
-        )
+        WaitUtils.wait_for_screen_change(frame, prev_snapshot, warn_on_timeout=False)
 
         response = self._read_response(frame)
         info = self._interpret_response(response)
@@ -99,14 +94,9 @@ class PostMessageManager:
 
     def _reset_form(self, frame: Frame):
         reset_button = self._locate_reset_button(frame)
-        baseline = HashUtils.get_frame_snapshot(frame)
+        prev_snapshot = HashUtils.get_frame_snapshot(frame)
         reset_button.click()
-        WaitUtils.wait_for_screen_change(
-            frame,
-            prev_snapshot=baseline,
-            timeout_ms=4000,
-            warn_on_timeout=False,
-        )
+        WaitUtils.wait_for_screen_change(frame, prev_snapshot, warn_on_timeout=False)
         self.screenshot_mgr.capture(
             self.page,
             "post_message_reset",

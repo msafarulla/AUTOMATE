@@ -43,7 +43,7 @@ class RFPrimitives:
     ) -> tuple[bool, str | None]:
 
         rf_iframe = self.get_iframe()
-        baseline = HashUtils.get_frame_snapshot(rf_iframe)
+        prev_snapshot = HashUtils.get_frame_snapshot(rf_iframe) if wait_for_change else None
 
         # Find and fill the input
         input_field = rf_iframe.locator(selector).first
@@ -64,12 +64,7 @@ class RFPrimitives:
         # Wait for screen change
         screen_changed = True
         if wait_for_change:
-            screen_changed = WaitUtils.wait_for_screen_change(
-                self.get_iframe,
-                prev_snapshot=baseline,
-                timeout_ms=4000,
-                warn_on_timeout=False,
-            )
+            screen_changed = WaitUtils.wait_for_screen_change(self.get_iframe, prev_snapshot)
 
         # If we were waiting for a change but it never happened, treat it as an error.
         if wait_for_change and not screen_changed:
@@ -124,7 +119,7 @@ class RFPrimitives:
     ) -> tuple[bool, str | None]:
 
         rf_iframe = self.get_iframe()
-        baseline = HashUtils.get_frame_snapshot(rf_iframe)
+        prev_snapshot = HashUtils.get_frame_snapshot(rf_iframe) if wait_for_change else None
         if selector:
             target_input = rf_iframe.locator(selector).first
         else:
@@ -141,12 +136,7 @@ class RFPrimitives:
         target_input.press("Enter")
 
         if wait_for_change:
-            WaitUtils.wait_for_screen_change(
-                self.get_iframe,
-                prev_snapshot=baseline,
-                timeout_ms=4000,
-                warn_on_timeout=False,
-            )
+            WaitUtils.wait_for_screen_change(self.get_iframe, prev_snapshot)
 
         if check_errors:
             has_error, msg = self._check_for_errors()
@@ -206,17 +196,12 @@ class RFPrimitives:
         wait_for_change: bool = True
     ):
         rf_iframe = self.get_iframe()
-        baseline = HashUtils.get_frame_snapshot(rf_iframe)
+        prev_snapshot = HashUtils.get_frame_snapshot(rf_iframe) if wait_for_change else None
 
         self.page.keyboard.press(key)
 
         if wait_for_change:
-            WaitUtils.wait_for_screen_change(
-                self.get_iframe,
-                prev_snapshot=baseline,
-                timeout_ms=4000,
-                warn_on_timeout=False,
-            )
+            WaitUtils.wait_for_screen_change(self.get_iframe, prev_snapshot)
 
         screenshot_text = screenshot_text or f"Pressed {key}"
         self.screenshot_mgr.capture_rf_window(self.page, screenshot_label, screenshot_text)
