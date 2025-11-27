@@ -11,7 +11,7 @@ class WaitUtils:
     """Wait utilities."""
 
     @staticmethod
-    def wait_for_screen_change(delay_ms: int = 1000) -> bool:
+    def wait_for_screen_change(delay_ms: int = 4000) -> bool:
         """Simple pause used in place of snapshot comparisons."""
         try:
             time.sleep(max(0, delay_ms) / 1000)
