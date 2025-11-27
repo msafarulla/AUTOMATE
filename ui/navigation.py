@@ -424,7 +424,7 @@ class NavigationManager:
             app_log("ℹ️ No non-RF windows maximized (none found or already excluded)")
 
     def maximize_rf_window(self):
-        """Ensure the RF Menu window uses most of the viewport height."""
+        """Ensure the RF Menu window uses most of the viewport height and aligns with non-RF origin."""
         try:
             rf_window = self.page.locator("div.x-window:has-text('RF Menu')").last
             rf_window.wait_for(state="visible", timeout=3000)
@@ -434,11 +434,18 @@ class NavigationManager:
         try:
             rf_window.evaluate("""
                 (el) => {
+                    const vw = window.innerWidth || document.documentElement?.clientWidth || 1366;
                     const vh = window.innerHeight || document.documentElement?.clientHeight || 900;
+                    const rect = el.getBoundingClientRect();
+                    const width = rect?.width || Math.max(360, vw * 0.4);
                     const target = Math.max(600, vh - 40);
+                    const x = Math.max(4, (vw - width) / 2);
+                    const y = Math.max(4, vh * 0.03);
                     el.style.setProperty("height", `${target}px`, "important");
                     el.style.setProperty("min-height", `${target}px`, "important");
-                    el.style.setProperty("top", "0px", "important");
+                    el.style.setProperty("top", `${y}px`, "important");
+                    el.style.setProperty("left", `${x}px`, "important");
+                    el.style.setProperty("right", "auto", "important");
                 }
             """)
             return True

@@ -67,7 +67,7 @@ class RFMenuManager:
         self.screenshot_mgr.capture_rf_window(self.page, "RF_HOME", "RF Home")
 
     def _maximize_window(self):
-        """Increase the RF Menu window height with a fixed target per screen size."""
+        """Increase the RF Menu window height and align it like non-RF windows."""
         rf_window = self.page.locator("div.x-window:has-text('RF Menu')").first
         try:
             rf_window.wait_for(state="visible", timeout=4000)
@@ -86,7 +86,9 @@ class RFMenuManager:
             (el) => {
                 const rect = el.getBoundingClientRect();
                 const viewportHeight = window.innerHeight || document.documentElement?.clientHeight || window.screen?.height || 900;
-                const topMargin = Math.max(8, rect.top);
+                const viewportWidth = window.innerWidth || document.documentElement?.clientWidth || window.screen?.width || 1366;
+                const topMargin = Math.max(4, viewportHeight * 0.03);
+                const width = rect?.width || Math.max(360, viewportWidth * 0.4);
                 let desired;
                 if (viewportHeight >= 1200) {
                     desired = 1050;
@@ -100,8 +102,12 @@ class RFMenuManager:
 
                 const maxAllowed = Math.max(200, viewportHeight - topMargin - 8);
                 const newHeight = Math.min(maxAllowed, desired);
+                const left = Math.max(4, (viewportWidth - width) / 2);
                 el.style.setProperty("height", `${newHeight}px`, "important");
                 el.style.setProperty("min-height", `${newHeight}px`, "important");
+                el.style.setProperty("top", `${topMargin}px`, "important");
+                el.style.setProperty("left", `${left}px`, "important");
+                el.style.setProperty("right", "auto", "important");
                 return newHeight;
             }
                 """,
@@ -118,8 +124,15 @@ class RFMenuManager:
                     """
                 ({ targetHeight }) => {
                     const win = Ext.ComponentQuery.query('window[title~="RF"]')[0];
-                    if (!win || !win.setHeight || !targetHeight) return;
+                    if (!win || !targetHeight) return;
+                    const vw = window.innerWidth || document.documentElement?.clientWidth || window.screen?.width || 1366;
+                    const vh = window.innerHeight || document.documentElement?.clientHeight || window.screen?.height || 900;
+                    const w = win.getWidth?.() || win.width || Math.max(360, vw * 0.4);
+                    const x = Math.max(4, (vw - w) / 2);
+                    const y = Math.max(4, vh * 0.03);
                     win.setHeight(targetHeight);
+                    win.setPosition?.(x, y);
+                    win.setPagePosition?.(x, y);
                     win.updateLayout?.();
                 }
                     """,
