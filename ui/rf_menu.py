@@ -78,18 +78,17 @@ class RFMenuManager:
         if handle is None:
             return False
 
-        target_dims: dict[str, float] | None = None
+        target_height: float | None = None
         try:
             # Pick a fixed height based on the current viewport bucket.
-            target_dims = handle.evaluate(
+            target_height = handle.evaluate(
                 """
             (el) => {
                 const rect = el.getBoundingClientRect();
                 const viewportHeight = window.innerHeight || document.documentElement?.clientHeight || window.screen?.height || 900;
                 const viewportWidth = window.innerWidth || document.documentElement?.clientWidth || window.screen?.width || 1366;
                 const topMargin = Math.max(4, viewportHeight * 0.03);
-                const targetWidth = Math.min(Math.max(400, viewportWidth * 0.95), Math.max(360, viewportWidth - 8));
-                const width = targetWidth || rect?.width || Math.max(360, viewportWidth * 0.4);
+                const width = rect?.width || Math.max(360, viewportWidth * 0.4);
                 let desired;
                 if (viewportHeight >= 1200) {
                     desired = 1050;
@@ -104,46 +103,40 @@ class RFMenuManager:
                 const maxAllowed = Math.max(200, viewportHeight - topMargin - 8);
                 const newHeight = Math.min(maxAllowed, desired);
                 const left = Math.max(4, (viewportWidth - width) / 2);
-                const target = targetWidth || width;
-                el.style.setProperty("width", `${target}px`, "important");
-                el.style.setProperty("min-width", `${target}px`, "important");
                 el.style.setProperty("height", `${newHeight}px`, "important");
                 el.style.setProperty("min-height", `${newHeight}px`, "important");
                 el.style.setProperty("top", `${topMargin}px`, "important");
                 el.style.setProperty("left", `${left}px`, "important");
                 el.style.setProperty("right", "auto", "important");
-                return { height: newHeight, width: target };
+                return newHeight;
             }
                 """,
             )
         except Exception:
-            target_dims = None
+            target_height = None
         finally:
             handle.dispose()
 
-        if target_dims:
+        if target_height:
             try:
                 safe_page_evaluate(
                     self.page,
                     """
-                ({ targetHeight, targetWidth }) => {
+                ({ targetHeight }) => {
                     const win = Ext.ComponentQuery.query('window[title~="RF"]')[0];
                     if (!win || !targetHeight) return;
                     const vw = window.innerWidth || document.documentElement?.clientWidth || window.screen?.width || 1366;
                     const vh = window.innerHeight || document.documentElement?.clientHeight || window.screen?.height || 900;
-                    const w = targetWidth || win.getWidth?.() || win.width || Math.max(360, vw * 0.4);
+                    const w = win.getWidth?.() || win.width || Math.max(360, vw * 0.4);
                     const x = Math.max(4, (vw - w) / 2);
                     const y = Math.max(4, vh * 0.03);
                     win.setHeight(targetHeight);
-                    if (typeof w === 'number' && w > 0) {
-                        win.setWidth?.(w);
-                    }
                     win.setPosition?.(x, y);
                     win.setPagePosition?.(x, y);
                     win.updateLayout?.();
                 }
                     """,
-                    {"targetHeight": target_dims.get("height"), "targetWidth": target_dims.get("width")},
+                    {"targetHeight": target_height},
                     description="RFMenuManager.maximize_window_adjust",
                 )
             except Exception:

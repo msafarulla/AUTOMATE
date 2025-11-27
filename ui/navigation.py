@@ -433,12 +433,11 @@ class NavigationManager:
                 (el) => {
                     const vw = window.innerWidth || document.documentElement?.clientWidth || 1366;
                     const vh = window.innerHeight || document.documentElement?.clientHeight || 900;
-                    const targetWidth = Math.min(Math.max(400, vw * 0.95), Math.max(360, vw - 8));
+                    const rect = el.getBoundingClientRect();
+                    const width = rect?.width || Math.max(360, vw * 0.4);
                     const target = Math.max(600, vh - 40);
-                    const x = Math.max(4, (vw - targetWidth) / 2);
+                    const x = Math.max(4, (vw - width) / 2);
                     const y = Math.max(4, vh * 0.03);
-                    el.style.setProperty("width", `${targetWidth}px`, "important");
-                    el.style.setProperty("min-width", `${targetWidth}px`, "important");
                     el.style.setProperty("height", `${target}px`, "important");
                     el.style.setProperty("min-height", `${target}px`, "important");
                     el.style.setProperty("top", `${y}px`, "important");
