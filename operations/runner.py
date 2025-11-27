@@ -191,7 +191,7 @@ def create_operation_services(settings: Any) -> Generator[OperationServices, Non
             screenshot_mgr,
             verbose_logging=settings.app.rf_verbose_logging,
             auto_click_info_icon=settings.app.auto_click_info_icon,
-            verify_tran_id_marker=settings.app.verify_tran_id_marker,
+            show_tran_id=settings.app.show_tran_id,
         )
         conn_guard = ConnectionResetGuard(page, screenshot_mgr)
         orchestrator = AutomationOrchestrator(settings)
