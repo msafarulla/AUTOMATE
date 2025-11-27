@@ -3,6 +3,7 @@ from core.page_manager import PageManager
 from core.screenshot import ScreenshotManager
 from utils.wait_utils import WaitUtils
 from utils.eval_utils import safe_page_evaluate, safe_locator_evaluate
+from utils.hash_utils import HashUtils
 import re
 from core.logger import rf_log
 
@@ -43,13 +44,25 @@ class RFMenuManager:
             safe_locator_evaluate(body, "el => el.focus && el.focus()", description="RFMenuManager.reset_to_home focus")
         except Exception:
             pass
-
+        baseline = HashUtils.get_frame_snapshot(rf_iframe)
         self.page.keyboard.press("Control+b")
-        WaitUtils.wait_for_screen_change()
+        WaitUtils.wait_for_screen_change(
+            self.get_iframe,
+            prev_snapshot=baseline,
+            timeout_ms=4000,
+            warn_on_timeout=False,
+        )
         if self._show_tran_id and not self._show_tran_id_completed:
+            rf_iframe = self.get_iframe()
             if not self._home_menu_has_hash(rf_iframe):
+                baseline = HashUtils.get_frame_snapshot(rf_iframe)
                 self.page.keyboard.press("Control+p")
-                WaitUtils.wait_for_screen_change()
+                WaitUtils.wait_for_screen_change(
+                    self.get_iframe,
+                    prev_snapshot=baseline,
+                    timeout_ms=4000,
+                    warn_on_timeout=False,
+                )
                 if not self._home_menu_has_hash(rf_iframe):
                     self._log("⚠️ RF home menu never showed # marker after Control+P.")
                     self._show_tran_id_completed = False
@@ -148,8 +161,14 @@ class RFMenuManager:
         self.screenshot_mgr.capture_rf_window(self.page, f"choice_{ui_name}",
                                               f"Selected {ui_name}")
 
+        baseline = HashUtils.get_frame_snapshot(rf_iframe)
         choice_input.press("Enter")
-        WaitUtils.wait_for_screen_change()
+        WaitUtils.wait_for_screen_change(
+            self.get_iframe,
+            prev_snapshot=baseline,
+            timeout_ms=4000,
+            warn_on_timeout=False,
+        )
 
         return self.check_for_response(rf_iframe)
 
@@ -183,8 +202,14 @@ class RFMenuManager:
         if rf_iframe.locator("div.error").count() == 0:
             return False
 
+        baseline = HashUtils.get_frame_snapshot(rf_iframe)
         self.page.keyboard.press("Control+a")
-        WaitUtils.wait_for_screen_change()
+        WaitUtils.wait_for_screen_change(
+            self.get_iframe,
+            prev_snapshot=baseline,
+            timeout_ms=4000,
+            warn_on_timeout=False,
+        )
 
         self.screenshot_mgr.capture_rf_window(self.page, "after_accept","Accepted/Proceeded")
         return True
@@ -218,13 +243,15 @@ class RFMenuManager:
             return False
 
         try:
+            baseline = HashUtils.get_frame_snapshot(rf_iframe)
             icon.click()
             self._log("🛈 Clicked RF info icon inside iframe.")
-        except Exception:
-            return False
-
-        try:
-            WaitUtils.wait_for_screen_change()
+            WaitUtils.wait_for_screen_change(
+                self.get_iframe,
+                prev_snapshot=baseline,
+                timeout_ms=4000,
+                warn_on_timeout=False,
+            )
         except Exception:
             pass
         return True

@@ -45,7 +45,7 @@ class NavigationManager:
 
         # Apply and wait
         self.page.get_by_text("Apply", exact=True).click()
-        WaitUtils.wait_for_screen_change()
+        WaitUtils.wait_for_screen_change(timeout_ms=4000, warn_on_timeout=False)
 
         self.screenshot_mgr.capture(self.page, f"warehouse_{warehouse}", f"Changed to {warehouse}", onDemand)
         app_log(f"✅ Changed to {warehouse}")
