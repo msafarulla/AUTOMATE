@@ -436,7 +436,7 @@ class NavigationManager:
                     const rect = el.getBoundingClientRect();
                     const width = rect?.width || Math.max(360, vw * 0.4);
                     const target = Math.max(600, vh - 40);
-                    const x = Math.max(4, (vw - width) / 2);
+                    const x = Math.max(4, rect?.left || 4);
                     const y = Math.max(4, vh * 0.03);
                     el.style.setProperty("height", `${target}px`, "important");
                     el.style.setProperty("min-height", `${target}px`, "important");

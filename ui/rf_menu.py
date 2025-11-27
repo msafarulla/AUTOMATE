@@ -102,7 +102,7 @@ class RFMenuManager:
 
                 const maxAllowed = Math.max(200, viewportHeight - topMargin - 8);
                 const newHeight = Math.min(maxAllowed, desired);
-                const left = Math.max(4, (viewportWidth - width) / 2);
+                const left = Math.max(4, rect?.left || 4);
                 el.style.setProperty("height", `${newHeight}px`, "important");
                 el.style.setProperty("min-height", `${newHeight}px`, "important");
                 el.style.setProperty("top", `${topMargin}px`, "important");
@@ -127,8 +127,9 @@ class RFMenuManager:
                     if (!win || !targetHeight) return;
                     const vw = window.innerWidth || document.documentElement?.clientWidth || window.screen?.width || 1366;
                     const vh = window.innerHeight || document.documentElement?.clientHeight || window.screen?.height || 900;
-                    const w = win.getWidth?.() || win.width || Math.max(360, vw * 0.4);
-                    const x = Math.max(4, (vw - w) / 2);
+                    const rect = win.getBox ? win.getBox() : null;
+                    const w = win.getWidth?.() || win.width || rect?.width || Math.max(360, vw * 0.4);
+                    const x = Math.max(4, rect?.x ?? 4);
                     const y = Math.max(4, vh * 0.03);
                     win.setHeight(targetHeight);
                     win.setPosition?.(x, y);
