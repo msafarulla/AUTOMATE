@@ -152,8 +152,8 @@ class Settings:
         cls.app.auto_click_info_icon = _env_flag(
             "RF_AUTO_CLICK_INFO_ICON", cls.app.auto_click_info_icon
         )
-        cls.app.verify_tran_id_marker = _env_flag(
-            "RF_VERIFY_TRAN_ID_MARKER", cls.app.verify_tran_id_marker
+        cls.app.show_tran_id = _env_flag(
+            "RF_show_tran_id", cls.app.show_tran_id
         )
         cls.app.auto_close_post_login_windows = _env_flag(
             "AUTO_CLOSE_POST_LOGIN_WINDOWS", cls.app.auto_close_post_login_windows
