@@ -1,7 +1,7 @@
 from contextlib import contextmanager
 from dataclasses import dataclass
-from functools import wraps
 from typing import Any, Callable, Generator
+
 from core.browser import BrowserManager
 from core.connection_guard import ConnectionResetGuard
 from core.logger import app_log
@@ -54,7 +54,6 @@ class OperationRunner:
         self.screenshot_mgr = screenshot_mgr
         self.auth_mgr = auth_mgr
         self.nav_mgr = nav_mgr
-        # Shared detour resources (lazily created)
         self.detour_page = detour_page
         self.detour_nav = (
             NavigationManager(detour_page, screenshot_mgr) if detour_page else None
@@ -62,19 +61,14 @@ class OperationRunner:
         self.post_message_mgr = post_message_mgr
         self.rf_menu = rf_menu
         self.conn_guard = conn_guard
-        self.run_receive = self._guarded(self._receive_impl)
-        self.run_loading = self._guarded(self._loading_impl)
-        self.run_login = self._guarded(self._run_login)
-        self.run_change_warehouse = self._guarded(self._run_change_warehouse)
-        self.run_post_message = self._guarded(self._run_post_message)
-        self.run_open_ui = self._guarded(self._run_open_ui)
 
-    def _guarded(self, func: Callable[..., Any]) -> Callable[..., Any]:
-        @wraps(func)
-        def wrapper(*args: Any, **kwargs: Any) -> Any:
-            return self.conn_guard.guard(func, *args, **kwargs)
-
-        return wrapper
+        # Use the guard's decorator factory for cleaner binding
+        self.run_receive = conn_guard.guarded(self._receive_impl)
+        self.run_loading = conn_guard.guarded(self._loading_impl)
+        self.run_login = conn_guard.guarded(self._run_login)
+        self.run_change_warehouse = conn_guard.guarded(self._run_change_warehouse)
+        self.run_post_message = conn_guard.guarded(self._run_post_message)
+        self.run_open_ui = conn_guard.guarded(self._run_open_ui)
 
     def _run_login(self) -> None:
         self.auth_mgr.login()
@@ -127,7 +121,6 @@ class OperationRunner:
         return load_op.execute(shipment, dock_door, bol)
 
     def _run_post_message(self, payload: str | None = None) -> bool:
-        # Leave existing windows open to allow post-run inspection.
         self.nav_mgr.open_menu_item("POST", "Post Message (Integration)")
         try:
             self.nav_mgr.maximize_non_rf_windows()
@@ -164,7 +157,6 @@ class OperationRunner:
             return self.detour_page, self.detour_nav
         try:
             new_page = self.page.context.new_page()
-            # Keep the main tab active; leave detour in background.
             try:
                 self.page.bring_to_front()
             except Exception:
@@ -181,7 +173,6 @@ class OperationRunner:
 @contextmanager
 def create_operation_services(settings: Any) -> Generator[OperationServices, None, None]:
     with BrowserManager(settings) as browser_mgr:
-        # Main tab
         page = browser_mgr.new_page()
         screenshot_mgr = ScreenshotManager(
             settings.browser.screenshot_dir,
@@ -211,7 +202,7 @@ def create_operation_services(settings: Any) -> Generator[OperationServices, Non
             screenshot_mgr,
             auth_mgr,
             nav_mgr,
-            None,  # detour_page (lazily created and reused)
+            None,
             post_message_mgr,
             rf_menu,
             conn_guard,

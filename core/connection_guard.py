@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from functools import wraps
 from typing import Callable, Optional, TypeVar
 
 from playwright.sync_api import Frame, Page
@@ -23,7 +24,7 @@ class ConnectionResetGuard:
         "connection was reset",
         "err_connection_reset",
         "this site can't be reached",
-        "this site can’t be reached",
+        "this site can't be reached",
     )
 
     def __init__(self, page: Page, screenshot_mgr: Optional[ScreenshotManager] = None):
@@ -47,6 +48,18 @@ class ConnectionResetGuard:
         finally:
             self.ensure_ok()
         return result
+
+    def guarded(self, func: Callable[..., T]) -> Callable[..., T]:
+        """
+        Instance-level decorator factory.
+        
+        Usage in __init__:
+            self.run_receive = self.conn_guard.guarded(self._receive_impl)
+        """
+        @wraps(func)
+        def wrapper(*args, **kwargs) -> T:
+            return self.guard(func, *args, **kwargs)
+        return wrapper
 
     # --- internal helpers -------------------------------------------------
 
