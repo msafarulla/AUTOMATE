@@ -8,6 +8,7 @@ from operations.rf_primitives import RFMenuIntegration
 from config.operations_config import OperationConfig
 from typing import Any
 from ui.navigation import NavigationManager
+from utils.wait_utils import WaitUtils
 
 
 class ReceiveOperation(BaseOperation):
