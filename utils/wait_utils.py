@@ -53,7 +53,7 @@ class WaitUtils:
             start = safe_page_evaluate(page, "Date.now()", description="timer")
 
             while True:
-                page.wait_for_timeout(interval_ms)
+                time.sleep(interval_ms / 1000)
 
                 # Get current snapshot
                 try:
@@ -94,11 +94,40 @@ class WaitUtils:
             while time.time() < deadline:
                 if mask.count() == 0:
                     return True
-                target.wait_for_timeout(150)
+                time.sleep(0.15)
         except Exception:
             return True
 
         return True
+
+    @staticmethod
+    def wait_brief(target, timeout_ms: int = 500, selector: str = ".x-mask"):
+        """
+        Wait for mask to clear, then wait out the remaining time via wait_for_function fallback.
+        Keeps calls off bare wait_for_timeout to avoid blind sleeps.
+        """
+        start = time.time()
+        try:
+            WaitUtils.wait_for_mask_clear(target, timeout_ms=min(timeout_ms, 4000), selector=selector)
+        except Exception:
+            pass
+
+        remaining = timeout_ms - int((time.time() - start) * 1000)
+        if remaining <= 0:
+            return
+
+        try:
+            target.wait_for_function(
+                "(delay, start) => Date.now() - start >= delay",
+                remaining,
+                int(time.time() * 1000),
+                timeout=remaining + 250,
+            )
+        except Exception:
+            try:
+                time.sleep(max(0, remaining) / 1000)
+            except Exception:
+                pass
 
     @staticmethod
     def _is_navigation_error(exc: Exception) -> bool:

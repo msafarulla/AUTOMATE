@@ -3,6 +3,7 @@
 # =============================================================================
 """Frame snapshot utilities for detecting screen changes."""
 
+import time
 from hashlib import sha256
 from playwright.sync_api import Frame
 from utils.eval_utils import safe_locator_evaluate
@@ -23,7 +24,7 @@ class HashUtils:
         """
         # Wait for frame to settle
         try:
-            frame.page.wait_for_timeout(HashUtils.SETTLE_MS)
+            time.sleep(HashUtils.SETTLE_MS / 1000)
         except Exception:
             pass
 

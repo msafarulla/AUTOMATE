@@ -2,6 +2,7 @@ from typing import Any, Callable, Dict, Optional
 
 from core.logger import rf_log, app_log
 from ui.navigation import NavigationManager
+from utils.wait_utils import WaitUtils
 
 
 def ensure_detour_page_ready(detour_page, main_page=None, settings=None, screenshot_mgr=None) -> bool:
@@ -31,7 +32,7 @@ def ensure_detour_page_ready(detour_page, main_page=None, settings=None, screens
     try:
         detour_page.goto(source_url, wait_until="networkidle", timeout=20000)
         # Give ExtJS a moment to hydrate before we start querying menus.
-        detour_page.wait_for_timeout(500)
+        WaitUtils.wait_brief(detour_page, 500)
         if settings and getattr(settings, "app", None) and getattr(settings.app, "change_warehouse", None):
             try:
                 NavigationManager(detour_page, screenshot_mgr).change_warehouse(settings.app.change_warehouse, onDemand=False)
@@ -171,7 +172,7 @@ def run_open_ui_detours(
 
         # Expand the detour window for better visibility/capture.
         try:
-            use_page.wait_for_timeout(5000)
+            WaitUtils.wait_brief(use_page, 5000)
             use_nav.maximize_non_rf_windows()
         except Exception:
             pass
@@ -216,5 +217,5 @@ def run_open_ui_detours(
             )
             if not fill_ilpn_cb(str(ilpn_val), page=use_page, tab_click_timeout_ms=timeout_ms):
                 return False
-            use_page.wait_for_timeout(5000)
+            WaitUtils.wait_brief(use_page, 5000)
     return True

@@ -4,6 +4,7 @@ from core.screenshot import ScreenshotManager
 from core.logger import app_log
 from DB import DB
 from config.settings import Settings
+from utils.wait_utils import WaitUtils
 
 
 class AuthManager:
@@ -113,7 +114,7 @@ class AuthManager:
                     if close_btn.is_visible():
                         close_btn.click()
                         closed += 1
-                        self.page.wait_for_timeout(200)
+                        WaitUtils.wait_brief(self.page, 200)
                         continue
                 except Exception:
                     pass
@@ -121,7 +122,7 @@ class AuthManager:
                 try:
                     self.page.keyboard.press("Escape")
                     closed += 1
-                    self.page.wait_for_timeout(200)
+                    WaitUtils.wait_brief(self.page, 200)
                 except Exception:
                     break
 

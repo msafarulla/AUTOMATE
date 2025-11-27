@@ -51,7 +51,7 @@ class PostMessageManager:
                     return frame
             if time.monotonic() >= deadline:
                 break
-            self.page.wait_for_timeout(poll_interval_ms)
+            WaitUtils.wait_brief(self.page, poll_interval_ms)
 
         app_log("⚠️ Falling back to main frame; Post Message textarea not detected in any iframe.")
         return self.page.main_frame
@@ -230,7 +230,7 @@ class PostMessageManager:
         except Exception:
             pass
         try:
-            self.page.wait_for_timeout(300)
+            WaitUtils.wait_brief(self.page, 300)
         except Exception:
             pass
 

@@ -13,6 +13,7 @@ from config.settings import Settings
 from core.logger import app_log
 from operations import create_operation_services
 from ui.post_message import PostMessageManager
+from utils.wait_utils import WaitUtils
 
 
 def _load_message(args: argparse.Namespace, settings: Settings) -> str:
@@ -68,7 +69,7 @@ def run_post_message(
 
             if hold_seconds > 0:
                 app_log(f"⏸️ Holding browser open for {hold_seconds}s.")
-                page.wait_for_timeout(hold_seconds * 1000)
+                WaitUtils.wait_brief(page, hold_seconds * 1000)
 
             if wait:
                 input("Press Enter to exit and close the browser...")
@@ -76,7 +77,7 @@ def run_post_message(
             if keep_open:
                 app_log("⏳ Keeping browser session open until Ctrl+C.")
                 while True:
-                    page.wait_for_timeout(5000)
+                    WaitUtils.wait_brief(page, 5000)
 
             return success
         except KeyboardInterrupt:

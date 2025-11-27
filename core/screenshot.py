@@ -4,6 +4,7 @@ from typing import Callable, Any
 from playwright.sync_api import Page, TimeoutError as PlaywrightTimeoutError
 from utils.eval_utils import safe_page_evaluate, safe_locator_evaluate, PageUnavailableError
 from core.logger import app_log
+from utils.wait_utils import WaitUtils
 
 
 class ScreenshotManager:
@@ -248,7 +249,7 @@ class ScreenshotManager:
             {"text": text, "top": float(top_offset)},
             description="ScreenshotManager._add_overlay",
         )
-        page.wait_for_timeout(100)
+        WaitUtils.wait_brief(page, 100)
 
     def _remove_overlay(self, page: Page):
         safe_page_evaluate(page, """
