@@ -57,6 +57,9 @@ class AuthManager:
                 f"Login button did not enable within 15s (disabled={is_disabled})"
             )
 
+        # Capture the form state just before attempting login
+        self.screenshot_mgr.capture(self.page, "login_ready", "Login form ready")
+
         app_log("Clicking login button...")
         nav_succeeded = False
         try:
