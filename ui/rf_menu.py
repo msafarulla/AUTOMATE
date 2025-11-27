@@ -15,13 +15,13 @@ class RFMenuManager:
         screenshot_mgr: ScreenshotManager,
         verbose_logging: bool = False,
         auto_click_info_icon: bool = True,
-        verify_tran_id_marker: bool = False,
+        show_tran_id: bool = False,
     ):
         self.page = page
         self.page_mgr = page_mgr
         self.screenshot_mgr = screenshot_mgr
-        self._verify_tran_marker = verify_tran_id_marker
-        self._tran_marker_verified = not verify_tran_id_marker
+        self._show_tran_id = show_tran_id
+        self._show_tran_id_completed = not show_tran_id
         self._last_home_hash = None
         self.verbose_logging = verbose_logging
         self._auto_click_info_icon = auto_click_info_icon
@@ -46,17 +46,17 @@ class RFMenuManager:
 
         self.page.keyboard.press("Control+b")
         WaitUtils.wait_for_screen_change()
-        if self._verify_tran_marker and not self._tran_marker_verified:
+        if self._show_tran_id and not self._show_tran_id_completed:
             if not self._home_menu_has_hash(rf_iframe):
                 self.page.keyboard.press("Control+p")
                 WaitUtils.wait_for_screen_change()
                 if not self._home_menu_has_hash(rf_iframe):
                     self._log("⚠️ RF home menu never showed # marker after Control+P.")
-                    self._tran_marker_verified = False
+                    self._show_tran_id_completed = False
                 else:
-                    self._tran_marker_verified = True
+                    self._show_tran_id_completed = True
             else:
-                self._tran_marker_verified = True
+                self._show_tran_id_completed = True
         self.screenshot_mgr.capture_rf_window(self.page, "RF_HOME", "RF Home")
 
     def _maximize_window(self):
