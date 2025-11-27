@@ -13,6 +13,7 @@ from playwright.sync_api import Locator, Page, TimeoutError as PlaywrightTimeout
 from core.screenshot import ScreenshotManager
 from core.logger import app_log
 from utils.wait_utils import WaitUtils
+from utils.hash_utils import HashUtils
 from utils.eval_utils import safe_page_evaluate
 
 
@@ -44,8 +45,9 @@ class NavigationManager:
         self.page.locator(f"ul.x-list-plain li:has-text('{warehouse}')").click()
 
         # Apply and wait
+        prev = HashUtils.get_frame_snapshot(self.page.main_frame)
         self.page.get_by_text("Apply", exact=True).click()
-        WaitUtils.wait_for_screen_change()
+        WaitUtils.wait_for_screen_change(lambda: self.page.main_frame, prev)
 
         self.screenshot_mgr.capture(self.page, f"warehouse_{warehouse}", f"Changed to {warehouse}", onDemand)
         app_log(f"✅ Changed to {warehouse}")
