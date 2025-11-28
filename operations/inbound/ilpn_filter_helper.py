@@ -545,8 +545,10 @@ class FilteredRowOpener:
 
         # Fast path: DOM scan
         if DOMRowOpener.open_ilpn_row(target, ilpn):
-            WaitUtils.wait_brief(target)
             if drill_detail:
+                # Wait for detail window to load before clicking tabs
+                ViewStabilizer.wait_for_ext_mask(target, timeout_ms=3000)
+                ViewStabilizer.wait_for_stable_view(target, stable_samples=2, timeout_ms=3000)
                 TabNavigator.click_detail_tabs(target, tab_config)
             return True
 
@@ -556,15 +558,19 @@ class FilteredRowOpener:
         # Try ExtJS-native open
         if row_count == 1 and ExtJSGridHelper.open_first_row(target):
             app_log("✅ Opened single iLPN row via ExtJS API")
-            WaitUtils.wait_brief(target)
             if drill_detail:
+                # Wait for detail window to load before clicking tabs
+                ViewStabilizer.wait_for_ext_mask(target, timeout_ms=3000)
+                ViewStabilizer.wait_for_stable_view(target, stable_samples=2, timeout_ms=3000)
                 TabNavigator.click_detail_tabs(target, tab_config)
             return True
 
         # DOM fallback retry
         if DOMRowOpener.open_ilpn_row(target, ilpn):
-            WaitUtils.wait_brief(target)
             if drill_detail:
+                # Wait for detail window to load before clicking tabs
+                ViewStabilizer.wait_for_ext_mask(target, timeout_ms=3000)
+                ViewStabilizer.wait_for_stable_view(target, stable_samples=2, timeout_ms=3000)
                 TabNavigator.click_detail_tabs(target, tab_config)
             return True
 
@@ -636,10 +642,11 @@ class FilteredRowOpener:
             try:
                 attempt()
                 app_log("✅ Opened single iLPN row to view details")
+                # Wait for detail window to fully load
+                ViewStabilizer.wait_for_ext_mask(target, timeout_ms=3000)
                 if not ViewStabilizer.wait_for_stable_view(target):
                     app_log("⚠️ Detail view not stable after open; retrying")
                     continue
-                WaitUtils.wait_brief(target)
                 if drill_detail:
                     TabNavigator.click_detail_tabs(target, tab_config)
                 ViewStabilizer.wait_for_stable_view(target)
