@@ -201,13 +201,12 @@ class RFPrimitives:
         # Ensure the RF iframe has focus before sending the hotkey so Ctrl+A lands reliably.
         try:
             body = rf_iframe.locator("body").first
-            body.wait_for(state="visible", timeout=1000)
             body.focus()
         except Exception:
             pass
 
-        # Wait for focus to settle - browser needs time to actually shift focus
-        self.page.wait_for_timeout(200)
+        # Wait for body to be visible and focus to settle (combined wait)
+        self.page.wait_for_timeout(1200)  # 1000ms for visibility + 200ms for focus
 
         self.page.keyboard.press(key)
 
