@@ -67,11 +67,14 @@ class PostMessageManager:
     def _fill_message(self, frame: Frame, message: str):
         textarea = self._locate_textarea(frame)
         textarea.click()
-        textarea.fill(message)
+
+        # Format XML before filling the textarea
+        formatted_message = self._format_xml_for_textarea(message)
+        textarea.fill(formatted_message)
 
         # Mirror payload on the right so the ready-state capture includes the XML.
         try:
-            self._mirror_response_for_capture(frame, "", message)
+            self._mirror_response_for_capture(frame, "", formatted_message)
         except Exception:
             pass
 
@@ -361,6 +364,29 @@ class PostMessageManager:
             )
         except Exception:
             pass
+
+    def _format_xml_for_textarea(self, text: str) -> str:
+        """Pretty-print XML for textarea with proper indentation."""
+        if not text:
+            return ""
+        cleaned = text.strip()
+        if not cleaned.startswith("<"):
+            return cleaned
+        try:
+            import re
+            import xml.dom.minidom as minidom
+
+            # Remove all inter-tag whitespace/newlines before pretty-printing.
+            compact = re.sub(r">\s+<", "><", cleaned)
+            parsed = minidom.parseString(compact.encode("utf-8"))
+            pretty = parsed.toprettyxml(indent="  ")
+
+            # Remove extra blank lines
+            lines = [line for line in pretty.splitlines() if line.strip()]
+
+            return "\n".join(lines).strip()
+        except Exception:
+            return cleaned
 
     def _format_xml_for_overlay(self, text: str) -> str:
         """Pretty-print XML for overlay readability; fallback to raw on parse error."""
