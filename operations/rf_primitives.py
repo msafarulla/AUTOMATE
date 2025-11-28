@@ -198,6 +198,12 @@ class RFPrimitives:
         rf_iframe = self.get_iframe()
         prev_snapshot = HashUtils.get_frame_snapshot(rf_iframe) if wait_for_change else None
 
+        # Ensure the RF iframe has focus before sending the hotkey so Ctrl+A lands reliably.
+        try:
+            rf_iframe.locator("body").first.focus()
+        except Exception:
+            pass
+
         self.page.keyboard.press(key)
 
         if wait_for_change:

@@ -62,7 +62,10 @@ class NavigationManager:
         normalized_match = self._normalize(match_text)
 
         try:
-            self.close_active_windows()
+            # Keep the current RF window alive so mid-flow prompts (e.g., post-qty info) remain active.
+            self.close_active_windows(
+                skip_titles=[match_text, "rf", "rf menu", "rf menu (distribution)"]
+            )
         except Exception:
             pass
 
