@@ -319,7 +319,6 @@ class TabNavigator:
                 ViewStabilizer.wait_for_ext_mask(target, timeout_ms=3000)
                 # Wait for view to stabilize before capturing
                 ViewStabilizer.wait_for_stable_view(target, stable_samples=2, timeout_ms=3000)
-                WaitUtils.wait_brief(target)
                 if config.screenshot_mgr:
                     try:
                         img_bytes = use_page.screenshot(full_page=True, type="jpeg")
