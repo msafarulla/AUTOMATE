@@ -309,8 +309,8 @@ class PostMessageManager:
 
     def _mirror_response_for_capture(self, frame: Frame, response_text: str | None, payload_text: str | None):
         """Render request payload and full response on right-hand overlays so screenshots capture both."""
-        response_text = response_text or ""
-        payload_text = payload_text or ""
+        response_text = self._format_xml_for_overlay(response_text or "")
+        payload_text = self._format_xml_for_overlay(payload_text or "")
         try:
             frame.evaluate(
                 """
@@ -323,7 +323,7 @@ class PostMessageManager:
                             const s = pane.style;
                             s.position = 'fixed';
                             s.right = '8px';
-                            s.width = '44%';
+                            s.width = '48%';
                             s.padding = '8px 10px';
                             s.background = 'transparent';
                             s.color = '#0b0b0b';
@@ -332,6 +332,8 @@ class PostMessageManager:
                             s.fontSize = '12px';
                             s.lineHeight = '1.35';
                             s.whiteSpace = 'pre-wrap';
+                            s.wordBreak = 'break-word';
+                            s.overflowWrap = 'anywhere';
                             s.overflow = 'auto';
                             s.zIndex = '999999';
                             s.border = 'none';
@@ -345,16 +347,28 @@ class PostMessageManager:
                         pane.textContent = text || '';
                     };
                     const viewportHeight = Math.max(document.documentElement.clientHeight || 0, window.innerHeight || 0);
-                    const payloadHeight = Math.max(200, Math.round(viewportHeight * 0.42)) + 'px';
-                    const responseHeight = Math.max(220, Math.round(viewportHeight * 0.42)) + 'px';
-                    ensurePane('post_payload_mirror', '72px', payloadHeight, payload);
-                    ensurePane('post_response_mirror', 'calc(52vh + 36px)', responseHeight, response);
+                    const payloadHeight = Math.max(220, Math.round(viewportHeight * 0.44)) + 'px';
+                    const responseHeight = Math.max(260, Math.round(viewportHeight * 0.46)) + 'px';
+                    ensurePane('post_payload_mirror', '56px', payloadHeight, payload);
+                    ensurePane('post_response_mirror', 'calc(50vh + 56px)', responseHeight, response);
                 }
                 """,
                 {"response": response_text, "payload": payload_text},
             )
         except Exception:
             pass
+
+    def _format_xml_for_overlay(self, text: str) -> str:
+        """Pretty-print XML for overlay readability; fallback to raw on parse error."""
+        if not text or not text.strip().startswith("<"):
+            return text.strip()
+        try:
+            import xml.dom.minidom as minidom
+
+            parsed = minidom.parseString(text.encode("utf-8"))
+            return parsed.toprettyxml(indent="  ")
+        except Exception:
+            return text.strip()
 
     def _interpret_response(self, response_text: str) -> Dict[str, Any]:
         info = {
