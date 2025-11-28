@@ -313,8 +313,12 @@ class TabNavigator:
             clicked = TabNavigator._click_single_tab(
                 tab_name, frames_to_try, config.click_timeout_ms
             )
-            
+
             if clicked:
+                # Wait for ExtJS mask to clear after tab switch
+                ViewStabilizer.wait_for_ext_mask(target, timeout_ms=3000)
+                # Wait for view to stabilize before capturing
+                ViewStabilizer.wait_for_stable_view(target, stable_samples=2, timeout_ms=3000)
                 WaitUtils.wait_brief(target)
                 if config.screenshot_mgr:
                     try:
