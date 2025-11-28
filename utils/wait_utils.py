@@ -25,7 +25,8 @@ class WaitUtils:
         warn_on_timeout: bool = True,
     ) -> bool:
         """
-        Lightweight screen-change detection: compare the first 3 lines of body text.
+        Efficient screen-change detection using Playwright's wait_for_function.
+        Runs comparison in browser context (no Python round trips).
         Falls back to a simple sleep if no frame is provided.
         """
         if frame_or_provider is None:
@@ -57,22 +58,23 @@ class WaitUtils:
         try:
             frame = get_frame()
             baseline = prev_snapshot if prev_snapshot is not None else snapshot(frame)
-            start = time.time()
 
-            while True:
-                time.sleep(max(0, interval_ms) / 1000)
-                current = snapshot(get_frame())
-                if current != (baseline or ""):
-                    app_log("✅ Screen changed")
-                    return True
-
-                if (time.time() - start) * 1000 >= timeout_ms:
-                    if warn_on_timeout:
-                        app_log(f"⚠️ No change after {timeout_ms}ms")
-                    return False
+            # Use Playwright's efficient wait_for_function - runs in browser context
+            frame.wait_for_function(
+                """(baseline) => {
+                    const lines = (document.body.innerText || '').split('\\n');
+                    const current = lines.slice(0, 3).join(' ').replace(/\\s+/g, ' ').trim();
+                    return current !== baseline;
+                }""",
+                arg=baseline,
+                timeout=timeout_ms
+            )
+            app_log("✅ Screen changed")
+            return True
 
         except Exception as e:
-            app_log(f"Error waiting for change: {e}")
+            if warn_on_timeout:
+                app_log(f"⚠️ No change after {timeout_ms}ms")
             return False
 
     @staticmethod
