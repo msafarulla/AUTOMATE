@@ -202,11 +202,12 @@ class RFPrimitives:
         try:
             body = rf_iframe.locator("body").first
             body.focus()
-            # Wait for body to be visible and focus to settle (combined wait)
-            self.page.wait_for_timeout(1200)  # 1000ms for visibility + 200ms for focus
         except Exception as e:
             rf_log(f"⚠️ Could not focus iframe body for {key}: {e}")
             return  # Don't send keypress if focus failed
+
+        # Wait for body to be visible and focus to settle (combined wait)
+        self.page.wait_for_timeout(1200)  # 1000ms for visibility + 200ms for focus
 
         self.page.keyboard.press(key)
 
