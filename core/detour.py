@@ -177,6 +177,14 @@ def run_open_ui_detours(
         except Exception:
             pass
 
+        # Wait for the opened window/UI to fully load
+        try:
+            app_log("⏳ Waiting for opened UI to fully load...")
+            WaitUtils.wait_for_mask_clear(use_page, timeout_ms=5000)
+            WaitUtils.wait_brief(use_page)
+        except Exception:
+            pass
+
         operation_note = (
             entry.get("operation_note")
             or base_cfg.get("operation_note")
