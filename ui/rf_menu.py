@@ -44,6 +44,10 @@ class RFMenuManager:
             safe_locator_evaluate(body, "el => el.focus && el.focus()", description="RFMenuManager.reset_to_home focus")
         except Exception:
             pass
+
+        # Wait for focus to settle before sending keyboard input
+        self.page.wait_for_timeout(5000)
+
         baseline = HashUtils.get_frame_snapshot(rf_iframe)
         self.page.keyboard.press("Control+b")
         WaitUtils.wait_for_screen_change(
@@ -201,6 +205,17 @@ class RFMenuManager:
         WaitUtils.wait_brief(self.page)
         if rf_iframe.locator("div.error").count() == 0:
             return False
+
+        # Ensure iframe has focus before sending Ctrl+A
+        try:
+            body = rf_iframe.locator("body").first
+            body.focus()
+        except Exception as e:
+            rf_log(f"❌ Could not focus iframe body for Ctrl+A: {e}")
+            raise RuntimeError("Failed to focus iframe before accepting error") from e
+
+        # Wait for focus to settle before sending keyboard input
+        self.page.wait_for_timeout(5000)
 
         baseline = HashUtils.get_frame_snapshot(rf_iframe)
         self.page.keyboard.press("Control+a")
