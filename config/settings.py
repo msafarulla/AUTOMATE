@@ -117,6 +117,7 @@ class AppConfig:
     auto_click_info_icon: bool = False
     show_tran_id: bool = False
     auto_close_post_login_windows: bool = False
+    show_post_message_overlay: bool = False
     app_server: str = ""
     app_server_user: str = ""
     app_server_pass: str = ""
@@ -157,6 +158,9 @@ class Settings:
         )
         cls.app.auto_close_post_login_windows = _env_flag(
             "AUTO_CLOSE_POST_LOGIN_WINDOWS", cls.app.auto_close_post_login_windows
+        )
+        cls.app.show_post_message_overlay = _env_flag(
+            "SHOW_POST_MESSAGE_OVERLAY", cls.app.show_post_message_overlay
         )
         cls.app.credentials_env = os.getenv(
             "APP_CREDENTIALS_ENV", cls.app.credentials_env

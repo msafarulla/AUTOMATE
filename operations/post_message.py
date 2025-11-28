@@ -11,6 +11,7 @@ from pathlib import Path
 from utils.wait_utils import WaitUtils
 from utils.hash_utils import HashUtils
 from core.logger import app_log
+from config.settings import Settings
 
 
 class PostMessageManager:
@@ -309,6 +310,9 @@ class PostMessageManager:
 
     def _mirror_response_for_capture(self, frame: Frame, response_text: str | None, payload_text: str | None):
         """Render request payload and full response on right-hand overlays so screenshots capture both."""
+        if not Settings.app.show_post_message_overlay:
+            return
+
         response_text = self._format_xml_for_overlay(response_text or "")
         payload_text = self._format_xml_for_overlay(payload_text or "")
         try:
@@ -372,7 +376,14 @@ class PostMessageManager:
             # Remove all inter-tag whitespace/newlines before pretty-printing.
             compact = re.sub(r">\s+<", "><", cleaned)
             parsed = minidom.parseString(compact.encode("utf-8"))
-            return parsed.toprettyxml(indent="  ").strip()
+            pretty = parsed.toprettyxml(indent="  ")
+
+            # Remove XML declaration and extra blank lines
+            lines = [line for line in pretty.splitlines() if line.strip()]
+            if lines and lines[0].startswith("<?xml"):
+                lines = lines[1:]
+
+            return "\n".join(lines).strip()
         except Exception:
             return cleaned
 
