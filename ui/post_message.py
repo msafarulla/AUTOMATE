@@ -320,17 +320,18 @@ class PostMessageManager:
                             s.width = '44%';
                             s.height = '45vh';
                             s.padding = '8px 10px';
-                            s.background = 'rgba(20, 24, 33, 0.82)';
-                            s.color = '#f5f7fa';
+                            s.background = 'transparent';
+                            s.color = '#0b0b0b';
+                            s.textShadow = '0 0 6px rgba(255,255,255,0.9), 0 0 2px rgba(0,0,0,0.35)';
                             s.fontFamily = 'monospace';
                             s.fontSize = '12px';
                             s.lineHeight = '1.35';
                             s.whiteSpace = 'pre-wrap';
                             s.overflow = 'auto';
                             s.zIndex = '999999';
-                            s.border = '1px solid rgba(255,255,255,0.12)';
+                            s.border = 'none';
                             s.borderRadius = '6px';
-                            s.boxShadow = '0 6px 18px rgba(0,0,0,0.35)';
+                            s.boxShadow = 'none';
                             s.pointerEvents = 'none';
                             document.body.appendChild(pane);
                         }
