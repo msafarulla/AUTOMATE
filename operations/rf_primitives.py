@@ -36,7 +36,7 @@ class RFPrimitives:
         selector: str,
         value: str,
         screenshot_label: str,
-        screenshot_text: str | None = None,
+        screenshot_text: str,
         wait_for_change: bool = True,
         check_errors: bool = True,
         timeout: int = 2000
@@ -278,7 +278,9 @@ class RFPrimitives:
 class RFWorkflows:
 
     def __init__(self, primitives: RFPrimitives):
+        # Keep legacy attribute name for compatibility; provide clearer alias.
         self.rf = primitives
+        self.primitives = primitives
         self._last_scanned_selector: str | None = None
 
     def _is_invalid_test_data(self, msg: str | None) -> bool:
@@ -297,7 +299,7 @@ class RFWorkflows:
 
     def navigate_to_menu_by_search(
         self,
-        search_term: str,
+        search_term: str | None,
         expected_tran_id: str | None = None,
         option_number: str = "1"
     ) -> bool:
