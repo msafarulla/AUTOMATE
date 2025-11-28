@@ -207,7 +207,7 @@ class RFPrimitives:
             raise RuntimeError(f"Failed to focus iframe before sending {key}") from e
 
         # Wait for body to be visible and focus to settle (combined wait)
-        self.page.wait_for_timeout(1200)  # 1000ms for visibility + 200ms for focus
+        self.page.wait_for_timeout(5000)  # 5 seconds for focus to fully complete
 
         self.page.keyboard.press(key)
 
