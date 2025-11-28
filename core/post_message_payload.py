@@ -364,14 +364,6 @@ def _values_have_quantity(values: Mapping[str, Any]) -> bool:
     return any(raw_key.lower() == "quantity" for raw_key in values)
 
 
-def _coerce_numeric(value: str) -> str:
-    try:
-        num = int(value)
-        return str(num)
-    except (ValueError, TypeError):
-        return str(value)
-
-
 def _set_child_text(parent: ET.Element, tag: str, value: Any | None, *, insert_index: Optional[int] = None) -> Optional[ET.Element]:
     if value is None:
         return None
