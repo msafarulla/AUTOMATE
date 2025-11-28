@@ -117,7 +117,7 @@ class AppConfig:
     auto_click_info_icon: bool = False
     show_tran_id: bool = False
     auto_close_post_login_windows: bool = False
-    show_post_message_overlay: bool = False
+    show_post_message_overlay: bool = True
     app_server: str = ""
     app_server_user: str = ""
     app_server_pass: str = ""
