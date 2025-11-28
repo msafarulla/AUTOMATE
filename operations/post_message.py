@@ -43,16 +43,21 @@ class PostMessageManager:
         app_log(f"⚠️ Post Message attempt failed: {response_info['summary']}")
         return False, last_response
 
-    def _resolve_frame(self, timeout_ms: int = 8000, poll_interval_ms: int = 200) -> Frame:
-        """Wait for the frame that hosts the Post Message UI to become available."""
+    def _resolve_frame(self, timeout_ms: int = 5000, poll_interval_ms: int = 200) -> Frame:
+        """Wait for the frame that hosts the Post Message UI - optimized."""
         deadline = time.monotonic() + timeout_ms / 1000
-        while True:
+        
+        # First check if frame already exists
+        for frame in self.page.frames:
+            if self._has_visible_textarea(frame):
+                return frame
+        
+        # If not found, poll with reduced interval
+        while time.monotonic() < deadline:
             for frame in self.page.frames:
                 if self._has_visible_textarea(frame):
                     return frame
-            if time.monotonic() >= deadline:
-                break
-            WaitUtils.wait_brief(self.page)
+            time.sleep(poll_interval_ms / 1000)
 
         app_log("⚠️ Falling back to main frame; Post Message textarea not detected in any iframe.")
         return self.page.main_frame
@@ -86,29 +91,63 @@ class PostMessageManager:
         )
 
     def _submit_and_capture(self, frame: Frame) -> Dict[str, Any]:
+        """Submit and wait for response - OPTIMIZED VERSION."""
         send_button = self._locate_send_button(frame)
+        
+        # Get baseline snapshot
         prev_snapshot = HashUtils.get_frame_snapshot(frame)
+        
+        # Click send
         send_button.click()
-        WaitUtils.wait_for_screen_change(frame, prev_snapshot, warn_on_timeout=False)
+        
+        # Wait for response efficiently using Playwright's wait_for_function
+        # This checks if response textarea has content
+        try:
+            frame.wait_for_function(
+                """(prevSnapshot) => {
+                    // Check if response textarea has content
+                    const responseTextarea = document.querySelector(
+                        "textarea[name='dataForm:resultString'], " +
+                        "textarea[id='dataForm:resultString'], " +
+                        "textarea[name*='resultString' i], " +
+                        "textarea[id*='resultString' i]"
+                    );
+                    
+                    if (responseTextarea && responseTextarea.value.trim()) {
+                        return true;
+                    }
+                    
+                    // Fallback: check if body text changed
+                    const lines = (document.body.innerText || '').split('\\n');
+                    const current = lines.slice(0, 3).join(' ').replace(/\\s+/g, ' ').trim();
+                    return current !== prevSnapshot;
+                }""",
+                arg=prev_snapshot,
+                timeout=10000  # Reduced from 25s to 10s
+            )
+        except Exception:
+            app_log("⚠️ Response wait timed out, continuing with what we have")
 
+        # Read response immediately
         response = self._read_response(frame)
         info = self._interpret_response(response)
         payload_text = self._read_payload(frame)
         self._mirror_response_for_capture(frame, response, payload_text)
+        
         label = "Success" if not info["is_error"] else "Error"
-        # Capture full page and frame to ensure response is recorded.
         self.screenshot_mgr.capture(
             self.page,
             f"post_message_response_{label.lower()}",
             f"{label}: {info['summary'][:60]}",
         )
+        
         return info
 
     def _reset_form(self, frame: Frame):
         reset_button = self._locate_reset_button(frame)
         prev_snapshot = HashUtils.get_frame_snapshot(frame)
         reset_button.click()
-        WaitUtils.wait_for_screen_change(frame, prev_snapshot, warn_on_timeout=False)
+        WaitUtils.wait_for_screen_change(frame, prev_snapshot, timeout_ms=5000, warn_on_timeout=False)
         self.screenshot_mgr.capture(
             self.page,
             "post_message_reset",
@@ -141,24 +180,36 @@ class PostMessageManager:
         return None
 
     def _locate_textarea(self, frame: Frame) -> Locator:
-        selectors = [
+        """Locate textarea with prioritized selectors - optimized."""
+        # Try specific selectors first (most likely to succeed)
+        priority_selectors = [
             "textarea[name='dataForm:xmlString']",
             "textarea[id='dataForm:xmlString']",
             "textarea[name*='xmlString' i]",
+        ]
+        
+        for selector in priority_selectors:
+            try:
+                locator = frame.locator(selector).first
+                locator.wait_for(state="visible", timeout=1000)
+                return locator
+            except Exception:
+                continue
+        
+        # Fallback to broader selectors
+        fallback_selectors = [
             "textarea[id*='xmlString' i]",
             "textarea[name*='xml' i]",
             "textarea[id*='xml' i]",
             "textarea[name*='message' i]",
             "textarea[id*='message' i]",
-            "textarea[data-ref*='message' i]",
-            "textarea[data-componentid*='message' i]",
             "textarea:visible",
         ]
 
-        for selector in selectors:
+        for selector in fallback_selectors:
             locator = frame.locator(selector).first
             try:
-                locator.wait_for(state="visible", timeout=3000)
+                locator.wait_for(state="visible", timeout=1000)
                 return locator
             except Exception:
                 continue
@@ -166,8 +217,17 @@ class PostMessageManager:
         raise RuntimeError("Unable to locate Post Message textarea")
 
     def _locate_send_button(self, frame: Frame) -> Locator:
+        """Locate send button with prioritized selectors - optimized."""
+        # Try specific selector first
+        try:
+            btn = frame.locator("input#dataForm\\:postMessageCmdId")
+            btn.wait_for(state="visible", timeout=2000)
+            return btn
+        except Exception:
+            pass
+        
+        # Fallback candidates
         candidates = [
-            frame.locator("input#dataForm\\:postMessageCmdId"),
             frame.get_by_role("button", name=re.compile(r"send", re.IGNORECASE)),
             frame.locator("a.x-btn:has-text('Send')"),
             frame.locator("button:has-text('Send')"),
@@ -177,7 +237,7 @@ class PostMessageManager:
         for locator in candidates:
             candidate = locator.first
             try:
-                candidate.wait_for(state="visible", timeout=3000)
+                candidate.wait_for(state="visible", timeout=1500)
                 return candidate
             except Exception:
                 continue
@@ -195,7 +255,7 @@ class PostMessageManager:
         for locator in candidates:
             candidate = locator.first
             try:
-                candidate.wait_for(state="visible", timeout=3000)
+                candidate.wait_for(state="visible", timeout=1500)
                 return candidate
             except Exception:
                 continue
@@ -244,32 +304,48 @@ class PostMessageManager:
         except Exception:
             pass
         try:
-            WaitUtils.wait_brief(self.page)
+            WaitUtils.wait_brief(self.page, timeout_ms=300)  # Reduced from default
         except Exception:
             pass
 
     def _read_response(self, frame: Frame) -> str:
+        """Read response with prioritized selectors - optimized."""
         self._resize_textareas(frame)
-        selectors = [
+        
+        # Priority selectors (most specific first)
+        priority_selectors = [
             "textarea[name='dataForm:resultString']",
             "textarea[id='dataForm:resultString']",
             "textarea[name='resultString']",
+        ]
+        
+        for selector in priority_selectors:
+            try:
+                locator = frame.locator(selector).first
+                locator.wait_for(state="visible", timeout=1000)
+                text = locator.input_value().strip()
+                if text:
+                    unescaped = html.unescape(text)
+                    return re.sub(r"\s+", " ", unescaped)
+            except Exception:
+                continue
+        
+        # Fallback selectors
+        fallback_selectors = [
             "textarea#resultString",
             "textarea[id*='resultString' i]",
             "textarea[name*='resultString' i]",
             "textarea[name*='response' i]",
             "textarea[id*='response' i]",
-            "textarea[data-ref*='response' i]",
             "pre:visible",
             "div[class*='response']:visible",
-            "div[data-ref*='response' i]",
         ]
 
         best_text = ""
-        for selector in selectors:
+        for selector in fallback_selectors:
             locator = frame.locator(selector).first
             try:
-                locator.wait_for(state="visible", timeout=2000)
+                locator.wait_for(state="visible", timeout=800)
                 if selector.startswith("textarea"):
                     text = locator.input_value().strip()
                 else:
@@ -281,9 +357,11 @@ class PostMessageManager:
                         best_text = cleaned
             except Exception:
                 continue
+        
         if best_text:
             return best_text
 
+        # Final fallback
         try:
             text = frame.locator("body").inner_text()
             unescaped = html.unescape(text)
@@ -292,23 +370,40 @@ class PostMessageManager:
             return ""
 
     def _read_payload(self, frame: Frame) -> str:
-        selectors = [
+        """Read payload with prioritized selectors - optimized."""
+        priority_selectors = [
             "textarea[name='dataForm:xmlString']",
             "textarea[id='dataForm:xmlString']",
             "textarea[name='dataForm:messagePayload']",
-            "textarea[id='dataForm:messagePayload']",
-            "textarea[name*='message' i]",
-            "textarea[id*='message' i]",
         ]
-        for selector in selectors:
-            locator = frame.locator(selector).first
+        
+        for selector in priority_selectors:
             try:
-                locator.wait_for(state="visible", timeout=1500)
+                locator = frame.locator(selector).first
+                locator.wait_for(state="visible", timeout=800)
                 text = locator.input_value().strip()
                 if text:
                     return text
             except Exception:
                 continue
+        
+        # Fallback
+        fallback_selectors = [
+            "textarea[id='dataForm:messagePayload']",
+            "textarea[name*='message' i]",
+            "textarea[id*='message' i]",
+        ]
+        
+        for selector in fallback_selectors:
+            locator = frame.locator(selector).first
+            try:
+                locator.wait_for(state="visible", timeout=800)
+                text = locator.input_value().strip()
+                if text:
+                    return text
+            except Exception:
+                continue
+        
         return ""
 
     def _mirror_response_for_capture(self, frame: Frame, response_text: str | None, payload_text: str | None):
