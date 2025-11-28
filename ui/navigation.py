@@ -217,10 +217,9 @@ class NavigationManager:
         if "rf menu" in match:
             return
 
-        # Center specific windows first if needed, then maximize for more visibility.
+        # Center specific windows first if needed.
         if "post message" in match:
             self._center_window('window[title*="Post Message"]', "Post Message")
-        self._maximize_non_rf_windows()
 
     # =========================================================================
     # WINDOW HELPERS
@@ -338,6 +337,11 @@ class NavigationManager:
 
     def _maximize_non_rf_windows(self):
         """Maximize all visible non-RF windows for better capture."""
+        now = time.time()
+        if self._last_non_rf_maximize_ts and (now - self._last_non_rf_maximize_ts) < 5:
+            return 0
+        self._last_non_rf_maximize_ts = now
+
         # First, try the native maximize buttons on visible windows (if present).
         clicked = 0
         try:
@@ -425,6 +429,7 @@ class NavigationManager:
             app_log(f"🪟 Maximized {resized} non-RF window(s)")
         else:
             app_log("ℹ️ No non-RF windows maximized (none found or already excluded)")
+        return resized
 
     def maximize_rf_window(self):
         """Ensure the RF Menu window uses most of the viewport height and aligns with non-RF origin."""
