@@ -188,35 +188,35 @@ class Workflow:
 class WorkflowBuilder:
     """Fluent builder for creating workflows."""
 
-    def __init__(self, name: str, bucket: str = "inbound", step_names: StepNames | None = None):
+    def __init__(self, name: str, bucket: str):
         self._name = name
         self._bucket = bucket
         self._steps: dict[str, Any] = {}
-        self._step_names = step_names or StepNames()
+        self._step_names = StepNames()
 
-    def postMessageStep(self, stage: PostMessageStep) -> "WorkflowBuilder":
+    def postMessageStep(self, step: PostMessageStep) -> "WorkflowBuilder":
         """Add a post message stage."""
-        self._steps[self._step_names.postMessage] = stage.to_dict()
+        self._steps[self._step_names.postMessage] = step.to_dict()
         return self
 
-    def receivingStep(self, stage: ReceivingStep) -> "WorkflowBuilder":
+    def receivingStep(self, step: ReceivingStep) -> "WorkflowBuilder":
         """Add a receive stage."""
-        self._steps[self._step_names.runReceiving] = stage.to_dict()
+        self._steps[self._step_names.runReceiving] = step.to_dict()
         return self
 
-    def loadingStep(self, stage: LoadingStep) -> "WorkflowBuilder":
+    def loadingStep(self, step: LoadingStep) -> "WorkflowBuilder":
         """Add a loading stage."""
-        self._steps[self._step_names.runLoading] = stage.to_dict()
+        self._steps[self._step_names.runLoading] = step.to_dict()
         return self
 
-    def openTasksUiStep(self, stage: OpenTasksUiStep) -> "WorkflowBuilder":
+    def openTasksUiStep(self, step: OpenTasksUiStep) -> "WorkflowBuilder":
         """Add a tasks UI stage."""
-        self._steps[self._step_names.OpenTasksUi] = stage.to_dict()
+        self._steps[self._step_names.OpenTasksUi] = step.to_dict()
         return self
 
-    def openIlpnUiStep(self, stage: OpenIlpnUiStep) -> "WorkflowBuilder":
+    def openIlpnUiStep(self, step: OpenIlpnUiStep) -> "WorkflowBuilder":
         """Add an iLPNs UI stage."""
-        self._steps[self._step_names.OpenIlpnUi] = stage.to_dict()
+        self._steps[self._step_names.OpenIlpnUi] = step.to_dict()
         return self
 
     def build(self) -> Workflow:
