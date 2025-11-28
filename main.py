@@ -9,7 +9,7 @@ from config.operations_config import OperationConfig
 from config.settings import Settings
 from core.connection_guard import ConnectionResetDetected
 from core.logger import app_log
-from operations import WorkflowStageExecutor, create_operation_services
+from operations import create_operation_services
 
 # Import new workflow system (optional - for gradual migration)
 create_default_workflows = None  # type: ignore
@@ -32,7 +32,7 @@ def main():
 
     with create_operation_services(settings) as wmOps:
         try:
-            run_automation(settings, wmOps)
+            run_automation(wmOps)
         except ConnectionResetDetected as e:
             app_log(f"❌ Connection lost: {e}")
         except KeyboardInterrupt:
@@ -45,31 +45,29 @@ def main():
             wmOps.orchestrator.print_summary()
 
 
-def run_automation(settings: Settings, wmOps):
+def run_automation(wmOps):
     """Execute all configured workflows."""
     
     # Step 1: Login and setup
-    wmOps.step_execution.run_login()           # Opens browser, fills credentials
-    wmOps.step_execution.run_change_warehouse() # Selects the right warehouse
+    wmOps.step_execution.run_login()
+    wmOps.step_execution.run_change_warehouse()
     
     # Step 2: Load workflow configurations
-    workflows = load_workflows()  # Returns list of (name, steps) tuples
+    workflows = load_workflows()
     
-    # Step 3: Create the stage executor
-    executor = WorkflowStageExecutor(settings, wmOps.orchestrator, wmOps.step_execution)
-    
-    # Step 4: Run each workflow
+    # Step 3: Run each workflow
     for index, (scenario_name, steps) in enumerate(workflows, 1):
-        wmOps.screenshot_mgr.set_scenario(scenario_name)  # Organize screenshots
+        wmOps.screenshot_mgr.set_scenario(scenario_name)
         
         metadata: dict[str, Any] = {}
         for step_name, step_data_input in steps.items():
             wmOps.screenshot_mgr.set_stage(step_name)
-            metadata, should_continue = executor.run_step(
+            
+            metadata, should_continue = wmOps.workflow_executor.run_step(
                 step_name, step_data_input, metadata, index
             )
             if not should_continue:
-                break  # Stop this workflow if step failed
+                break
 
     wmOps.screenshot_mgr.set_scenario(None)
     app_log("✅ Automation completed!")

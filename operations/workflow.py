@@ -98,8 +98,6 @@ class WorkflowStageExecutor:
         # Support either legacy "tasks" detour or the newer "ilpns" config
         open_ui_cfg = (
             step_data_input.get("open_ui")
-            or step_data_input.get("tasks")
-            or step_data_input.get("ilpns")
         )
 
         def _normalize_items() -> list[dict[str, Any]]:

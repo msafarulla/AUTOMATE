@@ -10,6 +10,7 @@ from core.page_manager import PageManager
 from core.screenshot import ScreenshotManager
 from operations.inbound.receive import ReceiveOperation
 from operations.outbound.loading import LoadingOperation
+from operations.workflow import WorkflowStageExecutor
 from ui.auth import AuthManager
 from ui.navigation import NavigationManager
 from operations.post_message import PostMessageManager
@@ -32,6 +33,7 @@ class OperationServices:
     nav_mgr: NavigationManager
     orchestrator: AutomationOrchestrator
     step_execution: StepExecution
+    workflow_executor: WorkflowStageExecutor
 
 
 class OperationRunner:
@@ -57,6 +59,7 @@ class OperationRunner:
         self.detour_nav = (
             NavigationManager(detour_page, screenshot_mgr) if detour_page else None
         )
+        self.post_message_mgr = PostMessageManager(page, screenshot_mgr)
         self.rf_menu = rf_menu
         self.conn_guard = conn_guard
 
@@ -65,7 +68,7 @@ class OperationRunner:
         self.run_loading = conn_guard.guarded(self._loading_impl)
         self.run_login = conn_guard.guarded(self._run_login)
         self.run_change_warehouse = conn_guard.guarded(self._run_change_warehouse)
-        self.run_post_message = conn_guard.guarded(self._post_impl)
+        self.run_post_message = conn_guard.guarded(self._run_post_message)
         self.run_open_ui = conn_guard.guarded(self._run_open_ui)
 
     def _run_login(self) -> None:
@@ -114,18 +117,17 @@ class OperationRunner:
         )
         return load_op.execute(shipment, dock_door, bol)
 
-    def _post_impl(self, payload: str | None = None) -> bool:
+    def _run_post_message(self, payload: str | None = None) -> bool:
         self.nav_mgr.open_menu_item("POST", "Post Message (Integration)")
         try:
             self.nav_mgr.maximize_non_rf_windows()
         except Exception:
             pass
-        post_message_mgr = PostMessageManager(self.page, self.screenshot_mgr)
         message = payload or self.settings.app.post_message_text
         if not message:
             app_log("⚠️ No post message payload supplied.")
             return False
-        success, response_info = post_message_mgr.send_message(message)
+        success, response_info = self.post_message_mgr.send_message(message)
         app_log(f"Response summary: {response_info['summary']}")
         if response_info.get("payload"):
             app_log(f"Response payload: {response_info['payload']}")
@@ -201,13 +203,13 @@ def create_operation_services(settings: Any) -> Generator[OperationServices, Non
             show_tran_id=settings.app.show_tran_id,
         )
         
-        # 7. Create connection guard (detects if browser loses connection)
+        # 8. Create connection guard (detects if browser loses connection)
         conn_guard = ConnectionResetGuard(page, screenshot_mgr)
         
-         # 8. Create orchestrator (retry logic, result tracking)
+        # 9. Create orchestrator (retry logic, result tracking)
         orchestrator = AutomationOrchestrator(settings)
         
-        # 9. Create the operation runner that ties it all together
+        # 10. Create the operation runner that ties it all together
         runner = OperationRunner(
             settings,
             page,
@@ -220,18 +222,29 @@ def create_operation_services(settings: Any) -> Generator[OperationServices, Non
             conn_guard,
         )
         
-        # 10. Package everything into a services object
+        # 11. Create step execution interface
+        step_execution = StepExecution(
+            run_login=runner.run_login,
+            run_change_warehouse=runner.run_change_warehouse,
+            run_post_message=runner.run_post_message,
+            run_receive=runner.run_receive,
+            run_loading=runner.run_loading,
+            run_open_ui=runner.run_open_ui,
+        )
+        
+        # 12. Create workflow executor
+        workflow_executor = WorkflowStageExecutor(
+            settings,
+            orchestrator,
+            step_execution,
+        )
+        
+        # 13. Package everything into a services object
         services = OperationServices(
             screenshot_mgr=screenshot_mgr,
             nav_mgr=nav_mgr,
             orchestrator=orchestrator,
-            step_execution=StepExecution(
-                run_login=runner.run_login,
-                run_change_warehouse=runner.run_change_warehouse,
-                run_post_message=runner.run_post_message,
-                run_receive=runner.run_receive,
-                run_loading=runner.run_loading,
-                run_open_ui=runner.run_open_ui,
-            ),
+            step_execution=step_execution,
+            workflow_executor=workflow_executor,
         )
         yield services
