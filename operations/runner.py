@@ -57,7 +57,6 @@ class OperationRunner:
         self.detour_nav = (
             NavigationManager(detour_page, screenshot_mgr) if detour_page else None
         )
-        self.post_message_mgr = PostMessageManager(page, screenshot_mgr)
         self.rf_menu = rf_menu
         self.conn_guard = conn_guard
 
@@ -66,7 +65,7 @@ class OperationRunner:
         self.run_loading = conn_guard.guarded(self._loading_impl)
         self.run_login = conn_guard.guarded(self._run_login)
         self.run_change_warehouse = conn_guard.guarded(self._run_change_warehouse)
-        self.run_post_message = conn_guard.guarded(self._run_post_message)
+        self.run_post_message = conn_guard.guarded(self._post_impl)
         self.run_open_ui = conn_guard.guarded(self._run_open_ui)
 
     def _run_login(self) -> None:
@@ -115,17 +114,18 @@ class OperationRunner:
         )
         return load_op.execute(shipment, dock_door, bol)
 
-    def _run_post_message(self, payload: str | None = None) -> bool:
+    def _post_impl(self, payload: str | None = None) -> bool:
         self.nav_mgr.open_menu_item("POST", "Post Message (Integration)")
         try:
             self.nav_mgr.maximize_non_rf_windows()
         except Exception:
             pass
+        post_message_mgr = PostMessageManager(self.page, self.screenshot_mgr)
         message = payload or self.settings.app.post_message_text
         if not message:
             app_log("⚠️ No post message payload supplied.")
             return False
-        success, response_info = self.post_message_mgr.send_message(message)
+        success, response_info = post_message_mgr.send_message(message)
         app_log(f"Response summary: {response_info['summary']}")
         if response_info.get("payload"):
             app_log(f"Response payload: {response_info['payload']}")
