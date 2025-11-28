@@ -315,7 +315,7 @@ class PostMessageManager:
             frame.evaluate(
                 """
                 ({response, payload}) => {
-                    const ensurePane = (id, top, text) => {
+                    const ensurePane = (id, top, height, text) => {
                         let pane = document.getElementById(id);
                         if (!pane) {
                             pane = document.createElement('div');
@@ -324,7 +324,6 @@ class PostMessageManager:
                             s.position = 'fixed';
                             s.right = '8px';
                             s.width = '44%';
-                            s.height = '45vh';
                             s.padding = '8px 10px';
                             s.background = 'transparent';
                             s.color = '#0b0b0b';
@@ -342,10 +341,14 @@ class PostMessageManager:
                             document.body.appendChild(pane);
                         }
                         pane.style.top = top;
+                        pane.style.height = height;
                         pane.textContent = text || '';
                     };
-                    ensurePane('post_payload_mirror', '48px', payload);
-                    ensurePane('post_response_mirror', '55vh', response);
+                    const viewportHeight = Math.max(document.documentElement.clientHeight || 0, window.innerHeight || 0);
+                    const payloadHeight = Math.max(200, Math.round(viewportHeight * 0.42)) + 'px';
+                    const responseHeight = Math.max(220, Math.round(viewportHeight * 0.42)) + 'px';
+                    ensurePane('post_payload_mirror', '72px', payloadHeight, payload);
+                    ensurePane('post_response_mirror', 'calc(52vh + 36px)', responseHeight, response);
                 }
                 """,
                 {"response": response_text, "payload": payload_text},
