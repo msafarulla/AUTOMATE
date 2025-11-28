@@ -58,17 +58,23 @@ class NavigationManager:
 
         # Close any existing window with the same title to avoid duplicates, leave others intact.
         self.close_windows_matching(normalized_match)
-        self._open_menu_panel()
-        self._reset_menu_filter()
-        self._do_search(search_term)
-
-        # Find and click match
         items = self.page.locator("ul.x-list-plain:visible li.x-boundlist-item")
-        count = self._wait_for_results(items)
-        app_log(f"🔍 Found {count} items for '{search_term}'")
+
+        # Attempt the search up to 5 times, restarting the menu panel each time.
+        count = 0
+        for attempt in range(5):
+            self._open_menu_panel()
+            self._reset_menu_filter()
+            self._do_search(search_term)
+
+            count = self._wait_for_results(items, retries=5)
+            app_log(f"🔍 Found {count} items for '{search_term}' (attempt {attempt + 1}/5)")
+            if count > 0:
+                break
+            WaitUtils.wait_brief(self.page)
 
         if count == 0:
-            app_log("⚠️ No results found for search term.")
+            app_log("⚠️ No results found for search term after retries.")
             return False
 
         # Look for exact match
