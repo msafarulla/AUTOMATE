@@ -132,8 +132,8 @@ class Settings:
     )
 
     @classmethod
-    def from_env(cls):
-        """Load settings from environment variables"""
+    def from_env(cls) -> "Settings":
+        """Load settings from environment variables and return a Settings instance."""
         cls.app.change_warehouse = os.getenv(
             "DEFAULT_WAREHOUSE", cls.app.change_warehouse
         )
@@ -187,4 +187,4 @@ class Settings:
         cls.app.requires_prod_confirmation = any(
             marker in app_server_lower for marker in ("prod", "prd")
         )
-        return cls
+        return cls()

@@ -3,7 +3,7 @@ Warehouse Automation - Main Entry Point
 
 This script runs configured workflows for warehouse operations.
 """
-from typing import Any
+from typing import Any, cast
 
 from config.operations_config import OperationConfig
 from config.settings import Settings
@@ -12,6 +12,9 @@ from core.logger import app_log
 from operations import WorkflowStageExecutor, create_operation_services
 
 # Import new workflow system (optional - for gradual migration)
+create_default_workflows = None  # type: ignore
+flatten_new_workflows = None  # type: ignore
+Workflow = None  # type: ignore
 try:
     from config.workflow_config import (
         Workflow,
@@ -82,12 +85,12 @@ def load_workflows() -> list[tuple[str, dict[str, Any]]]:
     - Legacy nested dict format (fallback)
     """
     # Try new system first
-    if NEW_WORKFLOW_SYSTEM:
+    if NEW_WORKFLOW_SYSTEM and callable(create_default_workflows) and callable(flatten_new_workflows):
         try:
-            workflows = create_default_workflows()
+            workflows = cast(list[Any], create_default_workflows())
             if workflows:
                 app_log(f"📋 Loaded {len(workflows)} workflows (new format)")
-                return flatten_new_workflows(workflows)
+                return cast(list[tuple[str, dict[str, Any]]], flatten_new_workflows(workflows))
         except Exception as e:
             app_log(f"⚠️ Failed to load new workflows: {e}")
 
