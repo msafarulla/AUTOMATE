@@ -221,7 +221,7 @@ class ReceiveStateMachine:
         except Exception:
             return False
     
-    def capture(self, label: str, text: Optional[str] = None):
+    def rf_capture(self, label: str, text: Optional[str] = None):
         """Capture RF screenshot with current state context."""
         overlay = text or f"{self.state.name}: {self.context.item}"
         self.screenshot_mgr.capture_rf_window(
@@ -387,7 +387,7 @@ class QtyEnteredHandler(StateHandler):
                     expected = self._state_to_flow_name(next_state)
                     if expected != m.context.flow_hint:
                         rf_log(f"⚠️ Flow deviation: expected {m.context.flow_hint}, got {expected}")
-                        m.capture("deviation", f"Expected {m.context.flow_hint}")
+                        m.rf_capture("deviation", f"Expected {m.context.flow_hint}")
                         if not m.context.auto_handle_deviation:
                             m.context.error_message = f"Flow deviation: {expected}"
                             return ReceiveState.ERROR
@@ -396,7 +396,7 @@ class QtyEnteredHandler(StateHandler):
         
         # Unknown screen state
         rf_log(f"⚠️ Unknown screen after qty entry: {screen_text[:100]}")
-        m.capture("unknown_state", "Unknown screen")
+        m.rf_capture("unknown_state", "Unknown screen")
         m.context.error_message = "Unknown screen state after quantity"
         return ReceiveState.ERROR
     
@@ -445,7 +445,7 @@ class AwaitingLocationHandler(StateHandler):
             return ReceiveState.ERROR
         
         m.invoke_post_location_hook()
-        m.capture("complete", f"Location confirmed: {location}")
+        m.rf_capture("complete", f"Location confirmed: {location}")
         return ReceiveState.COMPLETE
     
     def detect(self, m: ReceiveStateMachine) -> bool:
@@ -469,7 +469,7 @@ class AwaitingBlindIlpnHandler(StateHandler):
                     selector, lpn, "blind_ilpn", f"Entered LPN: {lpn}"
                 )
                 if not has_error:
-                    m.capture("ilpn_entered", f"Blind iLPN: {lpn}")
+                    m.rf_capture("ilpn_entered", f"Blind iLPN: {lpn}")
                     # After ILPN, usually goes to location
                     return ReceiveState.AWAITING_LOCATION
             except Exception:
@@ -489,7 +489,7 @@ class AwaitingQtyAdjustHandler(StateHandler):
     def execute(self, m: ReceiveStateMachine) -> ReceiveState:
         # Qty adjust usually requires accepting and continuing
         m.rf.rf.accept_message()
-        m.capture("qty_adjust_accepted", "Quantity adjustment accepted")
+        m.rf_capture("qty_adjust_accepted", "Quantity adjustment accepted")
         
         # Re-detect what screen we're on now
         return m.detect_current_state()
@@ -522,7 +522,7 @@ class ErrorHandler(StateHandler):
             if detected != ReceiveState.ERROR:
                 return detected
 
-        m.capture("error", m.context.error_message or "Error")
+        m.rf_capture("error", m.context.error_message or "Error")
         return ReceiveState.ERROR
 
     def detect(self, m: ReceiveStateMachine) -> bool:
