@@ -42,30 +42,30 @@ class WorkflowStageExecutor:
         return True
 
     def handle_post_step(
-        self, stage_cfg: dict[str, Any], metadata: dict[str, Any], workflow_idx: int
+        self, step_data_input: dict[str, Any], metadata: dict[str, Any], workflow_idx: int
     ) -> Tuple[dict[str, Any], bool]:
-        if not bool(stage_cfg.get("enabled")):
+        if not bool(step_data_input.get("enabled")):
             return metadata, True
-        post_type = stage_cfg.get("type")
+        post_type = step_data_input.get("type")
         if not post_type:
             app_log(f"❌ Post workflow {workflow_idx} missing 'type'; halting.")
             return metadata, False
-        source = (stage_cfg.get("source") or "db").lower()
-        db_env = stage_cfg.get("db_env")
+        source = (step_data_input.get("source") or "db").lower()
+        db_env = step_data_input.get("db_env")
         if not self._confirm_prod_post(workflow_idx):
             return metadata, False
         payload_metadata: dict[str, Any] = {}
         message_payload = None
         if source == "db":
             message_payload, payload_metadata = build_post_message_payload(
-                stage_cfg,
+                step_data_input,
                 post_type,
                 self.settings.app.change_warehouse,
                 db_env,
             )
         else:
             message_payload = (
-                stage_cfg.get("message") or self.settings.app.post_message_text
+                step_data_input.get("message") or self.settings.app.post_message_text
             )
         if not message_payload:
             app_log(
@@ -85,31 +85,31 @@ class WorkflowStageExecutor:
         return metadata, True
 
     def handle_receive_step(
-        self, stage_cfg: dict[str, Any], metadata: dict[str, Any], workflow_idx: int
+        self, step_data_input: dict[str, Any], metadata: dict[str, Any], workflow_idx: int
     ) -> Tuple[dict[str, Any], bool]:
-        if not stage_cfg:
+        if not step_data_input:
             return metadata, True
 
         override_asn = metadata.get("asn_id")
-        receive_asn = override_asn if override_asn else stage_cfg.get("asn")
-        flow_hint = stage_cfg.get("flow")
-        quantity_override = stage_cfg.get("quantity", 0)
-        auto_handle = stage_cfg.get("auto_handle_deviation", False)
+        receive_asn = override_asn if override_asn else step_data_input.get("asn")
+        flow_hint = step_data_input.get("flow")
+        quantity_override = step_data_input.get("quantity", 0)
+        auto_handle = step_data_input.get("auto_handle_deviation", False)
         # Support either legacy "tasks" detour or the newer "ilpns" config
         open_ui_cfg = (
-            stage_cfg.get("open_ui")
-            or stage_cfg.get("tasks")
-            or stage_cfg.get("ilpns")
+            step_data_input.get("open_ui")
+            or step_data_input.get("tasks")
+            or step_data_input.get("ilpns")
         )
 
         def _normalize_items() -> list[dict[str, Any]]:
             """Build a list of items to receive from cfg or metadata."""
-            cfg_items = stage_cfg.get("items")
+            cfg_items = step_data_input.get("items")
             if isinstance(cfg_items, Sequence) and not isinstance(cfg_items, (str, bytes)):
                 return [item for item in cfg_items if item]
 
             # Explicit single item on the stage config should take precedence
-            explicit_item = stage_cfg.get("item")
+            explicit_item = step_data_input.get("item")
             if explicit_item:
                 return [{"item": explicit_item, "quantity": quantity_override}]
 
@@ -123,7 +123,7 @@ class WorkflowStageExecutor:
         if not items_to_receive:
             # Fall back to a single attempt using whatever is in the stage config
             items_to_receive = [{
-                "item": stage_cfg.get("item"),
+                "item": step_data_input.get("item"),
                 "quantity": quantity_override,
             }]
 
@@ -160,16 +160,16 @@ class WorkflowStageExecutor:
         return metadata, True
 
     def handle_loading_step(
-        self, stage_cfg: dict[str, Any], metadata: dict[str, Any], workflow_idx: int
+        self, step_data_input: dict[str, Any], metadata: dict[str, Any], workflow_idx: int
     ) -> Tuple[dict[str, Any], bool]:
-        if not stage_cfg:
+        if not step_data_input:
             return metadata, True
         load_result = self.orchestrator.run_with_retry(
             self.step_execution.run_loading,
             f"Load (Workflow {workflow_idx})",
-            shipment=stage_cfg.get("shipment"),
-            dock_door=stage_cfg.get("dock_door"),
-            bol=stage_cfg.get("bol"),
+            shipment=step_data_input.get("shipment"),
+            dock_door=step_data_input.get("dock_door"),
+            bol=step_data_input.get("bol"),
         )
         if not load_result.success:
             app_log(f"⏹️ Halting workflow {workflow_idx} due to loading failure")
@@ -177,12 +177,12 @@ class WorkflowStageExecutor:
         return metadata, True
 
     def handle_tasks_step(
-        self, stage_cfg: dict[str, Any], metadata: dict[str, Any], workflow_idx: int
+        self, step_data_input: dict[str, Any], metadata: dict[str, Any], workflow_idx: int
     ) -> Tuple[dict[str, Any], bool]:
-        if not bool(stage_cfg.get("enabled", True)):
+        if not bool(step_data_input.get("enabled", True)):
             return metadata, True
-        search_term = stage_cfg.get("search_term", "tasks")
-        match_text = stage_cfg.get("match_text", "Tasks (Configuration)")
+        search_term = step_data_input.get("search_term", "tasks")
+        match_text = step_data_input.get("match_text", "Tasks (Configuration)")
         success = self.step_execution.run_open_ui(search_term, match_text)
         if not success:
             app_log(f"❌ Unable to open Tasks UI for workflow {workflow_idx}; halting.")
@@ -190,12 +190,12 @@ class WorkflowStageExecutor:
         return metadata, True
 
     def handle_ilpns_step(
-        self, stage_cfg: dict[str, Any], metadata: dict[str, Any], workflow_idx: int
+        self, step_data_input: dict[str, Any], metadata: dict[str, Any], workflow_idx: int
     ) -> Tuple[dict[str, Any], bool]:
-        if not bool(stage_cfg.get("enabled", True)):
+        if not bool(step_data_input.get("enabled", True)):
             return metadata, True
-        search_term = stage_cfg.get("search_term", "ilpns")
-        match_text = stage_cfg.get("match_text", "iLPNs (Distribution)")
+        search_term = step_data_input.get("search_term", "ilpns")
+        match_text = step_data_input.get("match_text", "iLPNs (Distribution)")
         success = self.step_execution.run_open_ui(search_term, match_text)
         if not success:
             app_log(f"❌ Unable to open iLPNs UI for workflow {workflow_idx}; halting.")
@@ -206,12 +206,12 @@ class WorkflowStageExecutor:
     def run_step(
         self,
         stage_name: str,
-        stage_cfg: dict[str, Any],
+        step_data_input: dict[str, Any],
         metadata: dict[str, Any],
         workflow_idx: int,
     ) -> Tuple[dict[str, Any], bool]:
         handler = self.step_handlers.get(stage_name.lower())
         if handler:
-            return handler(stage_cfg, metadata, workflow_idx)
+            return handler(step_data_input, metadata, workflow_idx)
         app_log(f"ℹ️ No handler for workflow stage '{stage_name}'; skipping.")
         return metadata, True
