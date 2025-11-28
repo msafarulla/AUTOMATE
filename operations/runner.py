@@ -122,6 +122,10 @@ class OperationRunner:
 
     def _run_post_message(self, payload: str | None = None) -> bool:
         self.nav_mgr.open_menu_item("POST", "Post Message (Integration)")
+        try:
+            self.nav_mgr.maximize_non_rf_windows()
+        except Exception:
+            pass
         message = payload or self.settings.app.post_message_text
         if not message:
             app_log("⚠️ No post message payload supplied.")
@@ -133,17 +137,16 @@ class OperationRunner:
         if not success:
             app_log("⚠️ Post Message failed.")
             return False
-        # Capture a simple page screenshot for confirmation (RF window is not involved here).
-        self.screenshot_mgr.capture(
+        self.screenshot_mgr.capture_rf_window(
             self.page,
             "post_confirmation",
-            f"Post succeeded ({payload or 'default'})",
+            f"Post succeeded ({payload or 'default'})"
         )
         return success
 
-    def _run_open_ui(self, search_term: str, match_text: str) -> bool:
+    def _run_open_ui(self, search_term: str = "tasks", match_text: str = "Tasks (Configuration)") -> bool:
         """Open a UI window by search term and match text."""
-        succeeded = self.nav_mgr.open_menu_item(search_term, match_text)
+        succeeded = self.nav_mgr.open_tasks_ui(search_term, match_text)
         if not succeeded:
             app_log(f"❌ UI navigation failed for '{match_text}'")
         return succeeded

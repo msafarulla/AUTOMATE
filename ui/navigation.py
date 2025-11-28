@@ -58,23 +58,17 @@ class NavigationManager:
 
         # Close any existing window with the same title to avoid duplicates, leave others intact.
         self.close_windows_matching(normalized_match)
+        self._open_menu_panel()
+        self._reset_menu_filter()
+        self._do_search(search_term)
+
+        # Find and click match
         items = self.page.locator("ul.x-list-plain:visible li.x-boundlist-item")
-
-        # Attempt the search up to 5 times, restarting the menu panel each time.
-        count = 0
-        for attempt in range(5):
-            self._open_menu_panel()
-            self._reset_menu_filter()
-            self._do_search(search_term)
-
-            count = self._wait_for_results(items, retries=5)
-            app_log(f"🔍 Found {count} items for '{search_term}' (attempt {attempt + 1}/5)")
-            if count > 0:
-                break
-            WaitUtils.wait_brief(self.page)
+        count = self._wait_for_results(items)
+        app_log(f"🔍 Found {count} items for '{search_term}'")
 
         if count == 0:
-            app_log("⚠️ No results found for search term after retries.")
+            app_log("⚠️ No results found for search term.")
             return False
 
         # Look for exact match
@@ -217,13 +211,9 @@ class NavigationManager:
         if "rf menu" in match:
             return
 
-        # Center Post Message and then maximize for visibility.
+        # Center specific windows first if needed, then maximize for more visibility.
         if "post message" in match:
             self._center_window('window[title*="Post Message"]', "Post Message")
-            self._maximize_non_rf_windows()
-            return
-
-        # All other non-RF windows: maximize for visibility.
         self._maximize_non_rf_windows()
 
     # =========================================================================
@@ -342,11 +332,6 @@ class NavigationManager:
 
     def _maximize_non_rf_windows(self):
         """Maximize all visible non-RF windows for better capture."""
-        now = time.time()
-        if self._last_non_rf_maximize_ts and (now - self._last_non_rf_maximize_ts) < 5:
-            return 0
-        self._last_non_rf_maximize_ts = now
-
         # First, try the native maximize buttons on visible windows (if present).
         clicked = 0
         try:
@@ -434,7 +419,6 @@ class NavigationManager:
             app_log(f"🪟 Maximized {resized} non-RF window(s)")
         else:
             app_log("ℹ️ No non-RF windows maximized (none found or already excluded)")
-        return resized
 
     def maximize_rf_window(self):
         """Ensure the RF Menu window uses most of the viewport height and aligns with non-RF origin."""

@@ -13,7 +13,6 @@ from core.screenshot import ScreenshotManager
 from operations.rf_primitives import RFWorkflows
 from config.operations_config import OperationConfig
 from utils.retry import retry_with_context
-from utils.wait_utils import WaitUtils
 
 
 class ReceiveState(Enum):
@@ -378,7 +377,7 @@ class QtyEnteredHandler(StateHandler):
     
     def execute(self, m: ReceiveStateMachine) -> ReceiveState:
         m.invoke_post_qty_hook()
-        screen_text = self._handle_post_qty_info_prompt(m, m.read_screen_text())
+        screen_text = m.read_screen_text()
         
         for next_state, detector_name in self.BRANCH_DETECTORS:
             detector = getattr(self, detector_name)
@@ -427,24 +426,6 @@ class QtyEnteredHandler(StateHandler):
             ReceiveState.AWAITING_QTY_ADJUST: "QUANTITY_ADJUST",
         }
         return mapping.get(state, "UNKNOWN")
-
-    def _handle_post_qty_info_prompt(self, m: ReceiveStateMachine, text: str) -> str:
-        """
-        If an info/warning screen appears after quantity entry (not an error),
-        accept it once and re-read the screen so branching sees the next prompt.
-        """
-        lowered = text.lower()
-        if any(marker in lowered for marker in ("info", "warning", "information")) and not any(
-            err in lowered for err in ("error", "invalid")
-        ):
-            rf_log("ℹ️ Info prompt detected after qty; auto-accepting.")
-            try:
-                m.rf.rf.accept_message()
-                WaitUtils.wait_brief(m.rf.rf.page)
-                return m.read_screen_text()
-            except Exception as exc:
-                rf_log(f"⚠️ Unable to auto-accept post-qty info prompt: {exc}")
-        return text
 
 
 class AwaitingLocationHandler(StateHandler):

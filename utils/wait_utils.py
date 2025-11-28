@@ -7,8 +7,6 @@ import time
 from typing import Callable, Union
 from playwright.sync_api import Frame
 
-from utils.hash_utils import HashUtils
-from utils.eval_utils import safe_page_evaluate, PageUnavailableError
 from core.logger import app_log
 
 
@@ -20,15 +18,24 @@ class WaitUtils:
 
     @staticmethod
     def wait_for_screen_change(
-        frame_or_provider: Union[Frame, FrameProvider],
-        prev_snapshot: str,
+        frame_or_provider: Union[Frame, FrameProvider, None] = None,
+        prev_snapshot: str | None = None,
         timeout_ms: int = 25000,
         interval_ms: int = 200,
         warn_on_timeout: bool = True,
     ) -> bool:
         """
-        Wait until frame content changes from previous snapshot.
+        Lightweight screen-change detection: compare the first 3 lines of body text.
+        Falls back to a simple sleep if no frame is provided.
         """
+        if frame_or_provider is None:
+            try:
+                time.sleep(max(0, timeout_ms) / 1000)
+                return True
+            except Exception as e:
+                app_log(f"Error waiting for change: {e}")
+                return False
+
         def get_frame() -> Frame:
             if callable(frame_or_provider):
                 f = frame_or_provider()
@@ -37,29 +44,29 @@ class WaitUtils:
                 return f
             return frame_or_provider
 
+        def snapshot(frame: Frame) -> str:
+            try:
+                text = frame.locator("body").inner_text(timeout=1000)
+                # Use only the first few lines to detect movement; normalize whitespace.
+                lines = text.splitlines()
+                head = "\n".join(lines[:3])
+                return " ".join(head.split())
+            except Exception:
+                return ""
+
         try:
             frame = get_frame()
-            page = frame.page
-            start = safe_page_evaluate(page, "Date.now()", description="timer")
+            baseline = prev_snapshot if prev_snapshot is not None else snapshot(frame)
+            start = time.time()
 
             while True:
-                page.wait_for_timeout(interval_ms)
-
-                try:
-                    frame = get_frame()
-                    current = HashUtils.get_frame_snapshot(frame)
-                except Exception as e:
-                    if WaitUtils._is_navigation_error(e):
-                        app_log("ℹ️ Frame navigated - treating as change")
-                        return True
-                    raise
-
-                if current != (prev_snapshot or ""):
+                time.sleep(max(0, interval_ms) / 1000)
+                current = snapshot(get_frame())
+                if current != (baseline or ""):
                     app_log("✅ Screen changed")
                     return True
 
-                elapsed = safe_page_evaluate(page, "Date.now()", description="timer") - start
-                if elapsed >= timeout_ms:
+                if (time.time() - start) * 1000 >= timeout_ms:
                     if warn_on_timeout:
                         app_log(f"⚠️ No change after {timeout_ms}ms")
                     return False
@@ -114,15 +121,3 @@ class WaitUtils:
                 time.sleep(max(0, remaining) / 1000)
             except Exception:
                 pass
-
-    @staticmethod
-    def _is_navigation_error(exc: Exception) -> bool:
-        """Check if error indicates frame navigation."""
-        msg = str(exc).lower()
-        markers = (
-            "execution context was destroyed",
-            "cannot find context",
-            "frame was detached",
-            "target closed",
-        )
-        return any(m in msg for m in markers) or isinstance(exc, PageUnavailableError)
