@@ -83,6 +83,8 @@ class PostMessageManager:
 
         response = self._read_response(frame)
         info = self._interpret_response(response)
+        payload_text = self._read_payload(frame)
+        self._mirror_response_for_capture(frame, response, payload_text)
         label = "Success" if not info["is_error"] else "Error"
         # Capture full page and frame to ensure response is recorded.
         self.screenshot_mgr.capture(
@@ -201,6 +203,8 @@ class PostMessageManager:
                     const selectors = [
                         "textarea[name='dataForm:xmlString']",
                         "textarea[id='dataForm:xmlString']",
+                        "textarea[name='dataForm:messagePayload']",
+                        "textarea[id='dataForm:messagePayload']",
                         "textarea[name='dataForm:resultString']",
                         "textarea[id='dataForm:resultString']",
                         "textarea[name*='response' i]",
@@ -276,6 +280,71 @@ class PostMessageManager:
             return re.sub(r"\s+", " ", unescaped.strip())
         except Exception:
             return ""
+
+    def _read_payload(self, frame: Frame) -> str:
+        selectors = [
+            "textarea[name='dataForm:xmlString']",
+            "textarea[id='dataForm:xmlString']",
+            "textarea[name='dataForm:messagePayload']",
+            "textarea[id='dataForm:messagePayload']",
+            "textarea[name*='message' i]",
+            "textarea[id*='message' i]",
+        ]
+        for selector in selectors:
+            locator = frame.locator(selector).first
+            try:
+                locator.wait_for(state="visible", timeout=1500)
+                text = locator.input_value().strip()
+                if text:
+                    return text
+            except Exception:
+                continue
+        return ""
+
+    def _mirror_response_for_capture(self, frame: Frame, response_text: str | None, payload_text: str | None):
+        """Render request payload and full response on right-hand overlays so screenshots capture both."""
+        response_text = response_text or ""
+        payload_text = payload_text or ""
+        try:
+            frame.evaluate(
+                """
+                ({response, payload}) => {
+                    const ensurePane = (id, top, text) => {
+                        let pane = document.getElementById(id);
+                        if (!pane) {
+                            pane = document.createElement('div');
+                            pane.id = id;
+                            const s = pane.style;
+                            s.position = 'fixed';
+                            s.right = '8px';
+                            s.width = '44%';
+                            s.height = '45vh';
+                            s.padding = '8px 10px';
+                            s.background = 'rgba(20, 24, 33, 0.82)';
+                            s.color = '#f5f7fa';
+                            s.fontFamily = 'monospace';
+                            s.fontSize = '12px';
+                            s.lineHeight = '1.35';
+                            s.whiteSpace = 'pre-wrap';
+                            s.overflow = 'auto';
+                            s.zIndex = '999999';
+                            s.border = '1px solid rgba(255,255,255,0.12)';
+                            s.borderRadius = '6px';
+                            s.boxShadow = '0 6px 18px rgba(0,0,0,0.35)';
+                            s.pointerEvents = 'none';
+                            document.body.appendChild(pane);
+                        }
+                        pane.style.top = top;
+                        pane.textContent = text || '';
+                    };
+                    ensurePane('post_payload_mirror', '8px', payload);
+                    ensurePane('post_response_mirror', '52vh', response);
+                }
+                """,
+                {"response": response_text, "payload": payload_text},
+            )
+        except Exception:
+            pass
 
     def _interpret_response(self, response_text: str) -> Dict[str, Any]:
         info = {
