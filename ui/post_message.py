@@ -344,8 +344,8 @@ class PostMessageManager:
                         pane.style.top = top;
                         pane.textContent = text || '';
                     };
-                    ensurePane('post_payload_mirror', '8px', payload);
-                    ensurePane('post_response_mirror', '52vh', response);
+                    ensurePane('post_payload_mirror', '48px', payload);
+                    ensurePane('post_response_mirror', '55vh', response);
                 }
                 """,
                 {"response": response_text, "payload": payload_text},
