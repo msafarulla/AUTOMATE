@@ -203,10 +203,11 @@ class RFPrimitives:
             body = rf_iframe.locator("body").first
             body.wait_for(state="visible", timeout=1000)
             body.focus()
-            # Wait for focus to settle - browser needs time to actually shift focus
-            self.page.wait_for_timeout(200)  # 200ms for focus to complete
         except Exception:
             pass
+
+        # Wait for focus to settle - browser needs time to actually shift focus
+        self.page.wait_for_timeout(200)
 
         self.page.keyboard.press(key)
 
