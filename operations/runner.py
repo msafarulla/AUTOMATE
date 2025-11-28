@@ -144,9 +144,9 @@ class OperationRunner:
         )
         return success
 
-    def _run_open_ui(self, search_term: str = "tasks", match_text: str = "Tasks (Configuration)") -> bool:
+    def _run_open_ui(self, search_term: str, match_text: str) -> bool:
         """Open a UI window by search term and match text."""
-        succeeded = self.nav_mgr.open_tasks_ui(search_term, match_text)
+        succeeded = self.nav_mgr.open_menu_item(search_term, match_text)
         if not succeeded:
             app_log(f"❌ UI navigation failed for '{match_text}'")
         return succeeded
