@@ -1,6 +1,6 @@
 from contextlib import contextmanager
 from dataclasses import dataclass
-from typing import Any, Callable, Generator
+from typing import Any, Callable, Generator, TYPE_CHECKING
 
 from core.browser import BrowserManager
 from core.connection_guard import ConnectionResetGuard
@@ -14,6 +14,9 @@ from ui.auth import AuthManager
 from ui.navigation import NavigationManager
 from operations.post_message import PostMessageManager
 from ui.rf_menu import RFMenuManager
+
+if TYPE_CHECKING:
+    from operations.workflow import WorkflowStageExecutor
 
 
 @dataclass
@@ -32,6 +35,7 @@ class OperationServices:
     nav_mgr: NavigationManager
     orchestrator: AutomationOrchestrator
     step_execution: StepExecution
+    executor: 'WorkflowStageExecutor'  # Forward reference to avoid circular import
 
 
 class OperationRunner:
@@ -167,30 +171,32 @@ class OperationRunner:
 
 @contextmanager
 def create_operation_services(settings: Any) -> Generator[OperationServices, None, None]:
-    
+    # Import here to avoid circular dependency
+    from operations.workflow import WorkflowStageExecutor
+
     # 1. Create browser
     with BrowserManager(settings) as browser_mgr:
-        
+
         # 2. Create a page (browser tab)
         page = browser_mgr.new_page()
-        
+
         # 3. Create screenshot manager
         screenshot_mgr = ScreenshotManager(
             settings.browser.screenshot_dir,
             image_format=settings.browser.screenshot_format,
             image_quality=settings.browser.screenshot_quality,
         )
-        
+
         # 4. Create page manager (injects click highlighter, disables animations)
         page_mgr = PageManager(page)
-        
+
         # 5. Create auth manager (handles login)
         auth_mgr = AuthManager(page, screenshot_mgr, settings)
         detour_page = None
 
         # 6. Create navigation manager (menu search, window management)
         nav_mgr = NavigationManager(page, screenshot_mgr)
-        
+
         # 7. Create RF menu manager (RF terminal interactions)
         rf_menu = RFMenuManager(
             page,
@@ -200,13 +206,13 @@ def create_operation_services(settings: Any) -> Generator[OperationServices, Non
             auto_click_info_icon=settings.app.auto_click_info_icon,
             show_tran_id=settings.app.show_tran_id,
         )
-        
+
         # 7. Create connection guard (detects if browser loses connection)
         conn_guard = ConnectionResetGuard(page, screenshot_mgr)
-        
+
          # 8. Create orchestrator (retry logic, result tracking)
         orchestrator = AutomationOrchestrator(settings)
-        
+
         # 9. Create the operation runner that ties it all together
         runner = OperationRunner(
             settings,
@@ -219,19 +225,26 @@ def create_operation_services(settings: Any) -> Generator[OperationServices, Non
             rf_menu,
             conn_guard,
         )
-        
-        # 10. Package everything into a services object
+
+        # 10. Create step execution wrapper
+        step_execution = StepExecution(
+            run_login=runner.run_login,
+            run_change_warehouse=runner.run_change_warehouse,
+            run_post_message=runner.run_post_message,
+            run_receive=runner.run_receive,
+            run_loading=runner.run_loading,
+            run_open_ui=runner.run_open_ui,
+        )
+
+        # 11. Create workflow stage executor
+        executor = WorkflowStageExecutor(settings, orchestrator, step_execution)
+
+        # 12. Package everything into a services object
         services = OperationServices(
             screenshot_mgr=screenshot_mgr,
             nav_mgr=nav_mgr,
             orchestrator=orchestrator,
-            step_execution=StepExecution(
-                run_login=runner.run_login,
-                run_change_warehouse=runner.run_change_warehouse,
-                run_post_message=runner.run_post_message,
-                run_receive=runner.run_receive,
-                run_loading=runner.run_loading,
-                run_open_ui=runner.run_open_ui,
-            ),
+            step_execution=step_execution,
+            executor=executor,
         )
         yield services
