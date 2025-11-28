@@ -75,6 +75,7 @@ class WaitUtils:
         except Exception as e:
             if warn_on_timeout:
                 app_log(f"⚠️ No change after {timeout_ms}ms")
+                raise RuntimeError("⚠️ No change after {timeout_ms}ms")                
             return False
 
     @staticmethod
