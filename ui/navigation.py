@@ -56,6 +56,12 @@ class NavigationManager:
         """Open a menu item by searching and selecting exact match."""
         normalized_match = self._normalize(match_text)
 
+        # Ensure only the target window remains to avoid focus conflicts.
+        try:
+            self.close_active_windows()
+        except Exception:
+            pass
+
         # Close any existing window with the same title to avoid duplicates, leave others intact.
         self.close_windows_matching(normalized_match)
         self._open_menu_panel()
