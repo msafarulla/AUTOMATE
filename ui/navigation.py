@@ -52,18 +52,20 @@ class NavigationManager:
         self.screenshot_mgr.capture(self.page, f"warehouse_{warehouse}", f"Changed to {warehouse}", onDemand)
         app_log(f"✅ Changed to {warehouse}")
 
-    def open_menu_item(self, search_term: str, match_text: str, onDemand: bool = True) -> bool:
+    def open_menu_item(
+        self,
+        search_term: str,
+        match_text: str,
+        onDemand: bool = True,
+    ) -> bool:
         """Open a menu item by searching and selecting exact match."""
         normalized_match = self._normalize(match_text)
 
-        # Ensure only the target window remains to avoid focus conflicts.
         try:
             self.close_active_windows()
         except Exception:
             pass
 
-        # Close any existing window with the same title to avoid duplicates, leave others intact.
-        self.close_windows_matching(normalized_match)
         self._open_menu_panel()
         self._reset_menu_filter()
         self._do_search(search_term)
@@ -130,18 +132,6 @@ class NavigationManager:
             if not self._close_window(window):
                 break
             WaitUtils.wait_brief(self.page)
-
-    def close_windows_matching(self, normalized_title: str):
-        """Close only windows whose title matches the provided normalized string."""
-        if not normalized_title:
-            return
-        for window in self._get_visible_windows():
-            title = self._normalize(self._get_title(window) or "")
-            if not title:
-                continue
-            if normalized_title in title or title in normalized_title:
-                self._close_window(window)
-                WaitUtils.wait_brief(self.page)
 
     def close_menu_overlay_after_sign_on(self):
         """Close menu overlay if open after login."""
