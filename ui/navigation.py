@@ -217,9 +217,14 @@ class NavigationManager:
         if "rf menu" in match:
             return
 
-        # Center specific windows first if needed.
+        # Center Post Message and then maximize for visibility.
         if "post message" in match:
             self._center_window('window[title*="Post Message"]', "Post Message")
+            self._maximize_non_rf_windows()
+            return
+
+        # All other non-RF windows: maximize for visibility.
+        self._maximize_non_rf_windows()
 
     # =========================================================================
     # WINDOW HELPERS
