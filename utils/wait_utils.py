@@ -75,52 +75,51 @@ class WaitUtils:
         except Exception as e:
             if warn_on_timeout:
                 app_log(f"⚠️ No change after {timeout_ms}ms")
-                raise RuntimeError("⚠️ No change after {timeout_ms}ms")                
+                raise RuntimeError(f"⚠️ No change after {timeout_ms}ms")                
             return False
 
     @staticmethod
-    def wait_for_mask_clear(target, timeout_ms: int = 4000, selector: str = ".x-mask") -> bool:
+    def wait_for_mask_clear(target, timeout_ms: int = 2000, selector: str = ".x-mask") -> bool:
+        """Wait for ExtJS loading mask to disappear using Playwright's efficient wait."""
         try:
             mask = target.locator(f"{selector}:visible")
-        except Exception:
+            # Wait for mask to become hidden
+            mask.first.wait_for(state="hidden", timeout=timeout_ms)
             return True
-
-        deadline = time.time() + timeout_ms / 1000
-        try:
-            while time.time() < deadline:
-                if mask.count() == 0:
-                    return True
-                time.sleep(0.15)
         except Exception:
+            # No mask found or already cleared - this is success
             return True
-
-        return True
 
     @staticmethod
-    def wait_brief(target, timeout_ms: int = 4000, selector: str = ".x-mask"):
+    def wait_brief(target, timeout_ms: int = 500, selector: str = ".x-mask"):
         """
-        Standardized wait helper: always waits ~4000ms, mask-aware, no blind sleeps.
+        Quick wait for UI updates - defaults to 500ms (reduced from 4000ms).
+        Waits for mask to clear first, then any remaining time.
         """
-        timeout_ms = 4000
         start = time.time()
+        
+        # Wait for mask to clear (max 2s even if timeout_ms is higher)
         try:
-            WaitUtils.wait_for_mask_clear(target, timeout_ms=timeout_ms, selector=selector)
+            WaitUtils.wait_for_mask_clear(target, timeout_ms=min(timeout_ms, 2000), selector=selector)
         except Exception:
             pass
 
-        remaining = timeout_ms - int((time.time() - start) * 1000)
-        if remaining <= 0:
-            return
+        # Calculate remaining time
+        elapsed = int((time.time() - start) * 1000)
+        remaining = max(0, timeout_ms - elapsed)
 
-        try:
-            target.wait_for_function(
-                "(delay, start) => Date.now() - start >= delay",
-                remaining,
-                int(time.time() * 1000),
-                timeout=remaining + 250,
-            )
-        except Exception:
+        if remaining > 0:
             try:
-                time.sleep(max(0, remaining) / 1000)
+                # Use Playwright's wait_for_function for accurate timing
+                target.wait_for_function(
+                    "(delay, start) => Date.now() - start >= delay",
+                    remaining,
+                    int(start * 1000),
+                    timeout=remaining + 250,
+                )
             except Exception:
-                pass
+                # Fallback to sleep
+                try:
+                    time.sleep(remaining / 1000)
+                except Exception:
+                    pass

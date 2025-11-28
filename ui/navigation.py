@@ -149,29 +149,34 @@ class NavigationManager:
     # =========================================================================
 
     def _open_menu_panel(self):
-        """Open the navigation panel."""
+        """Open the navigation panel - optimized."""
         try:
             if self.page.locator("div[id^='mps_menu']:visible").count() > 0:
-                return
+                return  # Already open
         except Exception:
             pass
         
         self._wait_for_mask()
         self.page.locator("a.x-btn").first.click()
-        self._wait_for_mask(2000)
+        
+        # Wait for menu to appear (max 2s instead of 4s)
+        try:
+            self.page.locator("div[id^='mps_menu']:visible").first.wait_for(state="visible", timeout=2000)
+        except Exception:
+            pass
 
     def _reset_menu_filter(self):
-        """Click Show All button if present."""
+        """Click Show All button if present - optimized."""
         btn = self.page.locator("div.x-window:visible a.x-btn:has-text('Show All')")
         try:
             btn.wait_for(state="visible", timeout=500)
             btn.click()
-            WaitUtils.wait_brief(self.page)
+            WaitUtils.wait_brief(self.page, timeout_ms=300)  # Reduced from 4000ms
         except Exception:
             pass
 
     def _do_search(self, term: str):
-        """Type search term in menu."""
+        """Type search term in menu - optimized."""
         search_box = self.page.locator("div.x-window input[type='text']")
         search_box.wait_for(timeout=2000)
         try:
@@ -179,18 +184,21 @@ class NavigationManager:
         except Exception:
             pass
         search_box.fill(term)
-        WaitUtils.wait_brief(self.page)
+        
+        # Wait for search to process (reduced from 4000ms)
+        WaitUtils.wait_brief(self.page, timeout_ms=400)
 
-    def _wait_for_results(self, locator: Locator, retries: int = 10) -> int:
-        """Wait for menu search results to populate."""
-        for _ in range(retries):
-            count = locator.count()
-            if count > 0:
-                return count
-            WaitUtils.wait_brief(self.page)
-        return locator.count()
+    def _wait_for_results(self, locator, timeout_ms: int = 3000) -> int:
+        """Wait for menu search results to populate - optimized with Playwright waits."""
+        try:
+            # Wait for at least one result to appear
+            locator.first.wait_for(state="visible", timeout=timeout_ms)
+            return locator.count()
+        except Exception:
+            # No results or timeout
+            return 0
 
-    def _click_menu_item(self, item: Locator, use_info_button: bool):
+    def _click_menu_item(self, item, use_info_button: bool):
         """Click menu item, optionally via info button."""
         if use_info_button:
             # Try clicking info icon on right side
@@ -217,12 +225,12 @@ class NavigationManager:
     # WINDOW HELPERS
     # =========================================================================
 
-    def _get_visible_windows(self) -> list[Locator]:
+    def _get_visible_windows(self) -> list:
         """Get all visible ExtJS windows."""
         windows = self.page.locator("div.x-window:visible")
         return [windows.nth(i) for i in range(windows.count())]
-
-    def _find_closeable_window(self, skip_titles: set) -> Locator | None:
+    
+    def _find_closeable_window(self, skip_titles: set):
         """Find a window that can be closed."""
         for window in self._get_visible_windows():
             # Skip menu panel
@@ -239,14 +247,14 @@ class NavigationManager:
             return window
         return None
 
-    def _get_title(self, window: Locator) -> str:
+    def _get_title(self, window) -> str:
         """Get window title."""
         try:
             return window.locator(".x-title-text").first.inner_text().strip()
         except Exception:
             return ""
 
-    def _close_window(self, window: Locator) -> bool:
+    def _close_window(self, window) -> bool:
         """Close a window using various methods."""
         # Try close button
         for selector in (".x-tool-close", "a.x-btn:has-text('Close')", "button:has-text('Close')"):
@@ -265,13 +273,13 @@ class NavigationManager:
         except Exception:
             return False
 
-    def _wait_for_mask(self, timeout_ms: int = 4000):
-        """Wait for ExtJS loading mask to clear."""
+    def _wait_for_mask(self, timeout_ms: int = 2000):
+        """Wait for ExtJS loading mask to clear - optimized."""
         if WaitUtils.wait_for_mask_clear(self.page, timeout_ms=timeout_ms):
             return
         # Fallback to a short pause if mask check failed (e.g., page detached).
         try:
-            WaitUtils.wait_brief(self.page)
+            WaitUtils.wait_brief(self.page, timeout_ms=300)  # Reduced from default
         except Exception:
             pass
 
