@@ -44,27 +44,21 @@ def main():
 
 def run_automation(settings: Settings, wmOps):
     """Execute all configured workflows."""
-    app_log("🚀 Starting warehouse automation...")
-
-    # Login and setup
-    wmOps.step_execution.run_login()
-    wmOps.step_execution.run_change_warehouse()
-
-    # Load workflows
-    workflows = load_workflows()
-    total = len(workflows)
-
-    # Create stage executor
+    
+    # Step 1: Login and setup
+    wmOps.step_execution.run_login()           # Opens browser, fills credentials
+    wmOps.step_execution.run_change_warehouse() # Selects the right warehouse
+    
+    # Step 2: Load workflow configurations
+    workflows = load_workflows()  # Returns list of (name, steps) tuples
+    
+    # Step 3: Create the stage executor
     executor = WorkflowStageExecutor(settings, wmOps.orchestrator, wmOps.step_execution)
-
-    # Run each workflow
+    
+    # Step 4: Run each workflow
     for index, (scenario_name, steps) in enumerate(workflows, 1):
-        wmOps.screenshot_mgr.set_scenario(scenario_name)
-
-        app_log("\n" + "=" * 60)
-        app_log(f"📦 WORKFLOW {index}/{total}: scenario_{scenario_name}")
-        app_log("=" * 60)
-
+        wmOps.screenshot_mgr.set_scenario(scenario_name)  # Organize screenshots
+        
         metadata: dict[str, Any] = {}
         for step_name, step_data_input in steps.items():
             wmOps.screenshot_mgr.set_stage(step_name)
@@ -72,7 +66,7 @@ def run_automation(settings: Settings, wmOps):
                 step_name, step_data_input, metadata, index
             )
             if not should_continue:
-                break
+                break  # Stop this workflow if step failed
 
     wmOps.screenshot_mgr.set_scenario(None)
     app_log("✅ Automation completed!")

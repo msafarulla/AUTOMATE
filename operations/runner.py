@@ -112,8 +112,6 @@ class OperationRunner:
             self.page_mgr,
             self.screenshot_mgr,
             self.rf_menu,
-            detour_page=detour_page,
-            detour_nav=detour_nav,
         )
         return load_op.execute(shipment, dock_door, bol)
 
@@ -217,7 +215,7 @@ def create_operation_services(settings: Any) -> Generator[OperationServices, Non
             screenshot_mgr,
             auth_mgr,
             nav_mgr,
-            None,
+            detour_page,
             rf_menu,
             conn_guard,
         )
