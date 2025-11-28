@@ -1,6 +1,6 @@
 from contextlib import contextmanager
 from dataclasses import dataclass
-from typing import Any, Callable, Generator, TYPE_CHECKING
+from typing import Any, Generator
 
 from core.browser import BrowserManager
 from core.connection_guard import ConnectionResetGuard
@@ -10,23 +10,12 @@ from core.page_manager import PageManager
 from core.screenshot import ScreenshotManager
 from operations.inbound.receive import ReceiveOperation
 from operations.outbound.loading import LoadingOperation
+from operations.step_execution import StepExecution
+from operations.workflow import WorkflowStageExecutor
 from ui.auth import AuthManager
 from ui.navigation import NavigationManager
 from operations.post_message import PostMessageManager
 from ui.rf_menu import RFMenuManager
-
-if TYPE_CHECKING:
-    from operations.workflow import WorkflowStageExecutor
-
-
-@dataclass
-class StepExecution:
-    run_login: Callable[[], None]
-    run_change_warehouse: Callable[[], None]
-    run_post_message: Callable[[str | None], bool]
-    run_receive: Callable[..., bool]
-    run_loading: Callable[..., bool]
-    run_open_ui: Callable[..., bool]
 
 
 @dataclass
@@ -35,7 +24,7 @@ class OperationServices:
     nav_mgr: NavigationManager
     orchestrator: AutomationOrchestrator
     step_execution: StepExecution
-    executor: 'WorkflowStageExecutor'  # Forward reference to avoid circular import
+    executor: WorkflowStageExecutor
 
 
 class OperationRunner:
@@ -171,9 +160,6 @@ class OperationRunner:
 
 @contextmanager
 def create_operation_services(settings: Any) -> Generator[OperationServices, None, None]:
-    # Import here to avoid circular dependency
-    from operations.workflow import WorkflowStageExecutor
-
     # 1. Create browser
     with BrowserManager(settings) as browser_mgr:
 

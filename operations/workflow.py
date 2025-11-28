@@ -4,7 +4,7 @@ from core.logger import app_log
 from core.orchestrator import AutomationOrchestrator
 from core.post_message_payload import build_post_message_payload
 from config.settings import Settings
-from operations.runner import StepExecution
+from operations.step_execution import StepExecution
 
 
 class WorkflowStageExecutor:
