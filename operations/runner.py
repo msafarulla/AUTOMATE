@@ -12,7 +12,7 @@ from operations.inbound.receive import ReceiveOperation
 from operations.outbound.loading import LoadingOperation
 from ui.auth import AuthManager
 from ui.navigation import NavigationManager
-from ui.post_message import PostMessageManager
+from operations.post_message import PostMessageManager
 from ui.rf_menu import RFMenuManager
 
 
@@ -44,7 +44,6 @@ class OperationRunner:
         auth_mgr: AuthManager,
         nav_mgr: NavigationManager,
         detour_page: Any,
-        post_message_mgr: PostMessageManager,
         rf_menu: RFMenuManager,
         conn_guard: ConnectionResetGuard,
     ):
@@ -58,7 +57,7 @@ class OperationRunner:
         self.detour_nav = (
             NavigationManager(detour_page, screenshot_mgr) if detour_page else None
         )
-        self.post_message_mgr = post_message_mgr
+        self.post_message_mgr = PostMessageManager(page, screenshot_mgr)
         self.rf_menu = rf_menu
         self.conn_guard = conn_guard
 
@@ -170,19 +169,31 @@ class OperationRunner:
 
 @contextmanager
 def create_operation_services(settings: Any) -> Generator[OperationServices, None, None]:
+    
+    # 1. Create browser
     with BrowserManager(settings) as browser_mgr:
+        
+        # 2. Create a page (browser tab)
         page = browser_mgr.new_page()
+        
+        # 3. Create screenshot manager
         screenshot_mgr = ScreenshotManager(
             settings.browser.screenshot_dir,
             image_format=settings.browser.screenshot_format,
             image_quality=settings.browser.screenshot_quality,
         )
+        
+        # 4. Create page manager (injects click highlighter, disables animations)
         page_mgr = PageManager(page)
+        
+        # 5. Create auth manager (handles login)
         auth_mgr = AuthManager(page, screenshot_mgr, settings)
         detour_page = None
 
+        # 6. Create navigation manager (menu search, window management)
         nav_mgr = NavigationManager(page, screenshot_mgr)
-        post_message_mgr = PostMessageManager(page, screenshot_mgr)
+        
+        # 7. Create RF menu manager (RF terminal interactions)
         rf_menu = RFMenuManager(
             page,
             page_mgr,
@@ -191,8 +202,14 @@ def create_operation_services(settings: Any) -> Generator[OperationServices, Non
             auto_click_info_icon=settings.app.auto_click_info_icon,
             show_tran_id=settings.app.show_tran_id,
         )
+        
+        # 7. Create connection guard (detects if browser loses connection)
         conn_guard = ConnectionResetGuard(page, screenshot_mgr)
+        
+         # 8. Create orchestrator (retry logic, result tracking)
         orchestrator = AutomationOrchestrator(settings)
+        
+        # 9. Create the operation runner that ties it all together
         runner = OperationRunner(
             settings,
             page,
@@ -201,10 +218,11 @@ def create_operation_services(settings: Any) -> Generator[OperationServices, Non
             auth_mgr,
             nav_mgr,
             None,
-            post_message_mgr,
             rf_menu,
             conn_guard,
         )
+        
+        # 10. Package everything into a services object
         services = OperationServices(
             screenshot_mgr=screenshot_mgr,
             nav_mgr=nav_mgr,

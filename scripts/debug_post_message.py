@@ -12,7 +12,7 @@ from pathlib import Path
 from config.settings import Settings
 from core.logger import app_log
 from operations import create_operation_services
-from ui.post_message import PostMessageManager
+from operations.post_message import PostMessageManager
 from utils.wait_utils import WaitUtils
 
 
