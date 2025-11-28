@@ -684,16 +684,27 @@ class ILPNFilterFiller:
 
         # Wait for the iLPN UI to fully load before attempting to fill
         app_log("⏳ Waiting for iLPN UI to load...")
-        ViewStabilizer.wait_for_ext_mask(target, timeout_ms=4000)
-        ViewStabilizer.wait_for_stable_view(target, stable_samples=2, timeout_ms=4000)
+        ViewStabilizer.wait_for_ext_mask(target, timeout_ms=5000)
+        ViewStabilizer.wait_for_stable_view(target, stable_samples=2, timeout_ms=5000)
 
-        filter_triggered = ILPNFilterFiller._fill_input(target, ilpn)
+        # Retry mechanism for filling the filter
+        filter_triggered = False
+        for attempt in range(2):
+            if attempt > 0:
+                app_log(f"🔄 Retry attempt {attempt + 1} to fill iLPN filter...")
+                ViewStabilizer.wait_for_ext_mask(target, timeout_ms=3000)
+                WaitUtils.wait_brief(target)
+
+            filter_triggered = ILPNFilterFiller._fill_input(target, ilpn)
+
+            if not filter_triggered:
+                filter_triggered = ILPNFilterFiller._try_hidden_fill(target, ilpn)
+
+            if filter_triggered:
+                break
 
         if not filter_triggered:
-            filter_triggered = ILPNFilterFiller._try_hidden_fill(target, ilpn)
-
-        if not filter_triggered:
-            rf_log("❌ Unable to trigger iLPN filter apply")
+            rf_log("❌ Unable to trigger iLPN filter apply after retries")
             return False
 
         return FilteredRowOpener.open_single_row(
@@ -730,7 +741,7 @@ class ILPNFilterFiller:
             app_log(f"🔎 Trying selector: {sel}")
             try:
                 locator = target.locator(sel).first
-                locator.wait_for(state="visible", timeout=3000)
+                locator.wait_for(state="visible", timeout=8000)
                 state = locator.evaluate("""
                     el => ({
                         display: getComputedStyle(el).display,
