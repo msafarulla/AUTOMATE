@@ -36,7 +36,7 @@ class RFPrimitives:
         selector: str,
         value: str,
         screenshot_label: str,
-        screenshot_text: str,
+        screenshot_text: str | None = None,
         wait_for_change: bool = True,
         check_errors: bool = True,
         timeout: int = 2000
@@ -278,32 +278,30 @@ class RFPrimitives:
 class RFWorkflows:
 
     def __init__(self, primitives: RFPrimitives):
-        # Keep legacy attribute name for compatibility; provide clearer alias.
-        self.rf = primitives
-        self.primitives = primitives
+        self.primitive = primitives
         self._last_scanned_selector: str | None = None
 
     def _is_invalid_test_data(self, msg: str | None) -> bool:
         """Whether the message matches the invalid test data sentinel."""
         if not msg:
             return False
-        return msg.strip().casefold() == self.rf.INVALID_TEST_DATA_MSG.casefold()
+        return msg.strip().casefold() == self.primitive.INVALID_TEST_DATA_MSG.casefold()
 
     def navigate_to_screen(self, path: list[tuple[str, str]]):
-        self.rf.go_home()
+        self.primitive.go_home()
 
         for choice, label in path:
-            has_error, msg = self.rf.select_menu_option(choice, label)
+            has_error, msg = self.primitive.select_menu_option(choice, label)
             if has_error:
                 raise RuntimeError(f"Navigation failed at {label}: {msg}")
 
     def navigate_to_menu_by_search(
         self,
-        search_term: str | None,
+        search_term: str,
         expected_tran_id: str | None = None,
         option_number: str = "1"
     ) -> bool:
-        rf = self.rf
+        rf = self.primitive
 
         import re
         slug = re.sub(r'[^A-Za-z0-9]+', '_', search_term).strip('_') or "menu"
@@ -372,7 +370,7 @@ class RFWorkflows:
         label: str,
         timeout: int = 2000
     ) -> tuple[bool, str | None]:
-        self.rf.fill_field(
+        self.primitive.fill_field(
             selector=selector,
             value=value,
             screenshot_label=f"scan_{label}_{value}",
@@ -393,7 +391,7 @@ class RFWorkflows:
         # Auto-enter flows shouldn't leave stale selectors
         self._last_scanned_selector = None
 
-        has_error, msg = self.rf.fill_and_submit(
+        has_error, msg = self.primitive.fill_and_submit(
             selector=selector,
             value=value,
             screenshot_label=f"scan_{label}_{value}",
@@ -401,8 +399,8 @@ class RFWorkflows:
             timeout=timeout
         )
 
-        if self.rf._should_auto_accept(auto_accept_errors) and msg and not self._is_invalid_test_data(msg):
-            self.rf.accept_message()
+        if self.primitive._should_auto_accept(auto_accept_errors) and msg and not self._is_invalid_test_data(msg):
+            self.primitive.accept_message()
 
         return has_error, msg
 
@@ -417,7 +415,7 @@ class RFWorkflows:
         if not target_selector:
             rf_log("⚠️ press_enter called without a tracked input; defaulting to focused field.")
 
-        has_error, msg = self.rf.submit_current_input(
+        has_error, msg = self.primitive.submit_current_input(
             screenshot_label=f"press_enter_{label}",
             screenshot_text=f"Pressed Enter ({label})",
             wait_for_change=wait_for_change,
@@ -427,8 +425,8 @@ class RFWorkflows:
 
         self._last_scanned_selector = None
 
-        if self.rf._should_auto_accept(auto_accept_errors) and msg:
-            self.rf.accept_message()
+        if self.primitive._should_auto_accept(auto_accept_errors) and msg:
+            self.primitive.accept_message()
 
         return has_error, msg
 
@@ -477,7 +475,7 @@ class RFWorkflows:
             if info_parts:
                 context_note = " (" + ", ".join(info_parts) + ")"
 
-        has_error, msg = self.rf.fill_and_submit(
+        has_error, msg = self.primitive.fill_and_submit(
             selector=selector,
             value=str(qty),
             screenshot_label=label,
@@ -485,8 +483,8 @@ class RFWorkflows:
             timeout=timeout
         )
 
-        if self.rf._should_auto_accept(auto_accept_errors) and msg:
-            self.rf.accept_message()
+        if self.primitive._should_auto_accept(auto_accept_errors) and msg:
+            self.primitive.accept_message()
 
         return not has_error
 
@@ -496,7 +494,7 @@ class RFWorkflows:
         location: str,
         timeout: int = 3000
     ) -> tuple[bool, str | None]:
-        return self.rf.fill_and_submit(
+        return self.primitive.fill_and_submit(
             selector=selector,
             value=location,
             screenshot_label=f"location_{location}",

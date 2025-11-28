@@ -90,14 +90,14 @@ class ReceiveStateMachine:
     
     def __init__(
         self,
-        rf_workflow: RFWorkflows,
+        rf: RFWorkflows,
         screenshot_mgr: ScreenshotManager,
         selectors: OperationConfig.RECEIVE_SELECTORS.__class__,
         deviation_selectors: Optional[Any] = None,
         post_qty_hook: Optional[Callable[['ReceiveStateMachine'], None]] = None,
         post_location_hook: Optional[Callable[['ReceiveStateMachine'], None]] = None,
     ):
-        self.rf_workflow = rf_workflow
+        self.rf = rf
         self.screenshot_mgr = screenshot_mgr
         self.selectors = selectors
         self.deviation_selectors = deviation_selectors or OperationConfig.RECEIVE_DEVIATION_SELECTORS
@@ -207,14 +207,14 @@ class ReceiveStateMachine:
     def read_screen_text(self) -> str:
         """Get current RF screen body text."""
         try:
-            return self.rf_workflow.primitives.read_field("body").lower()
+            return self.rf.primitive.read_field("body").lower()
         except Exception:
             return ""
     
     def is_element_visible(self, selector: str, timeout: int = 500) -> bool:
         """Check if element is visible on current screen."""
         try:
-            rf_iframe = self.rf_workflow.primitives.get_iframe()
+            rf_iframe = self.rf.primitive.get_iframe()
             locator = rf_iframe.locator(selector)
             locator.wait_for(state="visible", timeout=timeout)
             return True
@@ -225,7 +225,7 @@ class ReceiveStateMachine:
         """Capture RF screenshot with current state context."""
         overlay = text or f"{self.state.name}: {self.context.item}"
         self.screenshot_mgr.capture_rf_window(
-            self.rf_workflow.primitives.page,
+            self.rf.primitive.page,
             f"{self.state.name.lower()}_{label}",
             overlay
         )
@@ -283,7 +283,7 @@ class InitHandler(StateHandler):
     
     def execute(self, m: ReceiveStateMachine) -> ReceiveState:
         menu = OperationConfig.RECEIVE_MENU
-        if m.rf_workflow.navigate_to_menu_by_search(menu.search_term, menu.tran_id):
+        if m.rf.navigate_to_menu_by_search(menu.search_term, menu.tran_id):
             return ReceiveState.NAVIGATED
         return ReceiveState.ERROR
     
@@ -296,7 +296,7 @@ class NavigatedHandler(StateHandler):
     state = ReceiveState.NAVIGATED
     
     def execute(self, m: ReceiveStateMachine) -> ReceiveState:
-        has_error, msg = m.rf_workflow.scan_barcode_auto_enter(
+        has_error, msg = m.rf.scan_barcode_auto_enter(
             m.selectors.asn,
             m.context.asn,
             "ASN"
@@ -314,7 +314,7 @@ class AsnScannedHandler(StateHandler):
     state = ReceiveState.ASN_SCANNED
     
     def execute(self, m: ReceiveStateMachine) -> ReceiveState:
-        has_error, msg = m.rf_workflow.scan_barcode_auto_enter(
+        has_error, msg = m.rf.scan_barcode_auto_enter(
             m.selectors.item,
             m.context.item,
             "Item"
@@ -344,7 +344,7 @@ class ItemScannedHandler(StateHandler):
             "ilpn": m.context.ilpn,
         }
         
-        success = m.rf_workflow.enter_quantity(
+        success = m.rf.enter_quantity(
             m.selectors.quantity,
             m.context.quantity,
             item_name=m.context.item,
@@ -439,7 +439,7 @@ class AwaitingLocationHandler(StateHandler):
             m.context.error_message = "Could not read suggested location"
             return ReceiveState.ERROR
         
-        has_error, msg = m.rf_workflow.confirm_location(m.selectors.location, location)
+        has_error, msg = m.rf.confirm_location(m.selectors.location, location)
         if has_error:
             m.context.error_message = msg
             return ReceiveState.ERROR
@@ -465,7 +465,7 @@ class AwaitingBlindIlpnHandler(StateHandler):
         
         for selector in selectors_to_try:
             try:
-                has_error, msg = m.rf_workflow.primitives.fill_and_submit(
+                has_error, msg = m.rf.primitive.fill_and_submit(
                     selector, lpn, "blind_ilpn", f"Entered LPN: {lpn}"
                 )
                 if not has_error:
@@ -488,9 +488,9 @@ class AwaitingQtyAdjustHandler(StateHandler):
     
     def execute(self, m: ReceiveStateMachine) -> ReceiveState:
         # Qty adjust usually requires accepting and continuing
-        m.rf_workflow.primitives.accept_message()
+        m.rf.primitive.accept_message()
         m.rf_capture("qty_adjust_accepted", "Quantity adjustment accepted")
-        
+
         # Re-detect what screen we're on now
         return m.detect_current_state()
     
@@ -574,7 +574,7 @@ def _read_suggested_location(m: ReceiveStateMachine) -> str:
         if not selector:
             continue
         try:
-            loc = m.rf_workflow.primitives.read_field(selector).replace('-', '').strip()
+            loc = m.rf.primitive.read_field(selector).replace('-', '').strip()
             if loc:
                 return loc
         except Exception:
