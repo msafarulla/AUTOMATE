@@ -68,6 +68,12 @@ class PostMessageManager:
         textarea.click()
         textarea.fill(message)
 
+        # Mirror payload on the right so the ready-state capture includes the XML.
+        try:
+            self._mirror_response_for_capture(frame, "", message)
+        except Exception:
+            pass
+
         truncated = (message[:40] + "...") if len(message) > 40 else message
         self.screenshot_mgr.capture(
             self.page,
