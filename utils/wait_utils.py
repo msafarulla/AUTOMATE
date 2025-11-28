@@ -95,20 +95,9 @@ class WaitUtils:
         start = time.time()
         try:
             WaitUtils.wait_for_mask_clear(target, timeout_ms=timeout_ms, selector=selector)
-            except Exception:
-                pass
+        except Exception:
+            pass
 
-    @staticmethod
-    def _is_navigation_error(exc: Exception) -> bool:
-        """Check if error indicates frame navigation."""
-        msg = str(exc).lower()
-        markers = (
-            "execution context was destroyed",
-            "cannot find context",
-            "frame was detached",
-            "target closed",
-        )
-        return any(m in msg for m in markers) or isinstance(exc, PageUnavailableError)
         remaining = timeout_ms - int((time.time() - start) * 1000)
         if remaining <= 0:
             return
@@ -125,3 +114,15 @@ class WaitUtils:
                 time.sleep(max(0, remaining) / 1000)
             except Exception:
                 pass
+
+    @staticmethod
+    def _is_navigation_error(exc: Exception) -> bool:
+        """Check if error indicates frame navigation."""
+        msg = str(exc).lower()
+        markers = (
+            "execution context was destroyed",
+            "cannot find context",
+            "frame was detached",
+            "target closed",
+        )
+        return any(m in msg for m in markers) or isinstance(exc, PageUnavailableError)
