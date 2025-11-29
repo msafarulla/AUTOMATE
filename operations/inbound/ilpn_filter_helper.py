@@ -527,10 +527,21 @@ class FilteredRowOpener:
         screenshot_mgr: ScreenshotManager | None = None,
         *,
         tab_click_timeout_ms: int | None = None,
+        drill_detail: bool = True,
     ) -> bool:
-        """Open the filtered iLPN row."""
+        """Open the filtered iLPN row (optionally skip drilling into detail tabs)."""
         app_log("🔍 Checking filtered iLPN results (no long wait)...")
         ViewStabilizer.wait_for_ext_mask(target, timeout_ms=3000)
+
+        if not drill_detail:
+            row_count, _ = FilteredRowOpener._detect_rows(target)
+            if isinstance(row_count, int) and row_count > 0:
+                app_log(
+                    f"✅ Filter matched {row_count} iLPN row(s); drill_detail disabled."
+                )
+                return True
+            rf_log("❌ Unable to detect any filtered iLPN rows (drill_detail disabled)")
+            return False
 
         tab_config = TabClickConfig(
             screenshot_mgr=screenshot_mgr,
@@ -658,8 +669,9 @@ class ILPNFilterFiller:
         screenshot_mgr: ScreenshotManager | None = None,
         *,
         tab_click_timeout_ms: int | None = None,
+        drill_detail: bool = True,
     ) -> bool:
-        """Populate the iLPN quick filter and open the matching row."""
+        """Populate the iLPN quick filter and optionally drill into matching row."""
         target_frame = FrameFinder.find_ilpn_frame(page)
         target = target_frame or page
         
@@ -680,6 +692,7 @@ class ILPNFilterFiller:
             ilpn,
             screenshot_mgr=screenshot_mgr,
             tab_click_timeout_ms=tab_click_timeout_ms,
+            drill_detail=drill_detail,
         )
 
     @staticmethod
@@ -785,13 +798,18 @@ def fill_ilpn_filter(
     screenshot_mgr: ScreenshotManager | None = None,
     *,
     tab_click_timeout_ms: int | None = None,
+    drill_detail: bool = True,
 ) -> bool:
-    """Populate the iLPN quick filter and open the matching row.
+    """Populate the iLPN quick filter and optionally open the matching row details.
     
     This is the main public API - maintains backward compatibility.
     """
     return ILPNFilterFiller.fill_filter(
-        page, ilpn, screenshot_mgr, tab_click_timeout_ms=tab_click_timeout_ms
+        page,
+        ilpn,
+        screenshot_mgr,
+        tab_click_timeout_ms=tab_click_timeout_ms,
+        drill_detail=drill_detail,
     )
 
 
