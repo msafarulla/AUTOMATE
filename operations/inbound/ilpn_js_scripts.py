@@ -333,9 +333,51 @@ TAB_CLICK_SCRIPT = """
         } catch (e) {}
     };
 
+    // Helper: Wait for tab to become active after clicking
+    const waitForActive = (tabName, maxWaitMs = 1000) => {
+        const startTime = Date.now();
+        while (Date.now() - startTime < maxWaitMs) {
+            // Check if tab is now active
+            if (window.Ext?.ComponentQuery) {
+                const panels = Ext.ComponentQuery.query('tabpanel');
+                for (const panel of panels) {
+                    const active = panel.getActiveTab?.();
+                    const title = active?.title || active?.tab?.text || '';
+                    if (title === tabName || title.startsWith(tabName)) {
+                        return true;
+                    }
+                }
+            }
+
+            // Check aria-selected
+            const ariaTabs = document.querySelectorAll('[role="tab"][aria-selected="true"]');
+            for (const tab of ariaTabs) {
+                const text = (tab.textContent || '').trim();
+                if (text === tabName || text.startsWith(tabName)) {
+                    return true;
+                }
+            }
+
+            // Small delay before next check
+            const delay = 50;
+            const now = Date.now();
+            while (Date.now() - now < delay) { /* busy wait */ }
+        }
+        return false;
+    };
+
     // Strategy 1: Try ExtJS native method first
     const extResult = tryExtJSTab();
-    if (extResult) return { ...extResult, log };
+    if (extResult) {
+        // Wait to confirm tab is active
+        if (waitForActive(tabName, 1500)) {
+            log.push('Confirmed tab active after ExtJS click');
+            return { ...extResult, log, confirmed: true };
+        } else {
+            log.push('Warning: ExtJS click succeeded but tab not confirmed active');
+            return { ...extResult, log, confirmed: false };
+        }
+    }
 
     // Strategy 2: Find tab elements with specific selectors
     const tabSelectors = [
@@ -370,7 +412,12 @@ TAB_CLICK_SCRIPT = """
                     attempts++;
                 }
 
-                return { success: true, tag: el.tagName, text, strategy: selector, log };
+                // Wait to confirm tab is active
+                const confirmed = waitForActive(tabName, 1500);
+                if (confirmed) {
+                    log.push('Confirmed tab active after selector click');
+                }
+                return { success: true, tag: el.tagName, text, strategy: selector, log, confirmed };
             }
         }
     }
@@ -415,7 +462,12 @@ TAB_CLICK_SCRIPT = """
             attempts++;
         }
 
-        return { success: true, tag: el.tagName, text: tabName, strategy: 'text-search', log };
+        // Wait to confirm tab is active
+        const confirmed = waitForActive(tabName, 1500);
+        if (confirmed) {
+            log.push('Confirmed tab active after text search click');
+        }
+        return { success: true, tag: el.tagName, text: tabName, strategy: 'text-search', log, confirmed };
     }
 
     return { success: false, reason: 'not found', tabName, log };
