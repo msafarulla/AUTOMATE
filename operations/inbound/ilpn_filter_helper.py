@@ -310,30 +310,12 @@ class TabNavigator:
 
         for tab_name in TabNavigator.TAB_NAMES:
             app_log(f"\n🔄 Attempting to click tab: {tab_name}")
-
-            # Brief wait before each tab attempt to let UI settle
-            WaitUtils.wait_brief(target)
-
-            # Try clicking tab with retry
-            clicked = False
-            for retry in range(2):
-                if retry > 0:
-                    app_log(f"  🔁 Retry {retry + 1} for tab: {tab_name}")
-                    ViewStabilizer.wait_for_ext_mask(target, timeout_ms=2000)
-                    WaitUtils.wait_brief(target)
-
-                clicked = TabNavigator._click_single_tab(
-                    tab_name, frames_to_try, config.click_timeout_ms
-                )
-
-                if clicked:
-                    break
-
+            clicked = TabNavigator._click_single_tab(
+                tab_name, frames_to_try, config.click_timeout_ms
+            )
+            
             if clicked:
-                # Wait for ExtJS mask to clear after tab switch
-                ViewStabilizer.wait_for_ext_mask(target, timeout_ms=3000)
-                # Wait for view to stabilize before capturing
-                ViewStabilizer.wait_for_stable_view(target, stable_samples=2, timeout_ms=3000)
+                WaitUtils.wait_brief(target)
                 if config.screenshot_mgr:
                     try:
                         img_bytes = use_page.screenshot(full_page=True, type="jpeg")
@@ -341,7 +323,7 @@ class TabNavigator:
                     except Exception as exc:
                         app_log(f"⚠️ Could not capture tab {tab_name}: {exc}")
             else:
-                app_log(f"  ❌ FAILED to click tab: {tab_name} after retries")
+                app_log(f"  ❌ FAILED to click tab: {tab_name}")
 
         app_log("\n✅ Tab clicking process complete")
         
@@ -560,10 +542,8 @@ class FilteredRowOpener:
 
         # Fast path: DOM scan
         if DOMRowOpener.open_ilpn_row(target, ilpn):
+            WaitUtils.wait_brief(target)
             if drill_detail:
-                # Wait for detail window to load before clicking tabs
-                ViewStabilizer.wait_for_ext_mask(target, timeout_ms=3000)
-                ViewStabilizer.wait_for_stable_view(target, stable_samples=2, timeout_ms=3000)
                 TabNavigator.click_detail_tabs(target, tab_config)
             return True
 
@@ -573,19 +553,15 @@ class FilteredRowOpener:
         # Try ExtJS-native open
         if row_count == 1 and ExtJSGridHelper.open_first_row(target):
             app_log("✅ Opened single iLPN row via ExtJS API")
+            WaitUtils.wait_brief(target)
             if drill_detail:
-                # Wait for detail window to load before clicking tabs
-                ViewStabilizer.wait_for_ext_mask(target, timeout_ms=3000)
-                ViewStabilizer.wait_for_stable_view(target, stable_samples=2, timeout_ms=3000)
                 TabNavigator.click_detail_tabs(target, tab_config)
             return True
 
         # DOM fallback retry
         if DOMRowOpener.open_ilpn_row(target, ilpn):
+            WaitUtils.wait_brief(target)
             if drill_detail:
-                # Wait for detail window to load before clicking tabs
-                ViewStabilizer.wait_for_ext_mask(target, timeout_ms=3000)
-                ViewStabilizer.wait_for_stable_view(target, stable_samples=2, timeout_ms=3000)
                 TabNavigator.click_detail_tabs(target, tab_config)
             return True
 
@@ -657,15 +633,13 @@ class FilteredRowOpener:
             try:
                 attempt()
                 app_log("✅ Opened single iLPN row to view details")
-                # Wait for detail window to fully load
-                ViewStabilizer.wait_for_ext_mask(target, timeout_ms=3000)
-                if not ViewStabilizer.wait_for_stable_view(target, stable_samples=2, timeout_ms=3000):
+                if not ViewStabilizer.wait_for_stable_view(target):
                     app_log("⚠️ Detail view not stable after open; retrying")
                     continue
                 WaitUtils.wait_brief(target)
                 if drill_detail:
                     TabNavigator.click_detail_tabs(target, tab_config)
-                ViewStabilizer.wait_for_stable_view(target, stable_samples=2, timeout_ms=3000)
+                ViewStabilizer.wait_for_stable_view(target)
                 return True
             except Exception as exc:
                 app_log(f"➖ Row open attempt {idx + 1} did not succeed: {exc}")
@@ -698,28 +672,13 @@ class ILPNFilterFiller:
         if not target_frame:
             rf_log("⚠️ Could not locate dedicated iLPNs frame, using active page as fallback.")
 
-        # Wait for the iLPN UI to fully load before attempting to fill
-        app_log("⏳ Waiting for iLPN UI to load...")
-        ViewStabilizer.wait_for_ext_mask(target, timeout_ms=5000)
-        ViewStabilizer.wait_for_stable_view(target, stable_samples=2, timeout_ms=5000)
-
         filter_triggered = ILPNFilterFiller._fill_input(target, ilpn)
 
         if not filter_triggered:
             filter_triggered = ILPNFilterFiller._try_hidden_fill(target, ilpn)
 
         if not filter_triggered:
-            app_log("🔄 Retry attempt to fill iLPN filter...")
-            ViewStabilizer.wait_for_ext_mask(target, timeout_ms=3000)
-            ViewStabilizer.wait_for_stable_view(target, stable_samples=2, timeout_ms=3000)
-
-            filter_triggered = ILPNFilterFiller._fill_input(target, ilpn)
-
-            if not filter_triggered:
-                filter_triggered = ILPNFilterFiller._try_hidden_fill(target, ilpn)
-
-        if not filter_triggered:
-            rf_log("❌ Unable to trigger iLPN filter apply after retries")
+            rf_log("❌ Unable to trigger iLPN filter apply")
             return False
 
         return FilteredRowOpener.open_single_row(
@@ -756,7 +715,7 @@ class ILPNFilterFiller:
             app_log(f"🔎 Trying selector: {sel}")
             try:
                 locator = target.locator(sel).first
-                locator.wait_for(state="visible", timeout=8000)
+                locator.wait_for(state="visible", timeout=3000)
                 state = locator.evaluate("""
                     el => ({
                         display: getComputedStyle(el).display,
