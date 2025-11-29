@@ -97,6 +97,30 @@ class FrameFinder:
         app_log("⚠️ Falling back to main page (no matching frame found)")
         return None
 
+    @staticmethod
+    def wait_for_ilpn_frame(page, timeout_ms: int = 10000) -> Any | None:
+        """Poll for the iLPN frame to appear (helps on first open when load is slow)."""
+        deadline = time.time() + timeout_ms / 1000
+        last_count = None
+
+        while time.time() < deadline:
+            frame = FrameFinder.find_ilpn_frame(page)
+            if frame:
+                return frame
+
+            try:
+                count = len(page.frames)
+                if count != last_count:
+                    app_log(f"⌛ Waiting for iLPN frame... (frames={count})")
+                    last_count = count
+            except Exception:
+                pass
+
+            WaitUtils.wait_brief(page, timeout_ms=500)
+
+        rf_log("⚠️ Timed out waiting for iLPN frame; using main page")
+        return None
+
 
 class ViewStabilizer:
     """Utilities for waiting on view stability."""
@@ -697,7 +721,7 @@ class ILPNFilterFiller:
         drill_detail: bool = False,
     ) -> bool:
         """Populate the iLPN quick filter and open the matching row."""
-        target_frame = FrameFinder.find_ilpn_frame(page)
+        target_frame = FrameFinder.wait_for_ilpn_frame(page, timeout_ms=10000)
         target = target_frame or page
 
         if not target_frame:
@@ -720,6 +744,14 @@ class ILPNFilterFiller:
 
             if not filter_triggered:
                 filter_triggered = ILPNFilterFiller._try_hidden_fill(target, ilpn)
+
+            # If input was not found on first attempt, re-scan frames in case the UI finished loading late.
+            if not filter_triggered and attempt == 0:
+                refreshed = FrameFinder.wait_for_ilpn_frame(page, timeout_ms=4000)
+                if refreshed and refreshed is not target_frame:
+                    app_log("ℹ️ Switching to newly detected iLPN frame for retry")
+                    target_frame = refreshed
+                    target = target_frame or page
 
             if filter_triggered:
                 break
@@ -758,28 +790,33 @@ class ILPNFilterFiller:
     @staticmethod
     def _find_input(target) -> Any | None:
         """Find visible input field."""
-        for sel in ILPNFilterFiller.INPUT_CANDIDATES:
-            app_log(f"🔎 Trying selector: {sel}")
-            try:
-                locator = target.locator(sel).first
-                locator.wait_for(state="visible", timeout=8000)
-                state = locator.evaluate(
-                    """
-                    el => ({
-                        display: getComputedStyle(el).display,
-                        visibility: getComputedStyle(el).visibility,
-                        disabled: el.disabled,
-                        readonly: el.readOnly,
-                        id: el.id || null,
-                        name: el.name || null,
-                        cls: el.className || null,
-                    })
-                    """
-                )
-                app_log(f"✅ Selector matched: {sel} (state={state})")
-                return locator
-            except Exception as exc:
-                app_log(f"➖ Selector not usable: {sel} ({exc})")
+        for pass_idx in range(3):
+            for sel in ILPNFilterFiller.INPUT_CANDIDATES:
+                app_log(f"🔎 Trying selector: {sel}")
+                try:
+                    locator = target.locator(sel).first
+                    locator.wait_for(state="visible", timeout=8000)
+                    state = locator.evaluate(
+                        """
+                        el => ({
+                            display: getComputedStyle(el).display,
+                            visibility: getComputedStyle(el).visibility,
+                            disabled: el.disabled,
+                            readonly: el.readOnly,
+                            id: el.id || null,
+                            name: el.name || null,
+                            cls: el.className || null,
+                        })
+                        """
+                    )
+                    app_log(f"✅ Selector matched: {sel} (state={state})")
+                    return locator
+                except Exception as exc:
+                    app_log(f"➖ Selector not usable: {sel} ({exc})")
+
+            if pass_idx < 2:
+                app_log("⌛ No visible filter input yet; brief wait then retrying selectors")
+                WaitUtils.wait_brief(target, timeout_ms=700)
         return None
 
     @staticmethod
