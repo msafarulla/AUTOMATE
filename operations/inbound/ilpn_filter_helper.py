@@ -297,6 +297,10 @@ class TabNavigator:
     def click_detail_tabs(target, config: TabClickConfig) -> bool:
         """Click through all visible iLPN detail tabs sequentially."""
         TabNavigator.diagnose_tabs(target)
+
+        # Wait for tab panel to be ready
+        app_log("⏳ Waiting for tab panel to be fully loaded...")
+        TabNavigator._wait_for_tab_panel_ready(target)
         WaitUtils.wait_brief(target)
 
         app_log("🎯 Starting tab clicking process...")
@@ -305,7 +309,7 @@ class TabNavigator:
         use_page = getattr(target, "page", None) or target
         base_note = config.operation_note or "iLPN detail tab"
         tab_images: list[bytes] = []
-        
+
         ViewStabilizer.maximize_page_for_capture(use_page)
 
         for tab_name in TabNavigator.TAB_NAMES:
@@ -335,6 +339,49 @@ class TabNavigator:
         return True
 
     @staticmethod
+    def _wait_for_tab_panel_ready(target, timeout_ms: int = 5000) -> bool:
+        """Wait for ExtJS tab panel to be fully rendered and ready."""
+        deadline = time.time() + timeout_ms / 1000
+
+        while time.time() < deadline:
+            try:
+                # Check if ExtJS tab panel exists and is rendered
+                result = target.evaluate("""
+                    () => {
+                        if (!window.Ext?.ComponentQuery) return { ready: false, reason: 'no-extjs' };
+
+                        const tabPanels = Ext.ComponentQuery.query('tabpanel');
+                        if (!tabPanels.length) return { ready: false, reason: 'no-tabpanel' };
+
+                        for (const panel of tabPanels) {
+                            if (panel.isHidden?.() || panel.isDestroyed?.()) continue;
+                            if (!panel.rendered) continue;
+
+                            const items = panel.items?.items || [];
+                            if (items.length > 0) {
+                                return { ready: true, tabCount: items.length, panelId: panel.id };
+                            }
+                        }
+
+                        return { ready: false, reason: 'no-tabs' };
+                    }
+                """)
+
+                if result and result.get('ready'):
+                    app_log(f"  ✅ Tab panel ready with {result.get('tabCount', 0)} tabs")
+                    return True
+
+                app_log(f"  ⏳ Tab panel not ready yet: {result.get('reason', 'unknown')}")
+
+            except Exception as e:
+                app_log(f"  ⚠️ Tab panel check failed: {e}")
+
+            WaitUtils.wait_brief(target)
+
+        app_log("  ⚠️ Tab panel did not become ready in time, proceeding anyway")
+        return False
+
+    @staticmethod
     def _collect_frames(target) -> list:
         """Collect all frames to try for tab clicking."""
         frames_to_try = [target]
@@ -351,22 +398,34 @@ class TabNavigator:
 
     @staticmethod
     def _click_single_tab(tab_name: str, frames: list, timeout_ms: int) -> bool:
-        """Attempt to click a single tab across all frames."""
-        for frame_idx, page_target in enumerate(frames):
-            try:
-                app_log(f"  🎯 Trying in frame {frame_idx}...")
+        """Attempt to click a single tab across all frames with retry logic."""
+        max_retries = 3
 
-                # Strategy 1: Playwright text matching
-                if TabNavigator._try_playwright_click(page_target, tab_name, timeout_ms):
-                    return True
+        for retry in range(max_retries):
+            if retry > 0:
+                wait_time = min(500 * (2 ** (retry - 1)), 2000)  # Exponential backoff: 500ms, 1000ms, 2000ms
+                app_log(f"  🔄 Retry {retry}/{max_retries}, waiting {wait_time}ms...")
+                time.sleep(wait_time / 1000)
 
-                # Strategy 2: JavaScript evaluation
-                if TabNavigator._try_js_click(page_target, tab_name):
-                    return True
+            for frame_idx, page_target in enumerate(frames):
+                try:
+                    app_log(f"  🎯 Trying in frame {frame_idx} (attempt {retry + 1})...")
 
-            except Exception as e:
-                app_log(f"  ❌ Frame {frame_idx} failed: {e}")
+                    # Strategy 1: JavaScript evaluation (try ExtJS first, then DOM)
+                    result = TabNavigator._try_js_click(page_target, tab_name)
+                    if result:
+                        app_log(f"  ✅ Tab clicked successfully via JS in frame {frame_idx}")
+                        return True
 
+                    # Strategy 2: Playwright text matching (fallback)
+                    if TabNavigator._try_playwright_click(page_target, tab_name, timeout_ms):
+                        app_log(f"  ✅ Tab clicked successfully via Playwright in frame {frame_idx}")
+                        return True
+
+                except Exception as e:
+                    app_log(f"  ⚠️ Frame {frame_idx} attempt {retry + 1} failed: {e}")
+
+        app_log(f"  ❌ Failed to click tab '{tab_name}' after {max_retries} retries across all frames")
         return False
 
     @staticmethod
@@ -395,12 +454,21 @@ class TabNavigator:
         """Try clicking tab using JavaScript evaluation."""
         try:
             result = page_target.evaluate(TAB_CLICK_SCRIPT, tab_name)
+
+            # Log detailed diagnostics
+            if result.get('log'):
+                for log_entry in result['log']:
+                    app_log(f"      📝 JS: {log_entry}")
+
             if result.get('success'):
-                app_log(f"    ✅ JS click succeeded: {result}")
+                method = result.get('method') or result.get('strategy', 'unknown')
+                app_log(f"    ✅ JS click succeeded via {method}: {result.get('text', tab_name)}")
                 return True
-            app_log(f"    ⚠️ JS click failed: {result}")
+            else:
+                reason = result.get('reason', 'unknown')
+                app_log(f"    ⚠️ JS click failed: {reason}")
         except Exception as e:
-            app_log(f"    ⚠️ JS strategy failed: {e}")
+            app_log(f"    ⚠️ JS strategy exception: {e}")
         return False
 
     @staticmethod
