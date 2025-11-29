@@ -690,8 +690,9 @@ class ILPNFilterFiller:
         for attempt in range(2):
             if attempt > 0:
                 app_log(f"🔄 Retry attempt {attempt + 1} to fill iLPN filter...")
-                ViewStabilizer.wait_for_ext_mask(target, timeout_ms=2000)
-                WaitUtils.wait_brief(target)
+                # Wait longer on retry and ensure view stabilizes
+                ViewStabilizer.wait_for_ext_mask(target, timeout_ms=3000)
+                ViewStabilizer.wait_for_stable_view(target, stable_samples=2, timeout_ms=3000)
 
             filter_triggered = ILPNFilterFiller._fill_input(target, ilpn)
 
