@@ -310,9 +310,24 @@ class TabNavigator:
 
         for tab_name in TabNavigator.TAB_NAMES:
             app_log(f"\n🔄 Attempting to click tab: {tab_name}")
-            clicked = TabNavigator._click_single_tab(
-                tab_name, frames_to_try, config.click_timeout_ms
-            )
+
+            # Brief wait before each tab attempt to let UI settle
+            WaitUtils.wait_brief(target)
+
+            # Try clicking tab with retry
+            clicked = False
+            for retry in range(2):
+                if retry > 0:
+                    app_log(f"  🔁 Retry {retry + 1} for tab: {tab_name}")
+                    ViewStabilizer.wait_for_ext_mask(target, timeout_ms=2000)
+                    WaitUtils.wait_brief(target)
+
+                clicked = TabNavigator._click_single_tab(
+                    tab_name, frames_to_try, config.click_timeout_ms
+                )
+
+                if clicked:
+                    break
 
             if clicked:
                 # Wait for ExtJS mask to clear after tab switch
@@ -326,7 +341,7 @@ class TabNavigator:
                     except Exception as exc:
                         app_log(f"⚠️ Could not capture tab {tab_name}: {exc}")
             else:
-                app_log(f"  ❌ FAILED to click tab: {tab_name}")
+                app_log(f"  ❌ FAILED to click tab: {tab_name} after retries")
 
         app_log("\n✅ Tab clicking process complete")
         
