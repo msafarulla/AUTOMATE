@@ -326,18 +326,12 @@ class TabNavigator:
                 ViewStabilizer.wait_for_ext_mask(target, timeout_ms=3000)
 
                 # Wait for DOM to stabilize after tab change
-                if not ViewStabilizer.wait_for_stable_view(target, stable_samples=2, interval_ms=300, timeout_ms=4000):
-                    app_log(f"  ⚠️ Tab '{tab_name}' content did not stabilize, but continuing...")
+                ViewStabilizer.wait_for_stable_view(target, stable_samples=2, interval_ms=300, timeout_ms=4000)
 
                 # Additional brief wait for any animations
                 WaitUtils.wait_brief(target)
 
-                # Verify the tab is actually active
-                is_active = TabNavigator._verify_tab_active(target, tab_name)
-                if is_active:
-                    app_log(f"  ✅ Tab '{tab_name}' is active and content loaded")
-                else:
-                    app_log(f"  ⚠️ Could not verify tab '{tab_name}' is active")
+                app_log(f"  ✅ Tab '{tab_name}' clicked and waited for content")
 
                 if config.screenshot_mgr:
                     try:
@@ -356,72 +350,6 @@ class TabNavigator:
             )
         
         return True
-
-    @staticmethod
-    def _verify_tab_active(target, tab_name: str) -> bool:
-        """Verify that a tab is actually active after clicking."""
-        try:
-            result = target.evaluate("""
-                (tabName) => {
-                    // Method 1: Check ExtJS active tab
-                    if (window.Ext?.ComponentQuery) {
-                        const tabPanels = Ext.ComponentQuery.query('tabpanel');
-                        for (const panel of tabPanels) {
-                            if (panel.isHidden?.() || panel.isDestroyed?.()) continue;
-
-                            const activeTab = panel.getActiveTab?.();
-                            if (activeTab) {
-                                const title = activeTab.title || activeTab.tab?.text || '';
-                                if (title === tabName || title.startsWith(tabName)) {
-                                    return { active: true, method: 'extjs', title };
-                                }
-                            }
-                        }
-                    }
-
-                    // Method 2: Check aria-selected attribute
-                    const ariaTabs = document.querySelectorAll('[role="tab"][aria-selected="true"]');
-                    for (const tab of ariaTabs) {
-                        const text = tab.textContent?.trim();
-                        if (text === tabName || text?.startsWith(tabName)) {
-                            return { active: true, method: 'aria-selected', text };
-                        }
-                    }
-
-                    // Method 3: Check active/selected class
-                    const activeSelectors = [
-                        '.x-tab-strip-active',
-                        '.x-tab-active',
-                        '.active[role="tab"]',
-                        'li.x-tab-strip-active'
-                    ];
-
-                    for (const selector of activeSelectors) {
-                        const tabs = document.querySelectorAll(selector);
-                        for (const tab of tabs) {
-                            const text = tab.textContent?.trim();
-                            if (text === tabName || text?.startsWith(tabName)) {
-                                return { active: true, method: 'class-' + selector, text };
-                            }
-                        }
-                    }
-
-                    return { active: false, reason: 'not-found-active' };
-                }
-            """, tab_name)
-
-            if result and result.get('active'):
-                method = result.get('method', 'unknown')
-                app_log(f"    ✓ Verified active via {method}")
-                return True
-            else:
-                reason = result.get('reason', 'unknown') if result else 'no-result'
-                app_log(f"    ✗ Not verified active: {reason}")
-                return False
-
-        except Exception as e:
-            app_log(f"    ⚠️ Tab verification failed: {e}")
-            return False
 
     @staticmethod
     def _wait_for_tab_panel_ready(target, timeout_ms: int = 5000) -> bool:
@@ -547,16 +475,8 @@ class TabNavigator:
 
             if result.get('success'):
                 method = result.get('method') or result.get('strategy', 'unknown')
-                confirmed = result.get('confirmed', False)
-
-                if confirmed:
-                    app_log(f"    ✅ JS click succeeded via {method} (confirmed active): {result.get('text', tab_name)}")
-                    return True
-                else:
-                    # Click reported success but tab not confirmed active - treat as partial success
-                    app_log(f"    ⚠️ JS click via {method} but tab not confirmed active: {result.get('text', tab_name)}")
-                    # Still return True because click happened, Python will verify separately
-                    return True
+                app_log(f"    ✅ JS click succeeded via {method}: {result.get('text', tab_name)}")
+                return True
             else:
                 reason = result.get('reason', 'unknown')
                 app_log(f"    ⚠️ JS click failed: {reason}")
