@@ -48,6 +48,23 @@ class FrameFinder:
         """Locate the frame that hosts the iLPNs grid."""
         app_log("🔍 Scanning frames for iLPN content...")
 
+        # First pass: inspect frames for iLPN markers in the DOM
+        for idx, frame in enumerate(page.frames):
+            try:
+                probe = frame.evaluate(
+                    """() => {
+                        const hasIlpnText = (document.body?.innerText || '').toLowerCase().includes('ilpn');
+                        const hasFilterInput = !!document.querySelector("input[name*='ilpn' i], input[id*='ilpn' i], input[name*='filter' i], input[id*='filter' i]");
+                        const hasGrid = !!document.querySelector("div.x-grid-view, table.x-grid-table");
+                        return { hasIlpnText, hasFilterInput, hasGrid, url: location.href };
+                    }"""
+                )
+                if probe and (probe.get("hasFilterInput") or (probe.get("hasIlpnText") and probe.get("hasGrid"))):
+                    app_log(f"✅ Using frame {idx} detected via DOM probe: {probe.get('url','')}")
+                    return frame
+            except Exception:
+                continue
+
         def score(frame) -> tuple[int, int]:
             try:
                 url = frame.url or ""
@@ -661,6 +678,8 @@ class ILPNFilterFiller:
     """Main class for filling iLPN filters."""
     
     INPUT_CANDIDATES = [
+        "input[name*='ilpn' i]",
+        "input[id*='ilpn' i]",
         "//input[contains(@name,'filter') and not(@type='hidden')]",
         "input.x-form-text:visible",
         "input[type='text']:visible",
