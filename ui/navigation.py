@@ -95,7 +95,6 @@ class NavigationManager:
                     app_log("⚠️ Menu went stale while clicking match.")
                     return False
                 self._post_selection_adjustments(normalized_match)
-                WaitUtils.wait_brief(self.page)
                 try:
                     if "rf menu" in normalized_match:
                         self.maximize_rf_window()
@@ -429,7 +428,7 @@ class NavigationManager:
         """Ensure the RF Menu window uses most of the viewport height and aligns with non-RF origin."""
         try:
             rf_window = self.page.locator("div.x-window:has-text('RF Menu')").last
-            rf_window.wait_for(state="visible", timeout=3000)
+            rf_window.wait_for(state="visible", timeout=1000)
         except Exception:
             return False
 
