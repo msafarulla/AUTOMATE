@@ -1,6 +1,7 @@
 import os
 from dataclasses import dataclass, field
 import ctypes
+import random
 
 from DB import DB
 from core.logger import app_log, set_general_verbose, set_rf_verbose
@@ -8,6 +9,7 @@ from core.logger import app_log, set_general_verbose, set_rf_verbose
 # Sensible fallbacks when detection is unavailable (e.g. headless CI)
 DEFAULT_SCREEN_WIDTH = 1920
 DEFAULT_SCREEN_HEIGHT = 1080
+WAREHOUSE_CHOICES = ["AUR", "COP", "DOU", "FLO", "LEB", "ONT", "PLO", "SDC"]
 
 
 def detect_screen_metrics():
@@ -82,6 +84,11 @@ def _env_flag(name: str, default: bool) -> bool:
     return value.strip().lower() in {"1", "true", "yes", "on", "y"}
 
 
+def _random_default_warehouse() -> str:
+    """Pick a default warehouse from the allowed list."""
+    return random.choice(WAREHOUSE_CHOICES)
+
+
 @dataclass
 class StepNames:
     """Configurable stage identifiers used across workflows."""
@@ -106,7 +113,7 @@ class BrowserConfig:
 @dataclass
 class AppConfig:
     credentials_env: str = "dev"
-    change_warehouse: str = "SDC"
+    change_warehouse: str = field(default_factory=_random_default_warehouse)
     timeout_default: int = 6000
     check_interval: int = 200
     post_message_text: str = """place holder"""
