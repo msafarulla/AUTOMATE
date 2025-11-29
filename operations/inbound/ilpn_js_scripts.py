@@ -261,163 +261,25 @@ TAB_DIAGNOSTIC_SCRIPT = """
 }
 """
 
-# Tab click via JS - Enhanced bulletproof version
+# Tab click via JS
 TAB_CLICK_SCRIPT = """
 (tabName) => {
-    const log = [];
+    const allElements = Array.from(document.querySelectorAll('*'));
 
-    // Helper: Try ExtJS component method first (most reliable for ExtJS tabs)
-    const tryExtJSTab = () => {
-        if (!window.Ext?.ComponentQuery) return null;
-
+    for (const el of allElements) {
+        const text = (el.textContent || '').trim();
+        if (text !== tabName) continue;
+        
         try {
-            // Find tab panels
-            const tabPanels = Ext.ComponentQuery.query('tabpanel');
-            log.push(`Found ${tabPanels.length} ExtJS tabpanels`);
-
-            for (const panel of tabPanels) {
-                if (panel.isHidden?.() || panel.isDestroyed?.()) continue;
-
-                // Try to find tab by title
-                const items = panel.items?.items || [];
-                for (const item of items) {
-                    const title = item.title || item.tab?.text || '';
-                    if (title === tabName || title.startsWith(tabName)) {
-                        log.push(`Found ExtJS tab: ${title}`);
-                        try {
-                            panel.setActiveTab?.(item);
-                            return { success: true, method: 'extjs-setActiveTab', text: title };
-                        } catch (e) {
-                            log.push(`ExtJS setActiveTab failed: ${e.message}`);
-                        }
-                    }
-                }
-            }
-        } catch (e) {
-            log.push(`ExtJS query failed: ${e.message}`);
-        }
-        return null;
-    };
-
-    // Helper: Comprehensive click with all event types
-    const fireAllEvents = (el) => {
-        try {
-            el.scrollIntoView({ block: 'center', behavior: 'instant' });
-        } catch (e) {}
-
-        // Wait a tick for scroll to complete
-        const rect = el.getBoundingClientRect();
-        const x = rect.left + rect.width / 2;
-        const y = rect.top + rect.height / 2;
-
-        const events = [
-            new MouseEvent('mousedown', { bubbles: true, cancelable: true, clientX: x, clientY: y }),
-            new MouseEvent('mouseup', { bubbles: true, cancelable: true, clientX: x, clientY: y }),
-            new MouseEvent('click', { bubbles: true, cancelable: true, clientX: x, clientY: y }),
-        ];
-
-        try {
-            // Focus the element first
-            if (el.focus) el.focus();
-        } catch (e) {}
-
-        for (const evt of events) {
-            try {
-                el.dispatchEvent(evt);
-            } catch (e) {}
-        }
-
-        // Also try direct click
-        try {
+            el.scrollIntoView({ block: 'center' });
             el.click();
-        } catch (e) {}
-    };
-
-    // Strategy 1: Try ExtJS native method first
-    const extResult = tryExtJSTab();
-    if (extResult) return { ...extResult, log };
-
-    // Strategy 2: Find tab elements with specific selectors
-    const tabSelectors = [
-        '[role="tab"]',
-        '.x-tab',
-        '.x-tab-strip-text',
-        'span.x-tab-strip-text',
-        '.x-tab-strip-closable',
-        'li[class*="x-tab"]',
-        'span[class*="tab"]',
-    ];
-
-    for (const selector of tabSelectors) {
-        const candidates = Array.from(document.querySelectorAll(selector));
-        log.push(`Selector ${selector}: found ${candidates.length}`);
-
-        for (const el of candidates) {
-            const text = (el.textContent || '').replace(/\\s+/g, ' ').trim();
-            if (text === tabName || text.startsWith(tabName + ' ') || text.startsWith(tabName)) {
-                const style = window.getComputedStyle(el);
-                if (style.display === 'none' || style.visibility === 'hidden') continue;
-
-                log.push(`Matched via selector ${selector}: "${text}"`);
-                fireAllEvents(el);
-
-                // Also try parent elements (sometimes the span is inside the clickable element)
-                let parent = el.parentElement;
-                let attempts = 0;
-                while (parent && attempts < 3) {
-                    fireAllEvents(parent);
-                    parent = parent.parentElement;
-                    attempts++;
-                }
-
-                return { success: true, tag: el.tagName, text, strategy: selector, log };
-            }
+            return { success: true, tag: el.tagName, text: text };
+        } catch (e) {
+            el.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+            return { success: true, tag: el.tagName, text: text, method: 'dispatch' };
         }
     }
 
-    // Strategy 3: Text search with size heuristics
-    const walker = document.createTreeWalker(
-        document.body,
-        NodeFilter.SHOW_TEXT,
-        null
-    );
-
-    const textMatches = new Set();
-    let node;
-    while (node = walker.nextNode()) {
-        const text = node.textContent.replace(/\\s+/g, ' ').trim();
-        if (text === tabName) {
-            textMatches.add(node.parentElement);
-        }
-    }
-
-    log.push(`Text search found ${textMatches.size} matches`);
-
-    for (const el of textMatches) {
-        if (!el) continue;
-
-        const rect = el.getBoundingClientRect();
-        const style = window.getComputedStyle(el);
-
-        // Tab heuristics: reasonable size, visible, likely clickable
-        if (rect.width < 20 || rect.width > 300 || rect.height < 10 || rect.height > 100) continue;
-        if (style.display === 'none' || style.visibility === 'hidden') continue;
-
-        log.push(`Text match: ${el.tagName} ${rect.width}x${rect.height}`);
-        fireAllEvents(el);
-
-        // Try ancestors
-        let parent = el.parentElement;
-        let attempts = 0;
-        while (parent && attempts < 2) {
-            fireAllEvents(parent);
-            parent = parent.parentElement;
-            attempts++;
-        }
-
-        return { success: true, tag: el.tagName, text: tabName, strategy: 'text-search', log };
-    }
-
-    return { success: false, reason: 'not found', tabName, log };
+    return { success: false, reason: 'not found' };
 }
 """

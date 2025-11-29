@@ -297,10 +297,6 @@ class TabNavigator:
     def click_detail_tabs(target, config: TabClickConfig) -> bool:
         """Click through all visible iLPN detail tabs sequentially."""
         TabNavigator.diagnose_tabs(target)
-
-        # Wait for tab panel to be ready
-        app_log("⏳ Waiting for tab panel to be fully loaded...")
-        TabNavigator._wait_for_tab_panel_ready(target)
         WaitUtils.wait_brief(target)
 
         app_log("🎯 Starting tab clicking process...")
@@ -309,7 +305,7 @@ class TabNavigator:
         use_page = getattr(target, "page", None) or target
         base_note = config.operation_note or "iLPN detail tab"
         tab_images: list[bytes] = []
-
+        
         ViewStabilizer.maximize_page_for_capture(use_page)
 
         for tab_name in TabNavigator.TAB_NAMES:
@@ -317,22 +313,9 @@ class TabNavigator:
             clicked = TabNavigator._click_single_tab(
                 tab_name, frames_to_try, config.click_timeout_ms
             )
-
+            
             if clicked:
-                # Wait for ExtJS to process the tab change and load content
-                app_log(f"  ⏳ Waiting for tab '{tab_name}' content to load...")
-
-                # Wait for loading mask to clear
-                ViewStabilizer.wait_for_ext_mask(target, timeout_ms=3000)
-
-                # Wait for DOM to stabilize after tab change
-                ViewStabilizer.wait_for_stable_view(target, stable_samples=2, interval_ms=300, timeout_ms=4000)
-
-                # Additional brief wait for any animations
                 WaitUtils.wait_brief(target)
-
-                app_log(f"  ✅ Tab '{tab_name}' clicked and waited for content")
-
                 if config.screenshot_mgr:
                     try:
                         img_bytes = use_page.screenshot(full_page=True, type="jpeg")
@@ -352,49 +335,6 @@ class TabNavigator:
         return True
 
     @staticmethod
-    def _wait_for_tab_panel_ready(target, timeout_ms: int = 5000) -> bool:
-        """Wait for ExtJS tab panel to be fully rendered and ready."""
-        deadline = time.time() + timeout_ms / 1000
-
-        while time.time() < deadline:
-            try:
-                # Check if ExtJS tab panel exists and is rendered
-                result = target.evaluate("""
-                    () => {
-                        if (!window.Ext?.ComponentQuery) return { ready: false, reason: 'no-extjs' };
-
-                        const tabPanels = Ext.ComponentQuery.query('tabpanel');
-                        if (!tabPanels.length) return { ready: false, reason: 'no-tabpanel' };
-
-                        for (const panel of tabPanels) {
-                            if (panel.isHidden?.() || panel.isDestroyed?.()) continue;
-                            if (!panel.rendered) continue;
-
-                            const items = panel.items?.items || [];
-                            if (items.length > 0) {
-                                return { ready: true, tabCount: items.length, panelId: panel.id };
-                            }
-                        }
-
-                        return { ready: false, reason: 'no-tabs' };
-                    }
-                """)
-
-                if result and result.get('ready'):
-                    app_log(f"  ✅ Tab panel ready with {result.get('tabCount', 0)} tabs")
-                    return True
-
-                app_log(f"  ⏳ Tab panel not ready yet: {result.get('reason', 'unknown')}")
-
-            except Exception as e:
-                app_log(f"  ⚠️ Tab panel check failed: {e}")
-
-            WaitUtils.wait_brief(target)
-
-        app_log("  ⚠️ Tab panel did not become ready in time, proceeding anyway")
-        return False
-
-    @staticmethod
     def _collect_frames(target) -> list:
         """Collect all frames to try for tab clicking."""
         frames_to_try = [target]
@@ -411,34 +351,22 @@ class TabNavigator:
 
     @staticmethod
     def _click_single_tab(tab_name: str, frames: list, timeout_ms: int) -> bool:
-        """Attempt to click a single tab across all frames with retry logic."""
-        max_retries = 3
+        """Attempt to click a single tab across all frames."""
+        for frame_idx, page_target in enumerate(frames):
+            try:
+                app_log(f"  🎯 Trying in frame {frame_idx}...")
 
-        for retry in range(max_retries):
-            if retry > 0:
-                wait_time = min(500 * (2 ** (retry - 1)), 2000)  # Exponential backoff: 500ms, 1000ms, 2000ms
-                app_log(f"  🔄 Retry {retry}/{max_retries}, waiting {wait_time}ms...")
-                time.sleep(wait_time / 1000)
+                # Strategy 1: Playwright text matching
+                if TabNavigator._try_playwright_click(page_target, tab_name, timeout_ms):
+                    return True
 
-            for frame_idx, page_target in enumerate(frames):
-                try:
-                    app_log(f"  🎯 Trying in frame {frame_idx} (attempt {retry + 1})...")
+                # Strategy 2: JavaScript evaluation
+                if TabNavigator._try_js_click(page_target, tab_name):
+                    return True
 
-                    # Strategy 1: JavaScript evaluation (try ExtJS first, then DOM)
-                    result = TabNavigator._try_js_click(page_target, tab_name)
-                    if result:
-                        app_log(f"  ✅ Tab clicked successfully via JS in frame {frame_idx}")
-                        return True
+            except Exception as e:
+                app_log(f"  ❌ Frame {frame_idx} failed: {e}")
 
-                    # Strategy 2: Playwright text matching (fallback)
-                    if TabNavigator._try_playwright_click(page_target, tab_name, timeout_ms):
-                        app_log(f"  ✅ Tab clicked successfully via Playwright in frame {frame_idx}")
-                        return True
-
-                except Exception as e:
-                    app_log(f"  ⚠️ Frame {frame_idx} attempt {retry + 1} failed: {e}")
-
-        app_log(f"  ❌ Failed to click tab '{tab_name}' after {max_retries} retries across all frames")
         return False
 
     @staticmethod
@@ -467,21 +395,12 @@ class TabNavigator:
         """Try clicking tab using JavaScript evaluation."""
         try:
             result = page_target.evaluate(TAB_CLICK_SCRIPT, tab_name)
-
-            # Log detailed diagnostics
-            if result.get('log'):
-                for log_entry in result['log']:
-                    app_log(f"      📝 JS: {log_entry}")
-
             if result.get('success'):
-                method = result.get('method') or result.get('strategy', 'unknown')
-                app_log(f"    ✅ JS click succeeded via {method}: {result.get('text', tab_name)}")
+                app_log(f"    ✅ JS click succeeded: {result}")
                 return True
-            else:
-                reason = result.get('reason', 'unknown')
-                app_log(f"    ⚠️ JS click failed: {reason}")
+            app_log(f"    ⚠️ JS click failed: {result}")
         except Exception as e:
-            app_log(f"    ⚠️ JS strategy exception: {e}")
+            app_log(f"    ⚠️ JS strategy failed: {e}")
         return False
 
     @staticmethod
@@ -608,7 +527,6 @@ class FilteredRowOpener:
         screenshot_mgr: ScreenshotManager | None = None,
         *,
         tab_click_timeout_ms: int | None = None,
-        drill_detail: bool = False,
     ) -> bool:
         """Open the filtered iLPN row."""
         app_log("🔍 Checking filtered iLPN results (no long wait)...")
@@ -624,8 +542,7 @@ class FilteredRowOpener:
         # Fast path: DOM scan
         if DOMRowOpener.open_ilpn_row(target, ilpn):
             WaitUtils.wait_brief(target)
-            if drill_detail:
-                TabNavigator.click_detail_tabs(target, tab_config)
+            TabNavigator.click_detail_tabs(target, tab_config)
             return True
 
         # Detect row count
@@ -635,20 +552,18 @@ class FilteredRowOpener:
         if row_count == 1 and ExtJSGridHelper.open_first_row(target):
             app_log("✅ Opened single iLPN row via ExtJS API")
             WaitUtils.wait_brief(target)
-            if drill_detail:
-                TabNavigator.click_detail_tabs(target, tab_config)
+            TabNavigator.click_detail_tabs(target, tab_config)
             return True
 
         # DOM fallback retry
         if DOMRowOpener.open_ilpn_row(target, ilpn):
             WaitUtils.wait_brief(target)
-            if drill_detail:
-                TabNavigator.click_detail_tabs(target, tab_config)
+            TabNavigator.click_detail_tabs(target, tab_config)
             return True
 
         # Final locator-based attempt
         if row_count == 1 and rows_locator:
-            if FilteredRowOpener._try_locator_open(target, rows_locator, tab_config, tab_click_timeout_ms, drill_detail):
+            if FilteredRowOpener._try_locator_open(target, rows_locator, tab_config, tab_click_timeout_ms):
                 return True
 
         rf_log(f"❌ Unable to open the filtered iLPN row (row_count={row_count})")
@@ -691,7 +606,7 @@ class FilteredRowOpener:
         return row_count, rows_locator
 
     @staticmethod
-    def _try_locator_open(target, rows_locator, tab_config: TabClickConfig, timeout_ms: int | None, drill_detail: bool) -> bool:
+    def _try_locator_open(target, rows_locator, tab_config: TabClickConfig, timeout_ms: int | None) -> bool:
         """Try opening row using locator-based methods."""
         row = rows_locator.first
         try:
@@ -709,7 +624,7 @@ class FilteredRowOpener:
             lambda: row.press("Space"),
             lambda: target.keyboard.press("Enter"),
         ]
-
+        
         for idx, attempt in enumerate(open_attempts):
             try:
                 attempt()
@@ -718,13 +633,12 @@ class FilteredRowOpener:
                     app_log("⚠️ Detail view not stable after open; retrying")
                     continue
                 WaitUtils.wait_brief(target)
-                if drill_detail:
-                    TabNavigator.click_detail_tabs(target, tab_config)
+                TabNavigator.click_detail_tabs(target, tab_config)
                 ViewStabilizer.wait_for_stable_view(target)
                 return True
             except Exception as exc:
                 app_log(f"➖ Row open attempt {idx + 1} did not succeed: {exc}")
-
+                
         return False
 
 
@@ -744,20 +658,19 @@ class ILPNFilterFiller:
         screenshot_mgr: ScreenshotManager | None = None,
         *,
         tab_click_timeout_ms: int | None = None,
-        drill_detail: bool = False,
     ) -> bool:
         """Populate the iLPN quick filter and open the matching row."""
         target_frame = FrameFinder.find_ilpn_frame(page)
         target = target_frame or page
-
+        
         if not target_frame:
             rf_log("⚠️ Could not locate dedicated iLPNs frame, using active page as fallback.")
 
         filter_triggered = ILPNFilterFiller._fill_input(target, ilpn)
-
+        
         if not filter_triggered:
             filter_triggered = ILPNFilterFiller._try_hidden_fill(target, ilpn)
-
+            
         if not filter_triggered:
             rf_log("❌ Unable to trigger iLPN filter apply")
             return False
@@ -767,7 +680,6 @@ class ILPNFilterFiller:
             ilpn,
             screenshot_mgr=screenshot_mgr,
             tab_click_timeout_ms=tab_click_timeout_ms,
-            drill_detail=drill_detail,
         )
 
     @staticmethod
@@ -873,14 +785,13 @@ def fill_ilpn_filter(
     screenshot_mgr: ScreenshotManager | None = None,
     *,
     tab_click_timeout_ms: int | None = None,
-    drill_detail: bool = False,
 ) -> bool:
     """Populate the iLPN quick filter and open the matching row.
-
+    
     This is the main public API - maintains backward compatibility.
     """
     return ILPNFilterFiller.fill_filter(
-        page, ilpn, screenshot_mgr, tab_click_timeout_ms=tab_click_timeout_ms, drill_detail=drill_detail
+        page, ilpn, screenshot_mgr, tab_click_timeout_ms=tab_click_timeout_ms
     )
 
 
