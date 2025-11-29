@@ -705,8 +705,8 @@ class ILPNFilterFiller:
 
         # Wait for the iLPN UI to fully load before attempting to fill
         app_log("⏳ Waiting for iLPN UI to load...")
-        ViewStabilizer.wait_for_ext_mask(target, timeout_ms=5000)
-        ViewStabilizer.wait_for_stable_view(target, stable_samples=2, timeout_ms=5000)
+        ViewStabilizer.wait_for_ext_mask(target, timeout_ms=8000)
+        ViewStabilizer.wait_for_stable_view(target, stable_samples=2, timeout_ms=8000)
 
         # Retry mechanism for filling the filter
         filter_triggered = False
