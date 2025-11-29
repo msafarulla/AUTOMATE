@@ -264,22 +264,50 @@ TAB_DIAGNOSTIC_SCRIPT = """
 # Tab click via JS
 TAB_CLICK_SCRIPT = """
 (tabName) => {
-    const allElements = Array.from(document.querySelectorAll('*'));
+    // Strategy 1: Look for tab-like elements with role or class
+    const tabCandidates = Array.from(document.querySelectorAll(
+        '[role="tab"], .x-tab, .tab, .x-tab-strip-text, span[class*="tab"]'
+    ));
 
-    for (const el of allElements) {
+    for (const el of tabCandidates) {
         const text = (el.textContent || '').trim();
-        if (text !== tabName) continue;
-        
-        try {
-            el.scrollIntoView({ block: 'center' });
-            el.click();
-            return { success: true, tag: el.tagName, text: text };
-        } catch (e) {
-            el.dispatchEvent(new MouseEvent('click', { bubbles: true }));
-            return { success: true, tag: el.tagName, text: text, method: 'dispatch' };
+        // Check if text matches or starts with tab name
+        if (text === tabName || text.startsWith(tabName + ' ') || text.startsWith(tabName)) {
+            try {
+                el.scrollIntoView({ block: 'center' });
+                el.click();
+                return { success: true, tag: el.tagName, text: text, strategy: 'tab-element' };
+            } catch (e) {
+                try {
+                    el.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+                    return { success: true, tag: el.tagName, text: text, method: 'dispatch', strategy: 'tab-element' };
+                } catch (e2) {}
+            }
         }
     }
 
-    return { success: false, reason: 'not found' };
+    // Strategy 2: Broader search for exact text match
+    const allElements = Array.from(document.querySelectorAll('*'));
+    for (const el of allElements) {
+        const text = (el.textContent || '').trim();
+        if (text !== tabName) continue;
+
+        const rect = el.getBoundingClientRect();
+        // Skip elements that are too large or invisible
+        if (rect.width > 500 || rect.height > 150 || rect.width < 10) continue;
+
+        try {
+            el.scrollIntoView({ block: 'center' });
+            el.click();
+            return { success: true, tag: el.tagName, text: text, strategy: 'exact-match' };
+        } catch (e) {
+            try {
+                el.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+                return { success: true, tag: el.tagName, text: text, method: 'dispatch', strategy: 'exact-match' };
+            } catch (e2) {}
+        }
+    }
+
+    return { success: false, reason: 'not found', tabName: tabName };
 }
 """
