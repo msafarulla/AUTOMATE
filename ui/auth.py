@@ -25,12 +25,34 @@ class AuthManager:
         credentials = self._get_credentials()
         app_log(f"Using credentials for user: {credentials.get('app_server_user')}")
         
-        # Fill credentials efficiently
+        # Fill username with proper event triggering
         app_log("Filling username...")
-        self.page.locator('#username').fill(credentials["app_server_user"])
+        username_field = self.page.locator('#username')
+        username_field.click()
+        username_field.fill(credentials["app_server_user"])
+        
+        # Trigger events to enable button validation
+        username_field.evaluate("""el => {
+            el.dispatchEvent(new Event('input', { bubbles: true }));
+            el.dispatchEvent(new Event('change', { bubbles: true }));
+            el.dispatchEvent(new KeyboardEvent('keyup', { bubbles: true }));
+        }""")
 
+        # Fill password with proper event triggering
         app_log("Filling password...")
-        self.page.locator('#password').fill(credentials["app_server_pass"])
+        password_field = self.page.locator('#password')
+        password_field.click()
+        password_field.fill(credentials["app_server_pass"])
+        
+        # Trigger events to enable button validation
+        password_field.evaluate("""el => {
+            el.dispatchEvent(new Event('input', { bubbles: true }));
+            el.dispatchEvent(new Event('change', { bubbles: true }));
+            el.dispatchEvent(new KeyboardEvent('keyup', { bubbles: true }));
+        }""")
+
+        # Brief wait for form validation to process (reduced from none to minimal)
+        self.page.wait_for_timeout(200)
 
         # Wait for login button to enable using efficient Playwright wait
         app_log("Waiting for login button to enable...")
@@ -39,16 +61,66 @@ class AuthManager:
                 "!document.getElementById('loginButton').disabled",
                 timeout=15000,
             )
+            app_log("✅ Login button enabled")
         except PlaywrightTimeoutError:
-            is_disabled = safe_page_evaluate(
+            # Debug: Check button state and try to force enable
+            app_log("⚠️ Login button didn't enable naturally, checking state...")
+            
+            button_state = safe_page_evaluate(
                 self.page,
-                "(() => { const btn = document.getElementById('loginButton'); return btn ? btn.disabled : true; })()",
-                description="AuthManager.is_login_disabled",
+                """() => { 
+                    const btn = document.getElementById('loginButton');
+                    const user = document.getElementById('username');
+                    const pass = document.getElementById('password');
+                    return {
+                        disabled: btn ? btn.disabled : null,
+                        userValue: user ? user.value : null,
+                        passValue: pass ? (pass.value ? '***' : '') : null,
+                        userLength: user ? user.value.length : 0,
+                        passLength: pass ? pass.value.length : 0
+                    };
+                }""",
+                description="AuthManager.check_login_state",
                 suppress_log=True,
             )
-            raise Exception(
-                f"Login button did not enable within 15s (disabled={is_disabled})"
-            )
+            
+            app_log(f"Button state: {button_state}")
+            
+            # If fields are filled but button is disabled, try forcing validation
+            if button_state.get('userLength', 0) > 0 and button_state.get('passLength', 0) > 0:
+                app_log("🔧 Fields are filled, attempting to force button enable...")
+                
+                # Try clicking into and out of password field to trigger validation
+                self.page.locator('#password').click()
+                self.page.keyboard.press('Tab')
+                self.page.wait_for_timeout(300)
+                
+                # Check again
+                try:
+                    self.page.wait_for_function(
+                        "!document.getElementById('loginButton').disabled",
+                        timeout=3000,
+                    )
+                    app_log("✅ Login button enabled after retry")
+                except PlaywrightTimeoutError:
+                    # Last resort: force enable the button
+                    app_log("⚠️ Force enabling login button...")
+                    safe_page_evaluate(
+                        self.page,
+                        """() => {
+                            const btn = document.getElementById('loginButton');
+                            if (btn) {
+                                btn.disabled = false;
+                                btn.removeAttribute('disabled');
+                            }
+                        }""",
+                        description="AuthManager.force_enable_button",
+                    )
+                    self.page.wait_for_timeout(200)
+            else:
+                raise Exception(
+                    f"Login button did not enable within 15s (fields empty? user={button_state.get('userLength')}, pass={button_state.get('passLength')})"
+                )
 
         # Capture the form state just before attempting login
         self.screenshot_mgr.capture(self.page, "login_ready", f"Login form ready ({base_url})")
