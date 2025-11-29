@@ -546,9 +546,9 @@ class FilteredRowOpener:
         # Fast path: DOM scan
         if DOMRowOpener.open_ilpn_row(target, ilpn):
             if drill_detail:
-                # Wait for detail window to load before clicking tabs
-                ViewStabilizer.wait_for_ext_mask(target, timeout_ms=3000)
-                ViewStabilizer.wait_for_stable_view(target, stable_samples=2, timeout_ms=3000)
+                # Wait for detail window to load before clicking tabs (reduced waits)
+                ViewStabilizer.wait_for_ext_mask(target, timeout_ms=2000)
+                ViewStabilizer.wait_for_stable_view(target, stable_samples=1, timeout_ms=2000)
                 TabNavigator.click_detail_tabs(target, tab_config)
             return True
 
@@ -559,18 +559,18 @@ class FilteredRowOpener:
         if row_count == 1 and ExtJSGridHelper.open_first_row(target):
             app_log("✅ Opened single iLPN row via ExtJS API")
             if drill_detail:
-                # Wait for detail window to load before clicking tabs
-                ViewStabilizer.wait_for_ext_mask(target, timeout_ms=3000)
-                ViewStabilizer.wait_for_stable_view(target, stable_samples=2, timeout_ms=3000)
+                # Wait for detail window to load before clicking tabs (reduced waits)
+                ViewStabilizer.wait_for_ext_mask(target, timeout_ms=2000)
+                ViewStabilizer.wait_for_stable_view(target, stable_samples=1, timeout_ms=2000)
                 TabNavigator.click_detail_tabs(target, tab_config)
             return True
 
         # DOM fallback retry
         if DOMRowOpener.open_ilpn_row(target, ilpn):
             if drill_detail:
-                # Wait for detail window to load before clicking tabs
-                ViewStabilizer.wait_for_ext_mask(target, timeout_ms=3000)
-                ViewStabilizer.wait_for_stable_view(target, stable_samples=2, timeout_ms=3000)
+                # Wait for detail window to load before clicking tabs (reduced waits)
+                ViewStabilizer.wait_for_ext_mask(target, timeout_ms=2000)
+                ViewStabilizer.wait_for_stable_view(target, stable_samples=1, timeout_ms=2000)
                 TabNavigator.click_detail_tabs(target, tab_config)
             return True
 
@@ -642,14 +642,13 @@ class FilteredRowOpener:
             try:
                 attempt()
                 app_log("✅ Opened single iLPN row to view details")
-                # Wait for detail window to fully load
-                ViewStabilizer.wait_for_ext_mask(target, timeout_ms=3000)
-                if not ViewStabilizer.wait_for_stable_view(target):
+                # Wait for detail window to fully load (reduced waits)
+                ViewStabilizer.wait_for_ext_mask(target, timeout_ms=2000)
+                if not ViewStabilizer.wait_for_stable_view(target, stable_samples=1, timeout_ms=2000):
                     app_log("⚠️ Detail view not stable after open; retrying")
                     continue
                 if drill_detail:
                     TabNavigator.click_detail_tabs(target, tab_config)
-                ViewStabilizer.wait_for_stable_view(target)
                 return True
             except Exception as exc:
                 app_log(f"➖ Row open attempt {idx + 1} did not succeed: {exc}")
@@ -682,17 +681,16 @@ class ILPNFilterFiller:
         if not target_frame:
             rf_log("⚠️ Could not locate dedicated iLPNs frame, using active page as fallback.")
 
-        # Wait for the iLPN UI to fully load before attempting to fill
-        app_log("⏳ Waiting for iLPN UI to load...")
-        ViewStabilizer.wait_for_ext_mask(target, timeout_ms=5000)
-        ViewStabilizer.wait_for_stable_view(target, stable_samples=2, timeout_ms=5000)
+        # Wait for the iLPN UI to fully load before attempting to fill (reduced timeouts)
+        ViewStabilizer.wait_for_ext_mask(target, timeout_ms=3000)
+        ViewStabilizer.wait_for_stable_view(target, stable_samples=2, timeout_ms=3000)
 
         # Retry mechanism for filling the filter
         filter_triggered = False
         for attempt in range(2):
             if attempt > 0:
                 app_log(f"🔄 Retry attempt {attempt + 1} to fill iLPN filter...")
-                ViewStabilizer.wait_for_ext_mask(target, timeout_ms=3000)
+                ViewStabilizer.wait_for_ext_mask(target, timeout_ms=2000)
                 WaitUtils.wait_brief(target)
 
             filter_triggered = ILPNFilterFiller._fill_input(target, ilpn)

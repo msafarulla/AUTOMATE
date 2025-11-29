@@ -172,16 +172,13 @@ def run_open_ui_detours(
 
         # Expand the detour window for better visibility/capture.
         try:
-            WaitUtils.wait_brief(use_page)
             use_nav.maximize_non_rf_windows()
         except Exception:
             pass
 
-        # Wait for the opened window/UI to fully load
+        # Wait for the opened window/UI to fully load (reduced timeout - only waits if mask present)
         try:
-            app_log("⏳ Waiting for opened UI to fully load...")
-            WaitUtils.wait_for_mask_clear(use_page, timeout_ms=5000)
-            WaitUtils.wait_brief(use_page)
+            WaitUtils.wait_for_mask_clear(use_page, timeout_ms=3000)
         except Exception:
             pass
 
