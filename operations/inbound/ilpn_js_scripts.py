@@ -264,120 +264,50 @@ TAB_DIAGNOSTIC_SCRIPT = """
 # Tab click via JS
 TAB_CLICK_SCRIPT = """
 (tabName) => {
-    const tryClickElement = (el, strategy) => {
-        // Try the element and its parents (up to 3 levels)
-        const candidates = [el];
-        let parent = el.parentElement;
-        for (let i = 0; i < 3 && parent; i++) {
-            candidates.push(parent);
-            parent = parent.parentElement;
-        }
+    // Strategy 1: Look for tab-like elements with role or class
+    const tabCandidates = Array.from(document.querySelectorAll(
+        '[role="tab"], .x-tab, .tab, .x-tab-strip-text, span[class*="tab"]'
+    ));
 
-        for (let idx = 0; idx < candidates.length; idx++) {
-            const candidate = candidates[idx];
-            const isParent = idx > 0;
-
+    for (const el of tabCandidates) {
+        const text = (el.textContent || '').trim();
+        // Check if text matches or starts with tab name
+        if (text === tabName || text.startsWith(tabName + ' ') || text.startsWith(tabName)) {
             try {
-                candidate.scrollIntoView({ block: 'center' });
-                candidate.click();
-                return {
-                    success: true,
-                    tag: candidate.tagName,
-                    cls: candidate.className || '',
-                    strategy: strategy,
-                    clickedParent: isParent,
-                    parentLevel: idx
-                };
+                el.scrollIntoView({ block: 'center' });
+                el.click();
+                return { success: true, tag: el.tagName, text: text, strategy: 'tab-element' };
             } catch (e) {
-                // Click failed, try dispatch
-            }
-
-            try {
-                candidate.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
-                return {
-                    success: true,
-                    tag: candidate.tagName,
-                    method: 'dispatch',
-                    strategy: strategy,
-                    clickedParent: isParent,
-                    parentLevel: idx
-                };
-            } catch (e) {
-                // Dispatch failed, try next candidate
+                try {
+                    el.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+                    return { success: true, tag: el.tagName, text: text, method: 'dispatch', strategy: 'tab-element' };
+                } catch (e2) {}
             }
         }
-
-        return null;
-    };
-
-    // Collect all documents (main + iframes)
-    const docs = [document];
-    try {
-        Array.from(document.querySelectorAll('iframe')).forEach(ifr => {
-            try {
-                if (ifr.contentDocument) docs.push(ifr.contentDocument);
-            } catch (e) {}
-        });
-    } catch (e) {}
-
-    // Strategy 1: ExtJS tab components
-    try {
-        if (window.Ext && window.Ext.ComponentQuery) {
-            const tabs = Ext.ComponentQuery.query('tab') || [];
-            for (const tab of tabs) {
-                try {
-                    const text = (tab.text || tab.title || '').trim();
-                    if (text === tabName || text.startsWith(tabName + ' ') || text.startsWith(tabName)) {
-                        if (tab.show) tab.show();
-                        const el = (tab.getEl && tab.getEl().dom) || (tab.el && tab.el.dom);
-                        if (el) {
-                            const result = tryClickElement(el, 'extjs-component');
-                            if (result && result.success) return result;
-                        }
-                    }
-                } catch (e) {}
-            }
-        }
-    } catch (e) {}
-
-    // Strategy 2: Look for tab-like elements in all documents
-    for (const doc of docs) {
-        try {
-            const tabCandidates = Array.from(doc.querySelectorAll(
-                '[role="tab"], .x-tab, .tab, .x-tab-strip-text, span[class*="tab"], em[class*="tab"]'
-            ));
-
-            for (const el of tabCandidates) {
-                try {
-                    const text = (el.textContent || '').trim();
-                    if (text === tabName || text.startsWith(tabName + ' ') || text.startsWith(tabName)) {
-                        const result = tryClickElement(el, 'tab-element');
-                        if (result && result.success) return result;
-                    }
-                } catch (e) {}
-            }
-        } catch (e) {}
     }
 
-    // Strategy 3: Broader search for exact text match in all documents
-    for (const doc of docs) {
+    // Strategy 2: Broader search for exact text match
+    const allElements = Array.from(document.querySelectorAll('*'));
+    for (const el of allElements) {
+        const text = (el.textContent || '').trim();
+        if (text !== tabName) continue;
+
+        const rect = el.getBoundingClientRect();
+        // Skip elements that are too large or invisible
+        if (rect.width > 500 || rect.height > 150 || rect.width < 10) continue;
+
         try {
-            const allElements = Array.from(doc.querySelectorAll('*'));
-            for (const el of allElements) {
-                try {
-                    const text = (el.textContent || '').trim();
-                    if (text !== tabName) continue;
-
-                    const rect = el.getBoundingClientRect();
-                    if (rect.width > 500 || rect.height > 150 || rect.width < 10) continue;
-
-                    const result = tryClickElement(el, 'exact-match');
-                    if (result && result.success) return result;
-                } catch (e) {}
-            }
-        } catch (e) {}
+            el.scrollIntoView({ block: 'center' });
+            el.click();
+            return { success: true, tag: el.tagName, text: text, strategy: 'exact-match' };
+        } catch (e) {
+            try {
+                el.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+                return { success: true, tag: el.tagName, text: text, method: 'dispatch', strategy: 'exact-match' };
+            } catch (e2) {}
+        }
     }
 
-    return { success: false, reason: 'not found', tabName: tabName, docsSearched: docs.length };
+    return { success: false, reason: 'not found', tabName: tabName };
 }
 """
