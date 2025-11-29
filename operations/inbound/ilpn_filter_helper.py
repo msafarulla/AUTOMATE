@@ -696,18 +696,19 @@ class ILPNFilterFiller:
         if not target_frame:
             rf_log("⚠️ Could not locate dedicated iLPNs frame, using active page as fallback.")
 
-        # Wait for the iLPN UI to fully load before attempting to fill (reduced timeouts)
-        ViewStabilizer.wait_for_ext_mask(target, timeout_ms=3000)
-        ViewStabilizer.wait_for_stable_view(target, stable_samples=2, timeout_ms=3000)
+        # Wait for the iLPN UI to fully load before attempting to fill
+        ViewStabilizer.wait_for_ext_mask(target, timeout_ms=4000)
+        ViewStabilizer.wait_for_stable_view(target, stable_samples=2, timeout_ms=4000)
 
-        # Retry mechanism for filling the filter
+        # Retry mechanism for filling the filter (increased to 3 attempts)
         filter_triggered = False
-        for attempt in range(2):
+        for attempt in range(3):
             if attempt > 0:
                 app_log(f"🔄 Retry attempt {attempt + 1} to fill iLPN filter...")
-                # Wait longer on retry and ensure view stabilizes
-                ViewStabilizer.wait_for_ext_mask(target, timeout_ms=3000)
-                ViewStabilizer.wait_for_stable_view(target, stable_samples=2, timeout_ms=3000)
+                # Wait progressively longer on each retry
+                wait_time = 2000 + (attempt * 1000)
+                ViewStabilizer.wait_for_ext_mask(target, timeout_ms=wait_time)
+                ViewStabilizer.wait_for_stable_view(target, stable_samples=2, timeout_ms=wait_time)
 
             filter_triggered = ILPNFilterFiller._fill_input(target, ilpn)
 
@@ -718,7 +719,7 @@ class ILPNFilterFiller:
                 break
 
         if not filter_triggered:
-            rf_log("❌ Unable to trigger iLPN filter apply after retries")
+            rf_log("❌ Unable to trigger iLPN filter apply after 3 attempts")
             return False
 
         return FilteredRowOpener.open_single_row(
