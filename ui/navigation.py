@@ -94,19 +94,159 @@ class NavigationManager:
                 except PlaywrightTimeout:
                     app_log("⚠️ Menu went stale while clicking match.")
                     return False
+                
+                # ✅ NEW: Wait for window to fully load before any adjustments
+                self._wait_for_window_ready(normalized_match)
+                
                 self._post_selection_adjustments(normalized_match)
+                
+                # ✅ NEW: Maximize with retry after confirming window is stable
                 try:
                     if "rf menu" in normalized_match:
                         self.maximize_rf_window()
                     else:
-                        self.maximize_non_rf_windows()
-                except Exception:
-                    pass
+                        self._maximize_with_wait(normalized_match)
+                except Exception as e:
+                    app_log(f"⚠️ Maximize failed: {e}")
+                
                 return True
 
         app_log(f"⚠️ No exact match found for '{match_text}'")
         app_log(f"❌ Could not find: '{match_text}'")
         return False
+    
+    def _wait_for_window_ready(self, normalized_match: str, timeout_ms: int = 5000):
+        """Wait for ExtJS window to be fully loaded and ready."""
+        from playwright.sync_api import TimeoutError as PlaywrightTimeout
+        
+        # Skip for RF menu (different handling)
+        if "rf menu" in normalized_match:
+            try:
+                # Just wait for iframe to be present
+                self.page.wait_for_selector("iframe[name*='uxiframe']", timeout=2000)
+            except:
+                pass
+            return
+        
+        try:
+            # Step 1: Wait for window element to appear
+            window_locator = self.page.locator("div.x-window:visible").last
+            window_locator.wait_for(state="visible", timeout=2000)
+            
+            # Step 2: Wait for ExtJS mask to clear (loading indicator)
+            WaitUtils.wait_for_mask_clear(self.page, timeout_ms=3000)
+            
+            # Step 3: For iLPN UI specifically, wait for grid structure
+            if "ilpn" in normalized_match.lower():
+                self._wait_for_ilpn_grid_ready(timeout_ms)
+            
+            # Step 4: Wait for window to stabilize (no more DOM changes)
+            self.page.wait_for_function(
+                """() => {
+                    const win = document.querySelector('div.x-window:not(.x-hide-display)');
+                    if (!win) return false;
+                    
+                    // Check if window has content (not just loading)
+                    const hasContent = win.querySelector('iframe, .x-grid-view, .x-panel-body');
+                    if (!hasContent) return false;
+                    
+                    // Check if ExtJS components are rendered
+                    if (window.Ext && window.Ext.ComponentQuery) {
+                        const windows = Ext.ComponentQuery.query('window{isVisible()}');
+                        if (windows.length === 0) return false;
+                        
+                        const activeWin = windows[windows.length - 1];
+                        // Check if window is fully rendered
+                        if (activeWin.rendered !== true) return false;
+                    }
+                    
+                    return true;
+                }""",
+                timeout=timeout_ms
+            )
+            
+            app_log(f"✅ Window ready: {normalized_match}")
+            
+        except PlaywrightTimeout:
+            app_log(f"⚠️ Window load timeout for {normalized_match}, continuing anyway")
+        except Exception as e:
+            app_log(f"⚠️ Error waiting for window ready: {e}")
+    
+    def _wait_for_ilpn_grid_ready(self, timeout_ms: int = 5000):
+        """Specifically wait for iLPN grid to be loaded and populated."""
+        try:
+            # Wait for grid view to appear
+            self.page.wait_for_selector(
+                "div.x-grid-view:visible, iframe[src*='LPNList']",
+                timeout=timeout_ms
+            )
+            
+            # Wait for store to load (ExtJS grid data)
+            self.page.wait_for_function(
+                """() => {
+                    if (!window.Ext || !window.Ext.ComponentQuery) return false;
+                    
+                    const grids = Ext.ComponentQuery.query('grid');
+                    if (grids.length === 0) return false;
+                    
+                    // Find visible grid
+                    const visibleGrid = grids.find(g => !g.hidden && !g.isHidden?.());
+                    if (!visibleGrid) return false;
+                    
+                    const store = visibleGrid.getStore?.();
+                    if (!store) return false;
+                    
+                    // Store should be loaded (not currently loading)
+                    return !store.isLoading?.();
+                }""",
+                timeout=timeout_ms
+            )
+            
+            app_log("✅ iLPN grid ready")
+            
+        except Exception as e:
+            app_log(f"⚠️ iLPN grid wait failed: {e}, continuing anyway")
+    
+    def _maximize_with_wait(self, normalized_match: str, max_attempts: int = 2):
+        """Maximize with retry logic in case window isn't quite ready."""
+        for attempt in range(1, max_attempts + 1):
+            try:
+                self._maximize_non_rf_windows()
+                
+                # Verify maximize worked by checking window size
+                result = self.page.evaluate("""
+                    () => {
+                        if (!window.Ext || !window.Ext.WindowManager) return false;
+                        const win = Ext.WindowManager.getActive();
+                        if (!win) return false;
+                        
+                        const width = win.getWidth?.() || 0;
+                        const height = win.getHeight?.() || 0;
+                        const viewportWidth = window.innerWidth;
+                        const viewportHeight = window.innerHeight;
+                        
+                        // Check if window is reasonably maximized (at least 80% of viewport)
+                        const widthOk = width > viewportWidth * 0.8;
+                        const heightOk = height > viewportHeight * 0.8;
+                        
+                        return widthOk && heightOk;
+                    }
+                """)
+                
+                if result:
+                    app_log(f"✅ Window maximized successfully")
+                    return
+                else:
+                    if attempt < max_attempts:
+                        app_log(f"⚠️ Maximize verification failed, retrying ({attempt}/{max_attempts})")
+                        WaitUtils.wait_brief(self.page, timeout_ms=500)
+                    
+            except Exception as e:
+                if attempt < max_attempts:
+                    app_log(f"⚠️ Maximize attempt {attempt} failed: {e}, retrying")
+                    WaitUtils.wait_brief(self.page, timeout_ms=500)
+                else:
+                    app_log(f"❌ Maximize failed after {max_attempts} attempts: {e}")
 
     def focus_window_by_title(self, title: str) -> bool:
         """Bring window with matching title to front."""

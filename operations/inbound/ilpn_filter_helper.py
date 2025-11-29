@@ -887,10 +887,91 @@ def fill_ilpn_filter(
 
     This is the main public API - maintains backward compatibility.
     """
-    return ILPNFilterFiller.fill_filter(
-        page, ilpn, screenshot_mgr, tab_click_timeout_ms=tab_click_timeout_ms, drill_detail=drill_detail
-    )
+    # ✅ NEW: Extended wait for iLPN frame on first access
+    target_frame = FrameFinder.wait_for_ilpn_frame(page, timeout_ms=15000)  # Increased from 10s
+    target = target_frame or page
 
+    if not target_frame:
+        rf_log("⚠️ Could not locate dedicated iLPNs frame, using active page as fallback.")
+
+    # ✅ NEW: More robust wait for UI to load - CRITICAL for reliability
+    app_log("⏳ Waiting for iLPN UI to fully load...")
+    
+    # Wait for ExtJS mask to clear
+    ViewStabilizer.wait_for_ext_mask(target, timeout_ms=8000)
+    
+    # ✅ NEW: Wait for grid structure to be present
+    try:
+        target.wait_for_function(
+            """() => {
+                // Check for grid view
+                const gridView = document.querySelector('div.x-grid-view, table.x-grid-table');
+                if (!gridView) return false;
+                
+                // Check for filter input
+                const filterInput = document.querySelector(
+                    "input[name*='ilpn' i], input[id*='ilpn' i], input[name*='filter' i]"
+                );
+                if (!filterInput) return false;
+                
+                // Check if ExtJS grid is ready
+                if (window.Ext && window.Ext.ComponentQuery) {
+                    const grids = Ext.ComponentQuery.query('grid');
+                    if (grids.length === 0) return false;
+                    
+                    const grid = grids.find(g => !g.hidden);
+                    if (!grid) return false;
+                    
+                    const store = grid.getStore?.();
+                    if (store && store.isLoading?.()) return false;  // Still loading
+                }
+                
+                return true;
+            }""",
+            timeout=8000
+        )
+        app_log("✅ iLPN grid structure confirmed ready")
+    except Exception as e:
+        app_log(f"⚠️ Grid structure check timeout: {e}, attempting to continue")
+    
+    # Wait for view to stabilize
+    ViewStabilizer.wait_for_stable_view(target, stable_samples=2, timeout_ms=8000)
+
+    # Retry mechanism for filling the filter
+    filter_triggered = False
+    for attempt in range(3):  # Increased from 2 to 3 attempts
+        if attempt > 0:
+            app_log(f"🔄 Retry attempt {attempt + 1} to fill iLPN filter...")
+            ViewStabilizer.wait_for_ext_mask(target, timeout_ms=3000)
+            WaitUtils.wait_brief(target, timeout_ms=500)
+
+        filter_triggered = ILPNFilterFiller._fill_input(target, ilpn)
+
+        if not filter_triggered:
+            filter_triggered = ILPNFilterFiller._try_hidden_fill(target, ilpn)
+
+        # If input was not found on first attempt, re-scan frames in case the UI finished loading late.
+        if not filter_triggered and attempt < 2:  # Changed from attempt == 0
+            refreshed = FrameFinder.wait_for_ilpn_frame(page, timeout_ms=5000)
+            if refreshed and refreshed is not target_frame:
+                app_log("ℹ️ Switching to newly detected iLPN frame for retry")
+                target_frame = refreshed
+                target = target_frame or page
+
+        if filter_triggered:
+            break
+
+    if not filter_triggered:
+        rf_log("❌ Unable to trigger iLPN filter apply after retries")
+        return False
+
+    return FilteredRowOpener.open_single_row(
+        target,
+        ilpn,
+        screenshot_mgr=screenshot_mgr,
+        tab_click_timeout_ms=tab_click_timeout_ms,
+        drill_detail=drill_detail,
+    )
 
 # Legacy function aliases for backward compatibility
 _find_ilpn_frame = FrameFinder.find_ilpn_frame
