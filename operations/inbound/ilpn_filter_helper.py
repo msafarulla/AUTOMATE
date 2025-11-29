@@ -761,14 +761,19 @@ class ILPNFilterFiller:
             try:
                 locator = target.locator(sel).first
                 locator.wait_for(state="visible", timeout=8000)
-                state = locator.evaluate("""
+                state = locator.evaluate(
+                    """
                     el => ({
                         display: getComputedStyle(el).display,
                         visibility: getComputedStyle(el).visibility,
                         disabled: el.disabled,
-                        readonly: el.readOnly
+                        readonly: el.readOnly,
+                        id: el.id || null,
+                        name: el.name || null,
+                        cls: el.className || null,
                     })
-                """)
+                    """
+                )
                 app_log(f"✅ Selector matched: {sel} (state={state})")
                 return locator
             except Exception as exc:
