@@ -24,22 +24,15 @@ class AuthManager:
 
         credentials = self._get_credentials()
         app_log(f"Using credentials for user: {credentials.get('app_server_user')}")
+        
+        # Fill credentials efficiently
         app_log("Filling username...")
-        self.page.click('#username')
-        self.page.fill('#username', credentials["app_server_user"])
+        self.page.locator('#username').fill(credentials["app_server_user"])
 
         app_log("Filling password...")
-        self.page.click('#password')
-        self.page.fill('#password', credentials["app_server_pass"])
+        self.page.locator('#password').fill(credentials["app_server_pass"])
 
-        app_log("Dispatching events...")
-        self.page.dispatch_event('#username', 'input')
-        self.page.dispatch_event('#password', 'input')
-        self.page.dispatch_event('#username', 'keyup')
-        self.page.dispatch_event('#password', 'keyup')
-        self.page.dispatch_event('#username', 'change')
-        self.page.dispatch_event('#password', 'change')
-
+        # Wait for login button to enable using efficient Playwright wait
         app_log("Waiting for login button to enable...")
         try:
             self.page.wait_for_function(
@@ -57,7 +50,7 @@ class AuthManager:
                 f"Login button did not enable within 15s (disabled={is_disabled})"
             )
 
-        # Capture the form state just before attempting login (overlay URL for traceability)
+        # Capture the form state just before attempting login
         self.screenshot_mgr.capture(self.page, "login_ready", f"Login form ready ({base_url})")
 
         app_log("Clicking login button...")
@@ -117,7 +110,7 @@ class AuthManager:
                         if close_btn.is_visible():
                             close_btn.click()
                             closed += 1
-                        WaitUtils.wait_brief(self.page)
+                        WaitUtils.wait_brief(self.page, timeout_ms=300)
                         continue
                 except Exception:
                     pass
@@ -125,7 +118,7 @@ class AuthManager:
                 try:
                     self.page.keyboard.press("Escape")
                     closed += 1
-                    WaitUtils.wait_brief(self.page)
+                    WaitUtils.wait_brief(self.page, timeout_ms=300)
                 except Exception:
                     break
 

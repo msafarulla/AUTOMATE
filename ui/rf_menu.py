@@ -40,13 +40,14 @@ class RFMenuManager:
         rf_iframe = self.get_iframe()
         body = rf_iframe.locator("body")
         body.wait_for(state="visible", timeout=2000)
+        
+        # Focus the iframe body efficiently using Playwright's built-in focus
         try:
-            safe_locator_evaluate(body, "el => el.focus && el.focus()", description="RFMenuManager.reset_to_home focus")
+            body.focus()
+            # Brief wait for focus to register (reduced from 5000ms to 100ms)
+            self.page.wait_for_timeout(100)
         except Exception:
             pass
-
-        # Wait for focus to settle before sending keyboard input
-        self.page.wait_for_timeout(5000)
 
         baseline = HashUtils.get_frame_snapshot(rf_iframe)
         self.page.keyboard.press("Control+b")
@@ -56,6 +57,7 @@ class RFMenuManager:
             timeout_ms=4000,
             warn_on_timeout=False,
         )
+        
         if self._show_tran_id and not self._show_tran_id_completed:
             rf_iframe = self.get_iframe()
             if not self._home_menu_has_hash(rf_iframe):
@@ -179,7 +181,7 @@ class RFMenuManager:
     def check_for_response(self, rf_iframe: Frame) -> tuple[bool, str] | tuple[bool, None]:
         """Check if an error or info screen appeared"""
         try:
-            WaitUtils.wait_brief(self.page)
+            WaitUtils.wait_brief(self.page, timeout_ms=300)
             visible_text = rf_iframe.locator("body").inner_text().strip()[:80]
             visible_text = re.sub(r"\s+", " ", visible_text)
 
@@ -202,20 +204,19 @@ class RFMenuManager:
         if rf_iframe is None:
             rf_iframe = self.get_iframe()
 
-        WaitUtils.wait_brief(self.page)
+        WaitUtils.wait_brief(self.page, timeout_ms=300)
         if rf_iframe.locator("div.error").count() == 0:
             return False
 
-        # Ensure iframe has focus before sending Ctrl+A
+        # Focus the iframe body efficiently
         try:
             body = rf_iframe.locator("body").first
             body.focus()
+            # Brief wait for focus to register (reduced from 5000ms to 100ms)
+            self.page.wait_for_timeout(100)
         except Exception as e:
             rf_log(f"❌ Could not focus iframe body for Ctrl+A: {e}")
             raise RuntimeError("Failed to focus iframe before accepting error") from e
-
-        # Wait for focus to settle before sending keyboard input
-        self.page.wait_for_timeout(5000)
 
         baseline = HashUtils.get_frame_snapshot(rf_iframe)
         self.page.keyboard.press("Control+a")

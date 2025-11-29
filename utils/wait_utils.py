@@ -91,16 +91,16 @@ class WaitUtils:
             return True
 
     @staticmethod
-    def wait_brief(target, timeout_ms: int = 500, selector: str = ".x-mask"):
+    def wait_brief(target, timeout_ms: int = 300, selector: str = ".x-mask"):
         """
-        Quick wait for UI updates - defaults to 500ms (reduced from 4000ms).
+        Quick wait for UI updates - defaults to 300ms (reduced from 4000ms).
         Waits for mask to clear first, then any remaining time.
         """
         start = time.time()
         
-        # Wait for mask to clear (max 2s even if timeout_ms is higher)
+        # Wait for mask to clear (max 1s even if timeout_ms is higher)
         try:
-            WaitUtils.wait_for_mask_clear(target, timeout_ms=min(timeout_ms, 2000), selector=selector)
+            WaitUtils.wait_for_mask_clear(target, timeout_ms=min(timeout_ms, 1000), selector=selector)
         except Exception:
             pass
 
@@ -110,13 +110,8 @@ class WaitUtils:
 
         if remaining > 0:
             try:
-                # Use Playwright's wait_for_function for accurate timing
-                target.wait_for_function(
-                    "(delay, start) => Date.now() - start >= delay",
-                    remaining,
-                    int(start * 1000),
-                    timeout=remaining + 250,
-                )
+                # Use Playwright's wait_for_timeout for accurate timing
+                target.wait_for_timeout(remaining)
             except Exception:
                 # Fallback to sleep
                 try:

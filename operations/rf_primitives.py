@@ -187,7 +187,6 @@ class RFPrimitives:
     # ========================================================================
     # PRIMITIVE 4: Keyboard shortcuts
     # ========================================================================
-
     def press_rf_hot_key(
         self,
         key: str,
@@ -198,16 +197,15 @@ class RFPrimitives:
         rf_iframe = self.get_iframe()
         prev_snapshot = HashUtils.get_frame_snapshot(rf_iframe) if wait_for_change else None
 
-        # Ensure the RF iframe has focus before sending the hotkey so Ctrl+A lands reliably.
+        # Ensure the RF iframe has focus before sending the hotkey
         try:
             body = rf_iframe.locator("body").first
             body.focus()
+            # Brief wait for focus to register (reduced from 5000ms to 100ms)
+            self.page.wait_for_timeout(100)
         except Exception as e:
             rf_log(f"❌ Could not focus iframe body for {key}: {e}")
             raise RuntimeError(f"Failed to focus iframe before sending {key}") from e
-
-        # Wait for body to be visible and focus to settle (combined wait)
-        self.page.wait_for_timeout(5000)  # 5 seconds for focus to fully complete
 
         self.page.keyboard.press(key)
 
