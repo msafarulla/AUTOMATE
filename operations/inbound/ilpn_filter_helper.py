@@ -313,9 +313,12 @@ class TabNavigator:
             clicked = TabNavigator._click_single_tab(
                 tab_name, frames_to_try, config.click_timeout_ms
             )
-            
+
             if clicked:
-                WaitUtils.wait_brief(target)
+                # Wait for ExtJS mask to clear after tab switch
+                ViewStabilizer.wait_for_ext_mask(target, timeout_ms=3000)
+                # Wait for view to stabilize before capturing
+                ViewStabilizer.wait_for_stable_view(target, stable_samples=2, timeout_ms=3000)
                 if config.screenshot_mgr:
                     try:
                         img_bytes = use_page.screenshot(full_page=True, type="jpeg")
@@ -527,21 +530,11 @@ class FilteredRowOpener:
         screenshot_mgr: ScreenshotManager | None = None,
         *,
         tab_click_timeout_ms: int | None = None,
-        drill_detail: bool = True,
+        drill_detail: bool = False,
     ) -> bool:
-        """Open the filtered iLPN row (optionally skip drilling into detail tabs)."""
+        """Open the filtered iLPN row."""
         app_log("🔍 Checking filtered iLPN results (no long wait)...")
         ViewStabilizer.wait_for_ext_mask(target, timeout_ms=3000)
-
-        if not drill_detail:
-            row_count, _ = FilteredRowOpener._detect_rows(target)
-            if isinstance(row_count, int) and row_count > 0:
-                app_log(
-                    f"✅ Filter matched {row_count} iLPN row(s); drill_detail disabled."
-                )
-                return True
-            rf_log("❌ Unable to detect any filtered iLPN rows (drill_detail disabled)")
-            return False
 
         tab_config = TabClickConfig(
             screenshot_mgr=screenshot_mgr,
@@ -552,8 +545,11 @@ class FilteredRowOpener:
 
         # Fast path: DOM scan
         if DOMRowOpener.open_ilpn_row(target, ilpn):
-            WaitUtils.wait_brief(target)
-            TabNavigator.click_detail_tabs(target, tab_config)
+            if drill_detail:
+                # Wait for detail window to load before clicking tabs
+                ViewStabilizer.wait_for_ext_mask(target, timeout_ms=3000)
+                ViewStabilizer.wait_for_stable_view(target, stable_samples=2, timeout_ms=3000)
+                TabNavigator.click_detail_tabs(target, tab_config)
             return True
 
         # Detect row count
@@ -562,19 +558,25 @@ class FilteredRowOpener:
         # Try ExtJS-native open
         if row_count == 1 and ExtJSGridHelper.open_first_row(target):
             app_log("✅ Opened single iLPN row via ExtJS API")
-            WaitUtils.wait_brief(target)
-            TabNavigator.click_detail_tabs(target, tab_config)
+            if drill_detail:
+                # Wait for detail window to load before clicking tabs
+                ViewStabilizer.wait_for_ext_mask(target, timeout_ms=3000)
+                ViewStabilizer.wait_for_stable_view(target, stable_samples=2, timeout_ms=3000)
+                TabNavigator.click_detail_tabs(target, tab_config)
             return True
 
         # DOM fallback retry
         if DOMRowOpener.open_ilpn_row(target, ilpn):
-            WaitUtils.wait_brief(target)
-            TabNavigator.click_detail_tabs(target, tab_config)
+            if drill_detail:
+                # Wait for detail window to load before clicking tabs
+                ViewStabilizer.wait_for_ext_mask(target, timeout_ms=3000)
+                ViewStabilizer.wait_for_stable_view(target, stable_samples=2, timeout_ms=3000)
+                TabNavigator.click_detail_tabs(target, tab_config)
             return True
 
         # Final locator-based attempt
         if row_count == 1 and rows_locator:
-            if FilteredRowOpener._try_locator_open(target, rows_locator, tab_config, tab_click_timeout_ms):
+            if FilteredRowOpener._try_locator_open(target, rows_locator, tab_config, tab_click_timeout_ms, drill_detail):
                 return True
 
         rf_log(f"❌ Unable to open the filtered iLPN row (row_count={row_count})")
@@ -617,7 +619,7 @@ class FilteredRowOpener:
         return row_count, rows_locator
 
     @staticmethod
-    def _try_locator_open(target, rows_locator, tab_config: TabClickConfig, timeout_ms: int | None) -> bool:
+    def _try_locator_open(target, rows_locator, tab_config: TabClickConfig, timeout_ms: int | None, drill_detail: bool) -> bool:
         """Try opening row using locator-based methods."""
         row = rows_locator.first
         try:
@@ -635,21 +637,23 @@ class FilteredRowOpener:
             lambda: row.press("Space"),
             lambda: target.keyboard.press("Enter"),
         ]
-        
+
         for idx, attempt in enumerate(open_attempts):
             try:
                 attempt()
                 app_log("✅ Opened single iLPN row to view details")
+                # Wait for detail window to fully load
+                ViewStabilizer.wait_for_ext_mask(target, timeout_ms=3000)
                 if not ViewStabilizer.wait_for_stable_view(target):
                     app_log("⚠️ Detail view not stable after open; retrying")
                     continue
-                WaitUtils.wait_brief(target)
-                TabNavigator.click_detail_tabs(target, tab_config)
+                if drill_detail:
+                    TabNavigator.click_detail_tabs(target, tab_config)
                 ViewStabilizer.wait_for_stable_view(target)
                 return True
             except Exception as exc:
                 app_log(f"➖ Row open attempt {idx + 1} did not succeed: {exc}")
-                
+
         return False
 
 
@@ -669,22 +673,38 @@ class ILPNFilterFiller:
         screenshot_mgr: ScreenshotManager | None = None,
         *,
         tab_click_timeout_ms: int | None = None,
-        drill_detail: bool = True,
+        drill_detail: bool = False,
     ) -> bool:
-        """Populate the iLPN quick filter and optionally drill into matching row."""
+        """Populate the iLPN quick filter and open the matching row."""
         target_frame = FrameFinder.find_ilpn_frame(page)
         target = target_frame or page
-        
+
         if not target_frame:
             rf_log("⚠️ Could not locate dedicated iLPNs frame, using active page as fallback.")
 
-        filter_triggered = ILPNFilterFiller._fill_input(target, ilpn)
-        
+        # Wait for the iLPN UI to fully load before attempting to fill
+        app_log("⏳ Waiting for iLPN UI to load...")
+        ViewStabilizer.wait_for_ext_mask(target, timeout_ms=5000)
+        ViewStabilizer.wait_for_stable_view(target, stable_samples=2, timeout_ms=5000)
+
+        # Retry mechanism for filling the filter
+        filter_triggered = False
+        for attempt in range(2):
+            if attempt > 0:
+                app_log(f"🔄 Retry attempt {attempt + 1} to fill iLPN filter...")
+                ViewStabilizer.wait_for_ext_mask(target, timeout_ms=3000)
+                WaitUtils.wait_brief(target)
+
+            filter_triggered = ILPNFilterFiller._fill_input(target, ilpn)
+
+            if not filter_triggered:
+                filter_triggered = ILPNFilterFiller._try_hidden_fill(target, ilpn)
+
+            if filter_triggered:
+                break
+
         if not filter_triggered:
-            filter_triggered = ILPNFilterFiller._try_hidden_fill(target, ilpn)
-            
-        if not filter_triggered:
-            rf_log("❌ Unable to trigger iLPN filter apply")
+            rf_log("❌ Unable to trigger iLPN filter apply after retries")
             return False
 
         return FilteredRowOpener.open_single_row(
@@ -721,7 +741,7 @@ class ILPNFilterFiller:
             app_log(f"🔎 Trying selector: {sel}")
             try:
                 locator = target.locator(sel).first
-                locator.wait_for(state="visible", timeout=3000)
+                locator.wait_for(state="visible", timeout=8000)
                 state = locator.evaluate("""
                     el => ({
                         display: getComputedStyle(el).display,
@@ -798,18 +818,14 @@ def fill_ilpn_filter(
     screenshot_mgr: ScreenshotManager | None = None,
     *,
     tab_click_timeout_ms: int | None = None,
-    drill_detail: bool = True,
+    drill_detail: bool = False,
 ) -> bool:
-    """Populate the iLPN quick filter and optionally open the matching row details.
-    
+    """Populate the iLPN quick filter and open the matching row.
+
     This is the main public API - maintains backward compatibility.
     """
     return ILPNFilterFiller.fill_filter(
-        page,
-        ilpn,
-        screenshot_mgr,
-        tab_click_timeout_ms=tab_click_timeout_ms,
-        drill_detail=drill_detail,
+        page, ilpn, screenshot_mgr, tab_click_timeout_ms=tab_click_timeout_ms, drill_detail=drill_detail
     )
 
 
