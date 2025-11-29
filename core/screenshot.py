@@ -1,6 +1,7 @@
 from datetime import datetime
 from pathlib import Path
 from typing import Callable, Any
+import shutil
 from playwright.sync_api import Page, TimeoutError as PlaywrightTimeoutError
 from utils.eval_utils import safe_page_evaluate, safe_locator_evaluate, PageUnavailableError
 from core.logger import app_log
@@ -10,6 +11,15 @@ from utils.wait_utils import WaitUtils
 class ScreenshotManager:
     def __init__(self, output_dir: str = "screenshots", image_format: str = "png", image_quality: int | None = None):
         self.output_dir = Path(output_dir)
+
+        # Clean up previous run's screenshots
+        if self.output_dir.exists():
+            try:
+                shutil.rmtree(self.output_dir)
+                app_log(f"🧹 Cleaned up previous screenshots folder: {self.output_dir}")
+            except Exception as e:
+                app_log(f"⚠️ Could not clean screenshots folder: {e}")
+
         self.output_dir.mkdir(exist_ok=True)
         self.current_output_dir = self.output_dir
         self.current_scenario_dir = self.output_dir
