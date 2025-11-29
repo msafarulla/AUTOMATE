@@ -678,6 +678,8 @@ class ILPNFilterFiller:
     """Main class for filling iLPN filters."""
     
     INPUT_CANDIDATES = [
+        "input#dataForm\\:LPNListInOutboundMain_lv\\:LPNList_Inbound_filterId1\\:field10value1",
+        "input[name='dataForm:LPNListInOutboundMain_lv:LPNList_Inbound_filterId1:field10value1']",
         "input[name*='ilpn' i]",
         "input[id*='ilpn' i]",
         "//input[contains(@name,'filter') and not(@type='hidden')]",
