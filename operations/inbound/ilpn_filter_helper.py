@@ -377,7 +377,7 @@ class TabNavigator:
 
                     return false;
                 }""",
-                tab_name,
+                arg=tab_name,
                 timeout=timeout_ms
             )
 
