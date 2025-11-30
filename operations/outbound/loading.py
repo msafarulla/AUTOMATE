@@ -19,7 +19,8 @@ class LoadingOperation(BaseOperation):
         integration = RFMenuIntegration(self.rf_menu)
         workflows = integration.get_workflows()
 
-        if not workflows.navigate_to_menu_by_search(menu_cfg.search_term, menu_cfg.tran_id):
+        search_term = menu_cfg.search_term or menu_cfg.name
+        if not workflows.navigate_to_menu_by_search(search_term, menu_cfg.tran_id):
             return False
 
         scans = [

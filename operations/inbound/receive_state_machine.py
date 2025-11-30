@@ -283,7 +283,8 @@ class InitHandler(StateHandler):
     
     def execute(self, machine: ReceiveStateMachine) -> ReceiveState:
         menu = OperationConfig.RECEIVE_MENU
-        if machine.rf.navigate_to_menu_by_search(menu.search_term, menu.tran_id):
+        search_term = menu.search_term or menu.name
+        if machine.rf.navigate_to_menu_by_search(search_term, menu.tran_id):
             return ReceiveState.NAVIGATED
         return ReceiveState.ERROR
     
