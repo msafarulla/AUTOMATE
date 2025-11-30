@@ -212,7 +212,12 @@ def run_open_ui_detours(
                 pass
 
         if entry.get("fill_ilpn") and fill_ilpn_cb and screen_context and screen_context.get("ilpn"):
-            drill_detail = entry.get("drill_detail") or base_cfg.get("drill_detail")
+            if "drill_detail" in entry:
+                drill_detail = entry.get("drill_detail")
+            else:
+                drill_detail = base_cfg.get("drill_detail")
+            if drill_detail is None:
+                drill_detail = True
             if drill_detail:
                 app_log("ℹ️ Attempting to drill into iLPN details and tabs")
             ilpn_val = screen_context.get("ilpn")
