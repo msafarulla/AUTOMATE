@@ -342,6 +342,7 @@ class TabNavigator:
         WaitUtils.wait_brief(target)
 
         app_log("🎯 Starting tab clicking process...")
+        app_log(f"📋 Config: capture_html={config.capture_html}, screenshot_mgr={config.screenshot_mgr is not None}")
 
         frames_to_try = TabNavigator._collect_frames(target)
         use_page = getattr(target, "page", None) or target
