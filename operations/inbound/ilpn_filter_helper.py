@@ -335,60 +335,6 @@ class TabNavigator:
             app_log(f"❌ Frame enumeration failed: {e}")
 
     @staticmethod
-    def _verify_tab_active(target, tab_name: str, timeout_ms: int = 3000) -> bool:
-        """Verify that the clicked tab is now the active tab."""
-        try:
-            app_log(f"⏳ Verifying '{tab_name}' tab is active...")
-
-            # Wait for the tab to become active
-            target.wait_for_function(
-                """(tabName) => {
-                    // Strategy 1: Check for ExtJS active tab via component
-                    if (window.Ext && window.Ext.ComponentQuery) {
-                        const tabPanels = Ext.ComponentQuery.query('tabpanel');
-                        for (const panel of tabPanels) {
-                            const activeTab = panel.getActiveTab?.();
-                            if (activeTab) {
-                                const title = activeTab.title || '';
-                                if (title === tabName) {
-                                    return true;
-                                }
-                            }
-                        }
-                    }
-
-                    // Strategy 2: Check DOM for active tab class
-                    const activeTabs = document.querySelectorAll('.x-tab-active, .x-tab-strip-active, [aria-selected="true"]');
-                    for (const tab of activeTabs) {
-                        const text = (tab.innerText || tab.textContent || '').trim();
-                        if (text === tabName) {
-                            return true;
-                        }
-                    }
-
-                    // Strategy 3: Check if inactive tabs have the expected name (they shouldn't)
-                    const inactiveTabs = document.querySelectorAll('.x-tab:not(.x-tab-active)');
-                    for (const tab of inactiveTabs) {
-                        const text = (tab.innerText || tab.textContent || '').trim();
-                        if (text === tabName) {
-                            return false; // Found the tab but it's not active
-                        }
-                    }
-
-                    return false;
-                }""",
-                arg=tab_name,
-                timeout=timeout_ms
-            )
-
-            app_log(f"✅ Verified '{tab_name}' tab is active")
-            return True
-
-        except Exception as e:
-            app_log(f"⚠️ Could not verify '{tab_name}' tab is active: {e}")
-            return False
-
-    @staticmethod
     def click_detail_tabs(target, config: TabClickConfig) -> bool:
         """Click through all visible iLPN detail tabs sequentially."""
         TabNavigator.diagnose_tabs(target)
@@ -412,10 +358,6 @@ class TabNavigator:
             if clicked:
                 # Wait for tab content to load
                 WaitUtils.wait_brief(target, timeout_ms=500)
-
-                # Verify the tab actually became active (warning only, still capture)
-                TabNavigator._verify_tab_active(target, tab_name, timeout_ms=3000)
-
                 # Wait for ExtJS mask to clear after tab switch
                 ViewStabilizer.wait_for_ext_mask(target, timeout_ms=4000)
                 # Wait for view to stabilize before capturing (increased samples for reliability)
