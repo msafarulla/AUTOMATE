@@ -264,108 +264,22 @@ TAB_DIAGNOSTIC_SCRIPT = """
 # Tab click via JS
 TAB_CLICK_SCRIPT = """
 (tabName) => {
-    // Helper to check if element is a tab
-    const isTabElement = (el) => {
-        const role = el.getAttribute('role') || '';
-        const cls = el.className || '';
-        const tagName = el.tagName?.toLowerCase() || '';
-
-        // Check for ExtJS tab classes or role
-        if (role === 'tab') return true;
-        if (cls.includes('x-tab')) return true;
-        if (cls.includes('x-tab-strip-text')) return true;
-        if (cls.includes('x-tab-button')) return true;
-
-        // Check if parent is a tab
-        const parent = el.parentElement;
-        if (parent) {
-            const parentCls = parent.className || '';
-            const parentRole = parent.getAttribute('role') || '';
-            if (parentRole === 'tab' || parentCls.includes('x-tab')) return true;
-        }
-
-        return false;
-    };
-
-    // Helper to check if element is in a tab panel
-    const isInTabPanel = (el) => {
-        let current = el;
-        let depth = 0;
-        while (current && depth < 10) {
-            const cls = current.className || '';
-            const role = current.getAttribute('role') || '';
-
-            if (role === 'tablist') return true;
-            if (cls.includes('x-tab-bar')) return true;
-            if (cls.includes('x-tab-panel')) return true;
-            if (cls.includes('x-tab-strip')) return true;
-
-            current = current.parentElement;
-            depth++;
-        }
-        return false;
-    };
-
-    // Strategy 1: Look for ExtJS tab elements specifically
-    const tabSelectors = [
-        '.x-tab-strip-text',
-        '.x-tab-button',
-        '[role="tab"]',
-        '.x-tab',
-        '.x-tab-inner'
-    ];
-
-    for (const selector of tabSelectors) {
-        const candidates = Array.from(document.querySelectorAll(selector));
-        for (const el of candidates) {
-            const text = (el.innerText || '').trim();
-            if (text === tabName) {
-                // Verify it's visible and in a tab panel
-                const rect = el.getBoundingClientRect();
-                if (rect.width > 0 && rect.height > 0 && isInTabPanel(el)) {
-                    try {
-                        el.scrollIntoView({ block: 'center', behavior: 'instant' });
-                        // Try clicking the element or its closest clickable parent
-                        const clickTarget = el.closest('[role="tab"], .x-tab, .x-tab-button') || el;
-                        clickTarget.click();
-                        return { success: true, tag: clickTarget.tagName, text: text, selector: selector };
-                    } catch (e) {
-                        try {
-                            el.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
-                            return { success: true, tag: el.tagName, text: text, method: 'dispatch', selector: selector };
-                        } catch (e2) {}
-                    }
-                }
-            }
-        }
-    }
-
-    // Strategy 2: Broader search but with validation
     const allElements = Array.from(document.querySelectorAll('*'));
+
     for (const el of allElements) {
-        const text = (el.innerText || '').trim();
+        const text = (el.textContent || '').trim();
         if (text !== tabName) continue;
-
-        // Must be a tab element and in a tab panel
-        if (!isTabElement(el) && !isInTabPanel(el)) continue;
-
-        // Must be visible
-        const rect = el.getBoundingClientRect();
-        if (rect.width <= 0 || rect.height <= 0) continue;
-
+        
         try {
-            el.scrollIntoView({ block: 'center', behavior: 'instant' });
-            const clickTarget = el.closest('[role="tab"], .x-tab, .x-tab-button') || el;
-            clickTarget.click();
-            return { success: true, tag: clickTarget.tagName, text: text, method: 'validated' };
+            el.scrollIntoView({ block: 'center' });
+            el.click();
+            return { success: true, tag: el.tagName, text: text };
         } catch (e) {
-            try {
-                el.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
-                return { success: true, tag: el.tagName, text: text, method: 'dispatch_validated' };
-            } catch (e2) {}
+            el.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+            return { success: true, tag: el.tagName, text: text, method: 'dispatch' };
         }
     }
 
-    return { success: false, reason: 'not found', searched: tabSelectors };
+    return { success: false, reason: 'not found' };
 }
 """

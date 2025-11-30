@@ -335,60 +335,10 @@ class TabNavigator:
             app_log(f"❌ Frame enumeration failed: {e}")
 
     @staticmethod
-    def _wait_for_tab_panel_ready(target, timeout_ms: int = 5000) -> bool:
-        """Wait for the tab panel to be fully loaded and ready for interaction."""
-        try:
-            app_log("⏳ Waiting for tab panel to be ready...")
-
-            # Wait for ExtJS mask to clear first
-            ViewStabilizer.wait_for_ext_mask(target, timeout_ms=3000)
-
-            # Wait for tab panel structure to exist
-            target.wait_for_function(
-                """() => {
-                    // Look for tab panel indicators
-                    const tabPanel = document.querySelector('.x-tab-panel, .x-tab-bar, [role="tablist"]');
-                    if (!tabPanel) return false;
-
-                    // Look for actual tab elements
-                    const tabs = document.querySelectorAll('.x-tab, [role="tab"], .x-tab-strip-text');
-                    if (tabs.length === 0) return false;
-
-                    // Check if ExtJS tab components are initialized
-                    if (window.Ext && window.Ext.ComponentQuery) {
-                        const tabPanels = Ext.ComponentQuery.query('tabpanel');
-                        if (tabPanels.length > 0) {
-                            const panel = tabPanels[tabPanels.length - 1];
-                            // Check if rendered
-                            if (!panel.rendered) return false;
-                            // Check if has tabs
-                            const items = panel.items?.items || [];
-                            if (items.length === 0) return false;
-                        }
-                    }
-
-                    return true;
-                }""",
-                timeout=timeout_ms
-            )
-
-            # Wait for view to stabilize
-            ViewStabilizer.wait_for_stable_view(target, stable_samples=2, timeout_ms=3000)
-
-            app_log("✅ Tab panel ready")
-            return True
-
-        except Exception as e:
-            app_log(f"⚠️ Tab panel readiness timeout: {e}, attempting to continue")
-            return False
-
-    @staticmethod
     def click_detail_tabs(target, config: TabClickConfig) -> bool:
         """Click through all visible iLPN detail tabs sequentially."""
         TabNavigator.diagnose_tabs(target)
-
-        # Wait for tab panel to be fully ready before attempting clicks
-        TabNavigator._wait_for_tab_panel_ready(target, timeout_ms=5000)
+        WaitUtils.wait_brief(target)
 
         app_log("🎯 Starting tab clicking process...")
 
@@ -396,6 +346,8 @@ class TabNavigator:
         use_page = getattr(target, "page", None) or target
         base_note = config.operation_note or "iLPN detail tab"
         tab_images: list[bytes] = []
+        
+        ViewStabilizer.maximize_page_for_capture(use_page)
 
         for tab_name in TabNavigator.TAB_NAMES:
             app_log(f"\n🔄 Attempting to click tab: {tab_name}")
@@ -404,10 +356,12 @@ class TabNavigator:
             )
 
             if clicked:
+                # Wait for tab content to load
+                WaitUtils.wait_brief(target, timeout_ms=500)
                 # Wait for ExtJS mask to clear after tab switch
-                ViewStabilizer.wait_for_ext_mask(target, timeout_ms=3000)
-                # Wait for view to stabilize before capturing
-                ViewStabilizer.wait_for_stable_view(target, stable_samples=2, timeout_ms=3000)
+                ViewStabilizer.wait_for_ext_mask(target, timeout_ms=4000)
+                # Wait for view to stabilize before capturing (increased samples for reliability)
+                ViewStabilizer.wait_for_stable_view(target, stable_samples=3, timeout_ms=4000)
                 if config.screenshot_mgr:
                     try:
                         img_bytes = use_page.screenshot(full_page=True, type="jpeg")
@@ -428,158 +382,58 @@ class TabNavigator:
 
     @staticmethod
     def _collect_frames(target) -> list:
-        """Collect frames to try for tab clicking in original sequence."""
-        frames_to_try = [target]  # Always start with target itself
-
-        # Helper to score frames by relevance (for logging/diagnostics only)
-        def score_frame(frame) -> int:
-            try:
-                url = frame.url or ""
-                score = 0
-
-                # Check URL for detail/tab indicators
-                url_lower = url.lower()
-                if "detail" in url_lower:
-                    score += 10
-                if "tab" in url_lower:
-                    score += 8
-                if "lpn" in url_lower:
-                    score += 5
-                if "uxiframe" in url_lower:
-                    score += 3
-
-                # Check if frame has tab panel structure
-                try:
-                    has_tabs = frame.evaluate("""
-                        () => {
-                            const tabPanel = document.querySelector('.x-tab-panel, .x-tab-bar, [role="tablist"]');
-                            const tabs = document.querySelectorAll('.x-tab, [role="tab"]');
-                            return tabPanel !== null || tabs.length > 0;
-                        }
-                    """, timeout=500)
-                    if has_tabs:
-                        score += 20
-                except Exception:
-                    pass
-
-                return score
-            except Exception:
-                return 0
-
-        # Collect frames in original order
+        """Collect all frames to try for tab clicking."""
+        frames_to_try = [target]
         try:
-            for idx, frame in enumerate(target.frames):
+            for frame in target.frames:
                 frames_to_try.append(frame)
-                frame_score = score_frame(frame)
                 try:
-                    url = frame.url or "(no url)"
-                    app_log(f"  📦 Frame {idx} (score {frame_score}): {url}")
+                    app_log(f"  📦 Will try frame: {frame.url}")
                 except Exception:
-                    app_log(f"  📦 Frame {idx} (score {frame_score}): (no url)")
+                    app_log("  📦 Will try frame: (no url)")
         except Exception as e:
             app_log(f"⚠️ Could not enumerate frames: {e}")
-
-        app_log(f"✅ Will try {len(frames_to_try)} frame(s) in original sequence")
         return frames_to_try
 
     @staticmethod
     def _click_single_tab(tab_name: str, frames: list, timeout_ms: int) -> bool:
-        """Attempt to click a single tab across frames in priority order."""
+        """Attempt to click a single tab across all frames."""
         for frame_idx, page_target in enumerate(frames):
             try:
                 app_log(f"  🎯 Trying in frame {frame_idx}...")
 
-                # Strategy 1: Playwright text matching with tab-specific selectors
+                # Strategy 1: Playwright text matching
                 if TabNavigator._try_playwright_click(page_target, tab_name, timeout_ms):
-                    app_log(f"  ✅ Successfully clicked '{tab_name}' in frame {frame_idx}")
                     return True
 
-                # Strategy 2: JavaScript evaluation with validation
+                # Strategy 2: JavaScript evaluation
                 if TabNavigator._try_js_click(page_target, tab_name):
-                    app_log(f"  ✅ Successfully clicked '{tab_name}' in frame {frame_idx} via JS")
                     return True
-
-                app_log(f"  ➖ Tab '{tab_name}' not found in frame {frame_idx}, trying next frame")
 
             except Exception as e:
                 app_log(f"  ❌ Frame {frame_idx} failed: {e}")
-                continue
 
-        app_log(f"  ❌ Tab '{tab_name}' not found in any frame")
         return False
 
     @staticmethod
     def _try_playwright_click(page_target, tab_name: str, timeout_ms: int) -> bool:
-        """Try clicking tab using Playwright's locators with tab-specific selectors."""
-        # Strategy 1: Try ExtJS tab-specific selectors
-        tab_selectors = [
-            f".x-tab-strip-text:has-text('{tab_name}')",
-            f".x-tab-button:has-text('{tab_name}')",
-            f"[role='tab']:has-text('{tab_name}')",
-            f".x-tab:has-text('{tab_name}')",
-            f".x-tab-inner:has-text('{tab_name}')",
-        ]
-
-        for selector in tab_selectors:
-            try:
-                locator = page_target.locator(selector)
-                count = locator.count()
-                if count > 0:
-                    app_log(f"    Found {count} tab element(s) with selector: {selector}")
-                    for i in range(count):
-                        try:
-                            el = locator.nth(i)
-                            # Verify it's visible
-                            if el.is_visible(timeout=500):
-                                el.scroll_into_view_if_needed(timeout=timeout_ms)
-                                # Don't use force=True - let it fail if not clickable
-                                el.click(timeout=timeout_ms)
-                                app_log(f"    ✅ Clicked tab via selector: {selector}")
-                                return True
-                        except Exception as e:
-                            app_log(f"    ⚠️ Tab {i} not clickable: {e}")
-            except Exception as e:
-                # Selector didn't match, continue to next
-                continue
-
-        # Strategy 2: Fallback to text matching but filter for tab-like elements
+        """Try clicking tab using Playwright's text matching."""
         try:
             elements = page_target.get_by_text(tab_name, exact=True)
             count = elements.count()
-            app_log(f"    Found {count} exact text matches (fallback)")
+            app_log(f"    Found {count} exact text matches")
 
             for i in range(count):
                 try:
                     el = elements.nth(i)
-                    # Check if this element or its parent is a tab
-                    is_tab = el.evaluate("""
-                        (el) => {
-                            const role = el.getAttribute('role');
-                            const cls = el.className || '';
-                            if (role === 'tab') return true;
-                            if (cls.includes('x-tab')) return true;
-
-                            // Check parent
-                            const parent = el.parentElement;
-                            if (parent) {
-                                const pRole = parent.getAttribute('role');
-                                const pCls = parent.className || '';
-                                if (pRole === 'tab' || pCls.includes('x-tab')) return true;
-                            }
-                            return false;
-                        }
-                    """)
-
-                    if is_tab and el.is_visible(timeout=500):
-                        el.scroll_into_view_if_needed(timeout=timeout_ms)
-                        el.click(timeout=timeout_ms)
-                        app_log(f"    ✅ Clicked validated tab element {i}")
-                        return True
+                    el.scroll_into_view_if_needed(timeout=timeout_ms)
+                    el.click(force=True, timeout=timeout_ms)
+                    app_log(f"    ✅ Clicked element {i}")
+                    return True
                 except Exception as e:
                     app_log(f"    ⚠️ Element {i} click failed: {e}")
         except Exception as e:
-            app_log(f"    ⚠️ Text match fallback failed: {e}")
-
+            app_log(f"    ⚠️ Text match strategy failed: {e}")
         return False
 
     @staticmethod
