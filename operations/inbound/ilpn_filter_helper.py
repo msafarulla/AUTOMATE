@@ -397,8 +397,6 @@ class TabNavigator:
         base_note = config.operation_note or "iLPN detail tab"
         tab_images: list[bytes] = []
 
-        ViewStabilizer.maximize_page_for_capture(use_page)
-
         for tab_name in TabNavigator.TAB_NAMES:
             app_log(f"\n🔄 Attempting to click tab: {tab_name}")
             clicked = TabNavigator._click_single_tab(
