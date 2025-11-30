@@ -378,9 +378,12 @@ class TabNavigator:
                     try:
                         html_content = use_page.content()
                         tab_htmls.append((tab_name, html_content))
-                        app_log(f"✅ Captured HTML snapshot for tab: {tab_name}")
+                        html_size = len(html_content)
+                        app_log(f"✅ Captured HTML snapshot for tab '{tab_name}' ({html_size} bytes)")
                     except Exception as exc:
                         app_log(f"⚠️ Could not capture HTML for tab {tab_name}: {exc}")
+                else:
+                    app_log(f"ℹ️ HTML capture disabled (config.capture_html={config.capture_html})")
             else:
                 app_log(f"  ❌ FAILED to click tab: {tab_name}")
 
@@ -393,8 +396,13 @@ class TabNavigator:
             )
 
         # Save HTML snapshots
+        app_log(f"📊 HTML capture status: capture_html={config.capture_html}, tab_htmls count={len(tab_htmls)}")
         if config.capture_html and tab_htmls:
             TabNavigator._save_html_snapshots(tab_htmls, config)
+        elif config.capture_html and not tab_htmls:
+            app_log("⚠️ HTML capture enabled but no HTML content was captured")
+        elif not config.capture_html:
+            app_log("ℹ️ HTML capture is disabled in config")
 
         return True
 
@@ -509,7 +517,10 @@ class TabNavigator:
     @staticmethod
     def _save_html_snapshots(tab_htmls: list[tuple[str, str]], config: TabClickConfig):
         """Save HTML snapshots for each tab to disk."""
+        app_log(f"💾 Starting HTML snapshot save for {len(tab_htmls)} tab(s)")
+
         if not config.screenshot_mgr:
+            app_log("⚠️ No screenshot manager provided, skipping HTML snapshots")
             return
 
         try:
@@ -518,6 +529,8 @@ class TabNavigator:
 
             # Get base directory from screenshot manager
             screenshots_dir = getattr(screenshot_mgr, "current_output_dir", None) or getattr(screenshot_mgr, "output_dir", None)
+            app_log(f"📂 Screenshot base directory: {screenshots_dir}")
+
             if not screenshots_dir:
                 app_log("⚠️ No screenshots directory configured, skipping HTML snapshots")
                 return
@@ -525,7 +538,9 @@ class TabNavigator:
             # Create HTML subdirectory
             import os
             html_dir = os.path.join(str(screenshots_dir), "html_snapshots")
+            app_log(f"📂 Creating HTML directory: {html_dir}")
             os.makedirs(html_dir, exist_ok=True)
+            app_log(f"✅ HTML directory ready: {html_dir}")
 
             # Save each tab's HTML
             for tab_name, html_content in tab_htmls:
