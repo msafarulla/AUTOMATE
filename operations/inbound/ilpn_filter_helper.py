@@ -374,13 +374,33 @@ class TabNavigator:
                     except Exception as exc:
                         app_log(f"⚠️ Could not capture screenshot for tab {tab_name}: {exc}")
 
-                # Capture HTML snapshot
+                # Capture HTML snapshot (entire page including all frames)
                 if config.capture_html:
                     try:
-                        html_content = use_page.content()
-                        tab_htmls.append((tab_name, html_content))
-                        html_size = len(html_content)
-                        app_log(f"✅ Captured HTML snapshot for tab '{tab_name}' ({html_size} bytes)")
+                        # Capture main page and all frames
+                        html_parts = []
+                        main_html = use_page.content()
+                        html_parts.append(("main", main_html))
+                        html_size = len(main_html)
+
+                        # Capture all frames
+                        try:
+                            frames = use_page.frames
+                            for idx, frame in enumerate(frames):
+                                if frame == use_page.main_frame:
+                                    continue
+                                try:
+                                    frame_html = frame.content()
+                                    frame_url = frame.url or "about:blank"
+                                    html_parts.append((f"frame{idx}_{frame_url}", frame_html))
+                                    html_size += len(frame_html)
+                                except Exception:
+                                    pass
+                        except Exception:
+                            pass
+
+                        tab_htmls.append((tab_name, html_parts))
+                        app_log(f"✅ Captured HTML snapshot for tab '{tab_name}' ({html_size} bytes, {len(html_parts)} part(s))")
                     except Exception as exc:
                         app_log(f"⚠️ Could not capture HTML for tab {tab_name}: {exc}")
                 else:
@@ -543,20 +563,32 @@ class TabNavigator:
             os.makedirs(html_dir, exist_ok=True)
             app_log(f"✅ HTML directory ready: {html_dir}")
 
-            # Save each tab's HTML
-            for tab_name, html_content in tab_htmls:
+            # Save each tab's HTML (main page + all frames)
+            for tab_name, html_parts in tab_htmls:
                 try:
-                    # Create safe filename
                     safe_tab_name = tab_name.lower().replace(" ", "_")
                     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-                    filename = f"{safe_tag}_{safe_tab_name}_{timestamp}.html"
-                    filepath = os.path.join(html_dir, filename)
 
-                    # Write HTML to file
-                    with open(filepath, "w", encoding="utf-8") as f:
-                        f.write(html_content)
+                    # Save each part (main + frames)
+                    for part_name, html_content in html_parts:
+                        safe_part_name = part_name.replace(":", "_").replace("/", "_").replace("?", "_")
+                        if part_name == "main":
+                            filename = f"{safe_tag}_{safe_tab_name}_{timestamp}.html"
+                        else:
+                            filename = f"{safe_tag}_{safe_tab_name}_{timestamp}_{safe_part_name}.html"
 
-                    app_log(f"💾 Saved HTML snapshot: {filepath}")
+                        filepath = os.path.join(html_dir, filename)
+
+                        # Write HTML to file
+                        with open(filepath, "w", encoding="utf-8") as f:
+                            # Add metadata header for frames
+                            if part_name != "main":
+                                f.write(f"<!-- Tab: {tab_name} -->\n")
+                                f.write(f"<!-- Part: {part_name} -->\n")
+                                f.write(f"<!-- Timestamp: {timestamp} -->\n\n")
+                            f.write(html_content)
+
+                        app_log(f"💾 Saved HTML: {filepath}")
 
                 except Exception as exc:
                     app_log(f"⚠️ Failed to save HTML for tab {tab_name}: {exc}")

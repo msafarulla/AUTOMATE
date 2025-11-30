@@ -188,20 +188,53 @@ class ScreenshotManager:
         return filename
 
     def _save_html_snapshot(self, page: Page, label: str, sequence: int) -> None:
-        """Save HTML snapshot of the current page."""
+        """Save HTML snapshot of the entire page including all frames."""
         try:
-            # Get HTML content
-            html_content = page.content()
+            # Capture main page HTML
+            main_html = page.content()
+            total_size = len(main_html)
 
-            # Build HTML filename
+            # Build main HTML filename
             html_filename = self.html_dir / f"{sequence:03d}_{label}.html"
 
-            # Write HTML to file
+            # Write main page HTML
             with open(html_filename, "w", encoding="utf-8") as f:
-                f.write(html_content)
+                f.write(main_html)
 
-            html_size = len(html_content)
-            app_log(f"💾 HTML snapshot saved: {html_filename} ({html_size} bytes)")
+            # Capture all frames/iframes
+            frame_count = 0
+            try:
+                frames = page.frames
+                if len(frames) > 1:  # More than just main frame
+                    for idx, frame in enumerate(frames):
+                        if frame == page.main_frame:
+                            continue  # Skip main frame, already captured
+
+                        try:
+                            frame_html = frame.content()
+                            frame_filename = self.html_dir / f"{sequence:03d}_{label}_frame{idx}.html"
+
+                            with open(frame_filename, "w", encoding="utf-8") as f:
+                                # Add metadata header
+                                frame_url = frame.url or "about:blank"
+                                f.write(f"<!-- Frame URL: {frame_url} -->\n")
+                                f.write(f"<!-- Frame Index: {idx} -->\n")
+                                f.write(f"<!-- Parent: {sequence:03d}_{label}.html -->\n\n")
+                                f.write(frame_html)
+
+                            total_size += len(frame_html)
+                            frame_count += 1
+
+                        except Exception as frame_exc:
+                            app_log(f"⚠️ Could not capture frame {idx}: {frame_exc}")
+
+            except Exception as frames_exc:
+                app_log(f"⚠️ Could not enumerate frames: {frames_exc}")
+
+            if frame_count > 0:
+                app_log(f"💾 HTML snapshot saved: {html_filename} + {frame_count} frame(s) ({total_size} bytes total)")
+            else:
+                app_log(f"💾 HTML snapshot saved: {html_filename} ({total_size} bytes)")
 
         except Exception as exc:
             app_log(f"⚠️ Could not save HTML snapshot for {label}: {exc}")
