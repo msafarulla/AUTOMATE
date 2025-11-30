@@ -9,7 +9,7 @@ from utils.wait_utils import WaitUtils
 
 
 class ScreenshotManager:
-    def __init__(self, output_dir: str = "screenshots", image_format: str = "png", image_quality: int | None = None, capture_html: bool = False):
+    def __init__(self, output_dir: str = "screenshots", image_format: str = "png", image_quality: int | None = None):
         self.output_dir = Path(output_dir)
 
         # Clean up previous run's screenshots
@@ -33,16 +33,9 @@ class ScreenshotManager:
             raise ValueError(f"Unsupported screenshot format: {image_format}")
         self.image_format = fmt
         self.image_quality = image_quality if (fmt == "jpeg" and image_quality is not None) else None
-        self.capture_html = capture_html  # Control flag for HTML snapshot capture
         self._rf_pre_capture_hook: Callable[[], None] | None = None
         self._rf_post_capture_hook: Callable[[], None] | None = None
         self._screenshot_timeout_ms = 15000
-
-        # Create HTML snapshots directory if HTML capture is enabled
-        if self.capture_html:
-            self.html_dir = self.output_dir / "html_snapshots"
-            self.html_dir.mkdir(exist_ok=True)
-            app_log(f"📂 HTML snapshot capture enabled: {self.html_dir}")
 
     def register_rf_capture_hooks(
         self,
@@ -115,11 +108,6 @@ class ScreenshotManager:
 
         self.sequence = next_seq
         app_log(f"📸 Screenshot saved: {filename}")
-
-        # Capture HTML snapshot if enabled
-        if self.capture_html:
-            self._save_html_snapshot(page, label, next_seq)
-
         return filename
 
     def capture_rf_window(self, page: Page, label: str, overlay_text: str | None = None) -> Path | None:
@@ -180,64 +168,7 @@ class ScreenshotManager:
             return None
         self.sequence = next_seq
         app_log(f"📸 RF Screenshot saved: {filename}")
-
-        # Capture HTML snapshot if enabled
-        if self.capture_html:
-            self._save_html_snapshot(page, label, next_seq)
-
         return filename
-
-    def _save_html_snapshot(self, page: Page, label: str, sequence: int) -> None:
-        """Save HTML snapshot of the entire page including all frames."""
-        try:
-            # Capture main page HTML
-            main_html = page.content()
-            total_size = len(main_html)
-
-            # Build main HTML filename
-            html_filename = self.html_dir / f"{sequence:03d}_{label}.html"
-
-            # Write main page HTML
-            with open(html_filename, "w", encoding="utf-8") as f:
-                f.write(main_html)
-
-            # Capture all frames/iframes
-            frame_count = 0
-            try:
-                frames = page.frames
-                if len(frames) > 1:  # More than just main frame
-                    for idx, frame in enumerate(frames):
-                        if frame == page.main_frame:
-                            continue  # Skip main frame, already captured
-
-                        try:
-                            frame_html = frame.content()
-                            frame_filename = self.html_dir / f"{sequence:03d}_{label}_frame{idx}.html"
-
-                            with open(frame_filename, "w", encoding="utf-8") as f:
-                                # Add metadata header
-                                frame_url = frame.url or "about:blank"
-                                f.write(f"<!-- Frame URL: {frame_url} -->\n")
-                                f.write(f"<!-- Frame Index: {idx} -->\n")
-                                f.write(f"<!-- Parent: {sequence:03d}_{label}.html -->\n\n")
-                                f.write(frame_html)
-
-                            total_size += len(frame_html)
-                            frame_count += 1
-
-                        except Exception as frame_exc:
-                            app_log(f"⚠️ Could not capture frame {idx}: {frame_exc}")
-
-            except Exception as frames_exc:
-                app_log(f"⚠️ Could not enumerate frames: {frames_exc}")
-
-            if frame_count > 0:
-                app_log(f"💾 HTML snapshot saved: {html_filename} + {frame_count} frame(s) ({total_size} bytes total)")
-            else:
-                app_log(f"💾 HTML snapshot saved: {html_filename} ({total_size} bytes)")
-
-        except Exception as exc:
-            app_log(f"⚠️ Could not save HTML snapshot for {label}: {exc}")
 
     def _build_filename(self, label: str, sequence: int | None = None) -> Path:
         suffix = ".jpg" if self.image_format == "jpeg" else ".png"

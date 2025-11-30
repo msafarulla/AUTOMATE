@@ -38,7 +38,6 @@ class TabClickConfig:
     operation_note: str | None = None
     click_timeout_ms: int = 3000
     capture_after_tabs: bool = True
-    capture_html: bool = True  # Also capture HTML snapshots
 
 
 class FrameFinder:
@@ -342,13 +341,11 @@ class TabNavigator:
         WaitUtils.wait_brief(target)
 
         app_log("🎯 Starting tab clicking process...")
-        app_log(f"📋 Config: capture_html={config.capture_html}, screenshot_mgr={config.screenshot_mgr is not None}")
 
         frames_to_try = TabNavigator._collect_frames(target)
         use_page = getattr(target, "page", None) or target
         base_note = config.operation_note or "iLPN detail tab"
         tab_images: list[bytes] = []
-        tab_htmls: list[tuple[str, str]] = []  # List of (tab_name, html_content)
 
         ViewStabilizer.maximize_page_for_capture(use_page)
 
@@ -365,65 +362,21 @@ class TabNavigator:
                 ViewStabilizer.wait_for_ext_mask(target, timeout_ms=4000)
                 # Wait for view to stabilize before capturing (increased samples for reliability)
                 ViewStabilizer.wait_for_stable_view(target, stable_samples=3, timeout_ms=4000)
-
-                # Capture screenshot
                 if config.screenshot_mgr:
                     try:
                         img_bytes = use_page.screenshot(full_page=True, type="jpeg")
                         tab_images.append(img_bytes)
                     except Exception as exc:
-                        app_log(f"⚠️ Could not capture screenshot for tab {tab_name}: {exc}")
-
-                # Capture HTML snapshot (entire page including all frames)
-                if config.capture_html:
-                    try:
-                        # Capture main page and all frames
-                        html_parts = []
-                        main_html = use_page.content()
-                        html_parts.append(("main", main_html))
-                        html_size = len(main_html)
-
-                        # Capture all frames
-                        try:
-                            frames = use_page.frames
-                            for idx, frame in enumerate(frames):
-                                if frame == use_page.main_frame:
-                                    continue
-                                try:
-                                    frame_html = frame.content()
-                                    frame_url = frame.url or "about:blank"
-                                    html_parts.append((f"frame{idx}_{frame_url}", frame_html))
-                                    html_size += len(frame_html)
-                                except Exception:
-                                    pass
-                        except Exception:
-                            pass
-
-                        tab_htmls.append((tab_name, html_parts))
-                        app_log(f"✅ Captured HTML snapshot for tab '{tab_name}' ({html_size} bytes, {len(html_parts)} part(s))")
-                    except Exception as exc:
-                        app_log(f"⚠️ Could not capture HTML for tab {tab_name}: {exc}")
-                else:
-                    app_log(f"ℹ️ HTML capture disabled (config.capture_html={config.capture_html})")
+                        app_log(f"⚠️ Could not capture tab {tab_name}: {exc}")
             else:
                 app_log(f"  ❌ FAILED to click tab: {tab_name}")
 
         app_log("\n✅ Tab clicking process complete")
 
-        # Save combined screenshot
         if config.capture_after_tabs and config.screenshot_mgr:
             TabNavigator._capture_combined_tabs(
                 use_page, tab_images, config, base_note
             )
-
-        # Save HTML snapshots
-        app_log(f"📊 HTML capture status: capture_html={config.capture_html}, tab_htmls count={len(tab_htmls)}")
-        if config.capture_html and tab_htmls:
-            TabNavigator._save_html_snapshots(tab_htmls, config)
-        elif config.capture_html and not tab_htmls:
-            app_log("⚠️ HTML capture enabled but no HTML content was captured")
-        elif not config.capture_html:
-            app_log("ℹ️ HTML capture is disabled in config")
 
         return True
 
@@ -534,69 +487,6 @@ class TabNavigator:
             
         except Exception as exc:
             app_log(f"⚠️ Combined tab capture failed: {exc}")
-
-    @staticmethod
-    def _save_html_snapshots(tab_htmls: list[tuple[str, str]], config: TabClickConfig):
-        """Save HTML snapshots for each tab to disk."""
-        app_log(f"💾 Starting HTML snapshot save for {len(tab_htmls)} tab(s)")
-
-        if not config.screenshot_mgr:
-            app_log("⚠️ No screenshot manager provided, skipping HTML snapshots")
-            return
-
-        try:
-            screenshot_mgr = config.screenshot_mgr
-            safe_tag = config.screenshot_tag or "ilpn_tab"
-
-            # Get base directory from screenshot manager
-            screenshots_dir = getattr(screenshot_mgr, "current_output_dir", None) or getattr(screenshot_mgr, "output_dir", None)
-            app_log(f"📂 Screenshot base directory: {screenshots_dir}")
-
-            if not screenshots_dir:
-                app_log("⚠️ No screenshots directory configured, skipping HTML snapshots")
-                return
-
-            # Create HTML subdirectory
-            import os
-            html_dir = os.path.join(str(screenshots_dir), "html_snapshots")
-            app_log(f"📂 Creating HTML directory: {html_dir}")
-            os.makedirs(html_dir, exist_ok=True)
-            app_log(f"✅ HTML directory ready: {html_dir}")
-
-            # Save each tab's HTML (main page + all frames)
-            for tab_name, html_parts in tab_htmls:
-                try:
-                    safe_tab_name = tab_name.lower().replace(" ", "_")
-                    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-
-                    # Save each part (main + frames)
-                    for part_name, html_content in html_parts:
-                        safe_part_name = part_name.replace(":", "_").replace("/", "_").replace("?", "_")
-                        if part_name == "main":
-                            filename = f"{safe_tag}_{safe_tab_name}_{timestamp}.html"
-                        else:
-                            filename = f"{safe_tag}_{safe_tab_name}_{timestamp}_{safe_part_name}.html"
-
-                        filepath = os.path.join(html_dir, filename)
-
-                        # Write HTML to file
-                        with open(filepath, "w", encoding="utf-8") as f:
-                            # Add metadata header for frames
-                            if part_name != "main":
-                                f.write(f"<!-- Tab: {tab_name} -->\n")
-                                f.write(f"<!-- Part: {part_name} -->\n")
-                                f.write(f"<!-- Timestamp: {timestamp} -->\n\n")
-                            f.write(html_content)
-
-                        app_log(f"💾 Saved HTML: {filepath}")
-
-                except Exception as exc:
-                    app_log(f"⚠️ Failed to save HTML for tab {tab_name}: {exc}")
-
-            app_log(f"✅ Saved {len(tab_htmls)} HTML snapshot(s) to {html_dir}")
-
-        except Exception as exc:
-            app_log(f"⚠️ HTML snapshot save failed: {exc}")
 
     @staticmethod
     def _stitch_images(images: list) -> "Image":
