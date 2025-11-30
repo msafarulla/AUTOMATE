@@ -413,10 +413,8 @@ class TabNavigator:
                 # Wait for tab content to load
                 WaitUtils.wait_brief(target, timeout_ms=500)
 
-                # Verify the tab actually became active before proceeding
-                if not TabNavigator._verify_tab_active(target, tab_name, timeout_ms=3000):
-                    app_log(f"  ⚠️ WARNING: Tab '{tab_name}' may not be active, skipping screenshot")
-                    continue
+                # Verify the tab actually became active (warning only, still capture)
+                TabNavigator._verify_tab_active(target, tab_name, timeout_ms=3000)
 
                 # Wait for ExtJS mask to clear after tab switch
                 ViewStabilizer.wait_for_ext_mask(target, timeout_ms=4000)
