@@ -38,6 +38,7 @@ class TabClickConfig:
     operation_note: str | None = None
     click_timeout_ms: int = 3000
     capture_after_tabs: bool = True
+    capture_html: bool = True  # Also capture HTML snapshots
 
 
 class FrameFinder:
@@ -346,7 +347,8 @@ class TabNavigator:
         use_page = getattr(target, "page", None) or target
         base_note = config.operation_note or "iLPN detail tab"
         tab_images: list[bytes] = []
-        
+        tab_htmls: list[tuple[str, str]] = []  # List of (tab_name, html_content)
+
         ViewStabilizer.maximize_page_for_capture(use_page)
 
         for tab_name in TabNavigator.TAB_NAMES:
@@ -362,22 +364,38 @@ class TabNavigator:
                 ViewStabilizer.wait_for_ext_mask(target, timeout_ms=4000)
                 # Wait for view to stabilize before capturing (increased samples for reliability)
                 ViewStabilizer.wait_for_stable_view(target, stable_samples=3, timeout_ms=4000)
+
+                # Capture screenshot
                 if config.screenshot_mgr:
                     try:
                         img_bytes = use_page.screenshot(full_page=True, type="jpeg")
                         tab_images.append(img_bytes)
                     except Exception as exc:
-                        app_log(f"⚠️ Could not capture tab {tab_name}: {exc}")
+                        app_log(f"⚠️ Could not capture screenshot for tab {tab_name}: {exc}")
+
+                # Capture HTML snapshot
+                if config.capture_html:
+                    try:
+                        html_content = use_page.content()
+                        tab_htmls.append((tab_name, html_content))
+                        app_log(f"✅ Captured HTML snapshot for tab: {tab_name}")
+                    except Exception as exc:
+                        app_log(f"⚠️ Could not capture HTML for tab {tab_name}: {exc}")
             else:
                 app_log(f"  ❌ FAILED to click tab: {tab_name}")
 
         app_log("\n✅ Tab clicking process complete")
-        
+
+        # Save combined screenshot
         if config.capture_after_tabs and config.screenshot_mgr:
             TabNavigator._capture_combined_tabs(
                 use_page, tab_images, config, base_note
             )
-        
+
+        # Save HTML snapshots
+        if config.capture_html and tab_htmls:
+            TabNavigator._save_html_snapshots(tab_htmls, config)
+
         return True
 
     @staticmethod
@@ -487,6 +505,50 @@ class TabNavigator:
             
         except Exception as exc:
             app_log(f"⚠️ Combined tab capture failed: {exc}")
+
+    @staticmethod
+    def _save_html_snapshots(tab_htmls: list[tuple[str, str]], config: TabClickConfig):
+        """Save HTML snapshots for each tab to disk."""
+        if not config.screenshot_mgr:
+            return
+
+        try:
+            screenshot_mgr = config.screenshot_mgr
+            safe_tag = config.screenshot_tag or "ilpn_tab"
+
+            # Get base directory from screenshot manager
+            screenshots_dir = getattr(screenshot_mgr, "screenshots_dir", None)
+            if not screenshots_dir:
+                app_log("⚠️ No screenshots directory configured, skipping HTML snapshots")
+                return
+
+            # Create HTML subdirectory
+            import os
+            html_dir = os.path.join(screenshots_dir, "html_snapshots")
+            os.makedirs(html_dir, exist_ok=True)
+
+            # Save each tab's HTML
+            for tab_name, html_content in tab_htmls:
+                try:
+                    # Create safe filename
+                    safe_tab_name = tab_name.lower().replace(" ", "_")
+                    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                    filename = f"{safe_tag}_{safe_tab_name}_{timestamp}.html"
+                    filepath = os.path.join(html_dir, filename)
+
+                    # Write HTML to file
+                    with open(filepath, "w", encoding="utf-8") as f:
+                        f.write(html_content)
+
+                    app_log(f"💾 Saved HTML snapshot: {filepath}")
+
+                except Exception as exc:
+                    app_log(f"⚠️ Failed to save HTML for tab {tab_name}: {exc}")
+
+            app_log(f"✅ Saved {len(tab_htmls)} HTML snapshot(s) to {html_dir}")
+
+        except Exception as exc:
+            app_log(f"⚠️ HTML snapshot save failed: {exc}")
 
     @staticmethod
     def _stitch_images(images: list) -> "Image":
