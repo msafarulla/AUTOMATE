@@ -517,14 +517,14 @@ class TabNavigator:
             safe_tag = config.screenshot_tag or "ilpn_tab"
 
             # Get base directory from screenshot manager
-            screenshots_dir = getattr(screenshot_mgr, "screenshots_dir", None)
+            screenshots_dir = getattr(screenshot_mgr, "current_output_dir", None) or getattr(screenshot_mgr, "output_dir", None)
             if not screenshots_dir:
                 app_log("⚠️ No screenshots directory configured, skipping HTML snapshots")
                 return
 
             # Create HTML subdirectory
             import os
-            html_dir = os.path.join(screenshots_dir, "html_snapshots")
+            html_dir = os.path.join(str(screenshots_dir), "html_snapshots")
             os.makedirs(html_dir, exist_ok=True)
 
             # Save each tab's HTML
