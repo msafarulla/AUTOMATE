@@ -13,9 +13,9 @@ class BaseOperation(ABC):
         self.rf_menu = rf_menu
 
     @abstractmethod
-    def execute(self, *args, **kwargs):
-        """Execute the operation"""
-        pass
+    def execute(self, *args, **kwargs) -> bool:
+        """Execute the operation."""
+        raise NotImplementedError("Subclasses must implement execute() and return a bool.")
 
     def handle_error_screen(self, rf_iframe):
         """Common error handling logic"""

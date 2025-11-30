@@ -5,13 +5,13 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from enum import Enum, auto
-from typing import Any, Callable, Optional
+from typing import Callable, Optional
 from datetime import datetime
 
 from core.logger import rf_log
 from core.screenshot import ScreenshotManager
 from operations.rf_primitives import RFWorkflows
-from config.operations_config import OperationConfig
+from config.operations_config import OperationConfig, ScreenSelectors
 from utils.retry import retry_with_context
 
 
@@ -92,8 +92,8 @@ class ReceiveStateMachine:
         self,
         rf: RFWorkflows,
         screenshot_mgr: ScreenshotManager,
-        selectors: OperationConfig.RECEIVE_SELECTORS.__class__,
-        deviation_selectors: Optional[Any] = None,
+        selectors: ScreenSelectors,
+        deviation_selectors: Optional[ScreenSelectors] = None,
         post_qty_hook: Optional[Callable[['ReceiveStateMachine'], None]] = None,
         post_location_hook: Optional[Callable[['ReceiveStateMachine'], None]] = None,
     ):
@@ -281,13 +281,13 @@ class ReceiveStateMachine:
 class InitHandler(StateHandler):
     state = ReceiveState.INIT
     
-    def execute(self, m: ReceiveStateMachine) -> ReceiveState:
+    def execute(self, machine: ReceiveStateMachine) -> ReceiveState:
         menu = OperationConfig.RECEIVE_MENU
-        if m.rf.navigate_to_menu_by_search(menu.search_term, menu.tran_id):
+        if machine.rf.navigate_to_menu_by_search(menu.search_term, menu.tran_id):
             return ReceiveState.NAVIGATED
         return ReceiveState.ERROR
     
-    def detect(self, m: ReceiveStateMachine) -> bool:
+    def detect(self, machine: ReceiveStateMachine) -> bool:
         # Init is not detectable from screen
         return False
 
@@ -295,70 +295,70 @@ class InitHandler(StateHandler):
 class NavigatedHandler(StateHandler):
     state = ReceiveState.NAVIGATED
     
-    def execute(self, m: ReceiveStateMachine) -> ReceiveState:
-        has_error, msg = m.rf.scan_barcode_auto_enter(
-            m.selectors.asn,
-            m.context.asn,
+    def execute(self, machine: ReceiveStateMachine) -> ReceiveState:
+        has_error, msg = machine.rf.scan_barcode_auto_enter(
+            machine.selectors.asn,
+            machine.context.asn,
             "ASN"
         )
         if has_error:
-            m.context.error_message = msg
+            machine.context.error_message = msg
             return ReceiveState.ERROR
         return ReceiveState.ASN_SCANNED
     
-    def detect(self, m: ReceiveStateMachine) -> bool:
-        return m.is_element_visible(m.selectors.asn)
+    def detect(self, machine: ReceiveStateMachine) -> bool:
+        return machine.is_element_visible(machine.selectors.asn)
 
 
 class AsnScannedHandler(StateHandler):
     state = ReceiveState.ASN_SCANNED
     
-    def execute(self, m: ReceiveStateMachine) -> ReceiveState:
-        has_error, msg = m.rf.scan_barcode_auto_enter(
-            m.selectors.item,
-            m.context.item,
+    def execute(self, machine: ReceiveStateMachine) -> ReceiveState:
+        has_error, msg = machine.rf.scan_barcode_auto_enter(
+            machine.selectors.item,
+            machine.context.item,
             "Item"
         )
         if has_error:
-            m.context.error_message = msg
+            machine.context.error_message = msg
             return ReceiveState.ERROR
         
         # Capture screen quantities after item scan
-        m.context.shipped_qty, m.context.received_qty, m.context.ilpn = (
-            _parse_screen_quantities(m)
+        machine.context.shipped_qty, machine.context.received_qty, machine.context.ilpn = (
+            _parse_screen_quantities(machine)
         )
         
         return ReceiveState.ITEM_SCANNED
     
-    def detect(self, m: ReceiveStateMachine) -> bool:
-        return m.is_element_visible(m.selectors.item)
+    def detect(self, machine: ReceiveStateMachine) -> bool:
+        return machine.is_element_visible(machine.selectors.item)
 
 
 class ItemScannedHandler(StateHandler):
     state = ReceiveState.ITEM_SCANNED
     
-    def execute(self, m: ReceiveStateMachine) -> ReceiveState:
+    def execute(self, machine: ReceiveStateMachine) -> ReceiveState:
         context_dict = {
-            "shipped": m.context.shipped_qty,
-            "received": m.context.received_qty,
-            "ilpn": m.context.ilpn,
+            "shipped": machine.context.shipped_qty,
+            "received": machine.context.received_qty,
+            "ilpn": machine.context.ilpn,
         }
         
-        success = m.rf.enter_quantity(
-            m.selectors.quantity,
-            m.context.quantity,
-            item_name=m.context.item,
+        success = machine.rf.enter_quantity(
+            machine.selectors.quantity,
+            machine.context.quantity,
+            item_name=machine.context.item,
             context=context_dict,
         )
         
         if not success:
-            m.context.error_message = "Quantity entry failed"
+            machine.context.error_message = "Quantity entry failed"
             return ReceiveState.ERROR
         
         return ReceiveState.QTY_ENTERED
     
-    def detect(self, m: ReceiveStateMachine) -> bool:
-        return m.is_element_visible(m.selectors.quantity)
+    def detect(self, machine: ReceiveStateMachine) -> bool:
+        return machine.is_element_visible(machine.selectors.quantity)
 
 
 class QtyEnteredHandler(StateHandler):
@@ -375,48 +375,48 @@ class QtyEnteredHandler(StateHandler):
         (ReceiveState.AWAITING_QTY_ADJUST, '_is_qty_adjust_prompt'),
     ]
     
-    def execute(self, m: ReceiveStateMachine) -> ReceiveState:
-        m.invoke_post_qty_hook()
-        screen_text = m.read_screen_text()
+    def execute(self, machine: ReceiveStateMachine) -> ReceiveState:
+        machine.invoke_post_qty_hook()
+        screen_text = machine.read_screen_text()
         
         for next_state, detector_name in self.BRANCH_DETECTORS:
             detector = getattr(self, detector_name)
-            if detector(m, screen_text):
+            if detector(machine, screen_text):
                 # Check if this matches expected flow
-                if m.context.flow_hint:
+                if machine.context.flow_hint:
                     expected = self._state_to_flow_name(next_state)
-                    if expected != m.context.flow_hint:
-                        rf_log(f"⚠️ Flow deviation: expected {m.context.flow_hint}, got {expected}")
-                        m.rf_capture("deviation", f"Expected {m.context.flow_hint}")
-                        if not m.context.auto_handle_deviation:
-                            m.context.error_message = f"Flow deviation: {expected}"
+                    if expected != machine.context.flow_hint:
+                        rf_log(f"⚠️ Flow deviation: expected {machine.context.flow_hint}, got {expected}")
+                        machine.rf_capture("deviation", f"Expected {machine.context.flow_hint}")
+                        if not machine.context.auto_handle_deviation:
+                            machine.context.error_message = f"Flow deviation: {expected}"
                             return ReceiveState.ERROR
                 
                 return next_state
         
         # Unknown screen state
         rf_log(f"⚠️ Unknown screen after qty entry: {screen_text[:100]}")
-        m.rf_capture("unknown_state", "Unknown screen")
-        m.context.error_message = "Unknown screen state after quantity"
+        machine.rf_capture("unknown_state", "Unknown screen")
+        machine.context.error_message = "Unknown screen state after quantity"
         return ReceiveState.ERROR
     
-    def detect(self, m: ReceiveStateMachine) -> bool:
+    def detect(self, machine: ReceiveStateMachine) -> bool:
         # QTY_ENTERED is transitional, not directly detectable
         return False
     
-    def _is_location_prompt(self, m: ReceiveStateMachine, text: str) -> bool:
+    def _is_location_prompt(self, machine: ReceiveStateMachine, text: str) -> bool:
         # Check for location selector visibility
-        if m.is_element_visible(m.selectors.location, timeout=300):
+        if machine.is_element_visible(machine.selectors.location, timeout=300):
             return True
         # Fallback to text detection
         return any(marker in text for marker in ('aloc', 'cloc', 'location'))
     
-    def _is_blind_ilpn_prompt(self, m: ReceiveStateMachine, text: str) -> bool:
-        if m.is_element_visible(m.deviation_selectors.lpn_input, timeout=300):
+    def _is_blind_ilpn_prompt(self, machine: ReceiveStateMachine, text: str) -> bool:
+        if machine.is_element_visible(machine.deviation_selectors.lpn_input, timeout=300):
             return True
         return 'blind ilpn' in text or 'ilpn#' in text
     
-    def _is_qty_adjust_prompt(self, m: ReceiveStateMachine, text: str) -> bool:
+    def _is_qty_adjust_prompt(self, machine: ReceiveStateMachine, text: str) -> bool:
         return 'qty adjust' in text or 'quantity adjust' in text
     
     def _state_to_flow_name(self, state: ReceiveState) -> str:
@@ -431,82 +431,82 @@ class QtyEnteredHandler(StateHandler):
 class AwaitingLocationHandler(StateHandler):
     state = ReceiveState.AWAITING_LOCATION
     
-    def execute(self, m: ReceiveStateMachine) -> ReceiveState:
-        location = _read_suggested_location(m)
-        m.context.suggested_location = location
+    def execute(self, machine: ReceiveStateMachine) -> ReceiveState:
+        location = _read_suggested_location(machine)
+        machine.context.suggested_location = location
         
         if not location:
-            m.context.error_message = "Could not read suggested location"
+            machine.context.error_message = "Could not read suggested location"
             return ReceiveState.ERROR
         
-        has_error, msg = m.rf.confirm_location(m.selectors.location, location)
+        has_error, msg = machine.rf.confirm_location(machine.selectors.location, location)
         if has_error:
-            m.context.error_message = msg
+            machine.context.error_message = msg
             return ReceiveState.ERROR
         
-        m.invoke_post_location_hook()
-        m.rf_capture("complete", f"Location confirmed: {location}")
+        machine.invoke_post_location_hook()
+        machine.rf_capture("complete", f"Location confirmed: {location}")
         return ReceiveState.COMPLETE
     
-    def detect(self, m: ReceiveStateMachine) -> bool:
-        return m.is_element_visible(m.selectors.location)
+    def detect(self, machine: ReceiveStateMachine) -> bool:
+        return machine.is_element_visible(machine.selectors.location)
 
 
 class AwaitingBlindIlpnHandler(StateHandler):
     state = ReceiveState.AWAITING_BLIND_ILPN
     
-    def execute(self, m: ReceiveStateMachine) -> ReceiveState:
+    def execute(self, machine: ReceiveStateMachine) -> ReceiveState:
         lpn = datetime.now().strftime("%y%m%d%H%M%S")
         
         selectors_to_try = [
-            m.deviation_selectors.lpn_input,
-            m.deviation_selectors.lpn_input_name,
+            machine.deviation_selectors.lpn_input,
+            machine.deviation_selectors.lpn_input_name,
         ]
         
         for selector in selectors_to_try:
             try:
-                has_error, msg = m.rf.primitive.fill_and_submit(
+                has_error, msg = machine.rf.primitive.fill_and_submit(
                     selector, lpn, "blind_ilpn", f"Entered LPN: {lpn}"
                 )
                 if not has_error:
-                    m.rf_capture("ilpn_entered", f"Blind iLPN: {lpn}")
+                    machine.rf_capture("ilpn_entered", f"Blind iLPN: {lpn}")
                     # After ILPN, usually goes to location
                     return ReceiveState.AWAITING_LOCATION
             except Exception:
                 continue
         
-        m.context.error_message = "Could not enter blind iLPN"
+        machine.context.error_message = "Could not enter blind iLPN"
         return ReceiveState.ERROR
     
-    def detect(self, m: ReceiveStateMachine) -> bool:
-        text = m.read_screen_text()
+    def detect(self, machine: ReceiveStateMachine) -> bool:
+        text = machine.read_screen_text()
         return 'blind ilpn' in text or 'ilpn#' in text
 
 
 class AwaitingQtyAdjustHandler(StateHandler):
     state = ReceiveState.AWAITING_QTY_ADJUST
     
-    def execute(self, m: ReceiveStateMachine) -> ReceiveState:
+    def execute(self, machine: ReceiveStateMachine) -> ReceiveState:
         # Qty adjust usually requires accepting and continuing
-        m.rf.primitive.accept_message()
-        m.rf_capture("qty_adjust_accepted", "Quantity adjustment accepted")
+        machine.rf.primitive.accept_message()
+        machine.rf_capture("qty_adjust_accepted", "Quantity adjustment accepted")
 
         # Re-detect what screen we're on now
-        return m.detect_current_state()
+        return machine.detect_current_state()
     
-    def detect(self, m: ReceiveStateMachine) -> bool:
-        text = m.read_screen_text()
+    def detect(self, machine: ReceiveStateMachine) -> bool:
+        text = machine.read_screen_text()
         return 'qty adjust' in text or 'quantity adjust' in text
 
 
 class CompleteHandler(StateHandler):
     state = ReceiveState.COMPLETE
     
-    def execute(self, m: ReceiveStateMachine) -> ReceiveState:
+    def execute(self, machine: ReceiveStateMachine) -> ReceiveState:
         # Terminal state - no transition
         return ReceiveState.COMPLETE
     
-    def detect(self, m: ReceiveStateMachine) -> bool:
+    def detect(self, machine: ReceiveStateMachine) -> bool:
         # Complete is determined by flow, not screen content
         return False
 
@@ -514,19 +514,19 @@ class CompleteHandler(StateHandler):
 class ErrorHandler(StateHandler):
     state = ReceiveState.ERROR
 
-    def execute(self, m: ReceiveStateMachine) -> ReceiveState:
+    def execute(self, machine: ReceiveStateMachine) -> ReceiveState:
         # Attempt recovery if retries remaining
-        if retry_with_context(m.context):
+        if retry_with_context(machine.context):
             # Try to detect current state and continue from there
-            detected = m.detect_current_state()
+            detected = machine.detect_current_state()
             if detected != ReceiveState.ERROR:
                 return detected
 
-        m.rf_capture("error", m.context.error_message or "Error")
+        machine.rf_capture("error", machine.context.error_message or "Error")
         return ReceiveState.ERROR
 
-    def detect(self, m: ReceiveStateMachine) -> bool:
-        text = m.read_screen_text()
+    def detect(self, machine: ReceiveStateMachine) -> bool:
+        text = machine.read_screen_text()
         return 'error' in text or 'invalid' in text
 
 
@@ -534,7 +534,7 @@ class ErrorHandler(StateHandler):
 # HELPER FUNCTIONS
 # =============================================================================
 
-def _parse_screen_quantities(m: ReceiveStateMachine) -> tuple[Optional[int], Optional[int], Optional[str]]:
+def _parse_screen_quantities(machine: ReceiveStateMachine) -> tuple[Optional[int], Optional[int], Optional[str]]:
     """Extract shipped/received quantities and iLPN from screen."""
     import re
     
@@ -542,7 +542,7 @@ def _parse_screen_quantities(m: ReceiveStateMachine) -> tuple[Optional[int], Opt
     ilpn = None
     
     try:
-        text = m.read_screen_text()
+        text = machine.read_screen_text()
         
         # Parse quantities
         shipped_match = re.search(r'shpd?\s*:?\s*([\d,]+)', text, re.I)
@@ -564,17 +564,17 @@ def _parse_screen_quantities(m: ReceiveStateMachine) -> tuple[Optional[int], Opt
     return shipped, received, ilpn
 
 
-def _read_suggested_location(m: ReceiveStateMachine) -> str:
+def _read_suggested_location(machine: ReceiveStateMachine) -> str:
     """Read suggested location from screen."""
     import re
     
     # Try configured selectors first
     for key in ('suggested_location_aloc', 'suggested_location_cloc'):
-        selector = m.selectors.selectors.get(key)
+        selector = machine.selectors.selectors.get(key)
         if not selector:
             continue
         try:
-            loc = m.rf.primitive.read_field(selector).replace('-', '').strip()
+            loc = machine.rf.primitive.read_field(selector).replace('-', '').strip()
             if loc:
                 return loc
         except Exception:
@@ -582,7 +582,7 @@ def _read_suggested_location(m: ReceiveStateMachine) -> str:
     
     # Fallback to text parsing
     try:
-        text = m.read_screen_text()
+        text = machine.read_screen_text()
         match = re.search(r'[AC]LOC\s*:?\s*([A-Za-z0-9\-]+)', text, re.I)
         if match:
             return match.group(1).replace('-', '').strip()
