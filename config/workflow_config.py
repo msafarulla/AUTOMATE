@@ -237,27 +237,28 @@ def create_default_workflows() -> list[Workflow]:
     workflows = []
 
     # Standard receive happy path
-    receive_happy = (
-        WorkflowBuilder("receive_CANT_FIND_PUTAWAY_LOCATION", "inbound")
-        .postMessageStep(PostMessageStep(
-            message_type="ASN",
-            source="db",
-            lookback_days=14,
-            db_env="prod",
-            asn_items=[
-                AsnItem(item_name="45119VA010", shipped_qty=10000),
-            ],
-        ))
-        .receivingStep(ReceivingStep(
-            flow=FlowType.CANT_FIND_PUTAWAY_LOCATION,
-            auto_handle_deviation=True,
-            open_ui=OpenUIConfig(entries=[
-                OpenIlpnUiStep(drill_detail=True),
-            ]),
-        ))
-        .build()
-    )
-    workflows.append(receive_happy)
+    for flow in FlowType:
+        receive_flow = (
+            WorkflowBuilder("{flow}", "inbound")
+            .postMessageStep(PostMessageStep(
+                message_type="ASN",
+                source="db",
+                lookback_days=14,
+                db_env="prod",
+                asn_items=[
+                    AsnItem(item_name="45119VA010", shipped_qty=10000),
+                ],
+            ))
+            .receivingStep(ReceivingStep(
+                flow=flow,
+                auto_handle_deviation=True,
+                open_ui=OpenUIConfig(entries=[
+                    OpenIlpnUiStep(drill_detail=True),
+                ]),
+            ))
+            .build()
+        )
+        workflows.append(receive_flow)
 
     return workflows
 
