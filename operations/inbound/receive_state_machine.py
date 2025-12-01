@@ -522,7 +522,7 @@ class CantFindPutawayLocationHandler(StateHandler):
                 )
                 if not has_error:
                     machine.rf_capture("R_Stage_entered", f"R Stage Location: {location_value}")
-                    return ReceiveState.CANT_FIND_PUTAWAY_LOCATION
+                    return ReceiveState.COMPLETE
             except Exception:
                 continue
         
