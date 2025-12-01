@@ -503,12 +503,27 @@ class CantFindPutawayLocationHandler(StateHandler):
     state = ReceiveState.CANT_FIND_PUTAWAY_LOCATION
     
     def execute(self, machine: ReceiveStateMachine) -> ReceiveState:
-        # Qty adjust usually requires accepting and continuing
-        machine.rf.primitive.accept_message()
-        machine.rf_capture("Cant find location", "Accepted the Warning")
-
-        # Re-detect what screen we're on now
-        return machine.detect_current_state()
+        rstage = datetime.now().strftime("%y%m%d%H%M%S")
+        
+        selectors_to_try = [
+            machine.deviation_selectors.rstage_location,
+            machine.deviation_selectors.rstage_location_name,
+        ]
+        
+        for selector in selectors_to_try:
+            try:
+                has_error, msg = machine.rf.primitive.fill_and_submit(
+                    selector, rstage, "rstage_location", f"Entered R-Stage Location: {rstage}"
+                )
+                if not has_error:
+                    machine.rf_capture("R_Stage_entered", f"R Stage Location: {rstage}")
+                    # After ILPN, usually goes to location
+                    return ReceiveState.CANT_FIND_PUTAWAY_LOCATION
+            except Exception:
+                continue
+        
+        machine.context.error_message = "Could not enter Location in R-Stage"
+        return ReceiveState.ERROR
     
     def detect(self, machine: ReceiveStateMachine) -> bool:
         text = machine.read_screen_text()
