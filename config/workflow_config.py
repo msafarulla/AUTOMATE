@@ -239,7 +239,7 @@ def create_default_workflows() -> list[Workflow]:
     # Standard receive happy path
     for flow in FlowType:
         receive_flow = (
-            WorkflowBuilder("{flow}", "inbound")
+            WorkflowBuilder(f"{flow}", "inbound")
             .postMessageStep(PostMessageStep(
                 message_type="ASN",
                 source="db",
