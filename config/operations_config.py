@@ -51,6 +51,8 @@ class OperationConfig:
     RECEIVE_DEVIATION_SELECTORS = ScreenSelectors({
         'lpn_input': "input#lpninput",
         'lpn_input_name': "input[name='lpninput']",
+        'rstage_location': "input#dataForm\\:rfexcptrstgip",
+        'rstage_location_name': "input[name='dataForm:rfexcptrstgip']",
     })
 
     LOADING_MENU = MenuConfig(
