@@ -238,7 +238,7 @@ def create_default_workflows() -> list[Workflow]:
 
     # Standard receive happy path
     receive_happy = (
-        WorkflowBuilder("receive_HAPPY_PATH", "inbound")
+        WorkflowBuilder("receive_CANT_FIND_PUTAWAY_LOCATION", "inbound")
         .postMessageStep(PostMessageStep(
             message_type="ASN",
             source="db",
