@@ -521,7 +521,7 @@ class CantFindPutawayLocationHandler(StateHandler):
                     selector, location_value, "R_Stage_location_prompt", f"Entered R-Stage Location: {location_value}"
                 )
                 if not has_error:
-                    machine.rf_capture("R_Stage_entered", f"R Stage Location: {location_value}")
+                    machine.rf_capture("R_Stage_entered Successfully", f"R Stage Location: {location_value}")
                     return ReceiveState.COMPLETE
             except Exception:
                 continue
