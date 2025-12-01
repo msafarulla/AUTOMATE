@@ -634,30 +634,31 @@ def _fetch_rstage_location() -> str | None:
         return None
 
     query = f"""
-        select locn_brcd
-        from locn_hdr
-        where whse = '{whse}'
-          and putwy_zone = 'RST'
-        order by locn_putwy_seq desc
-        fetch first 10 row only
+        select LOCN_BRCD
+        from LOCN_HDR
+        where WHSE = '{whse}'
+          and PUTWY_ZONE = 'RST'
+        order by LOCN_PUTWY_SEQ desc
+        fetch first 1 row only
     """
 
     try:
         with DB(whse=whse) as db:
             db.runSQL(query, whse_specific=False)
-            rows, columns = db.fetchall()
+            row = db.fetchone()
     except Exception as exc:
         rf_log(f"⚠️ R-stage location query failed: {exc}")
         return None
 
-    if not rows:
+    if not row:
         return None
 
-    col_index = 0
-    if columns:
-        try:
-            col_index = columns.index("LOCN_BRCD")
-        except ValueError:
-            pass
+    if isinstance(row, dict):
+        value = row.get("LOCN_BRCD")
+        return str(value) if value is not None else None
 
-    return rows[0][col_index]
+    if isinstance(row, (list, tuple)) and row:
+        first_value = row[0]
+        return str(first_value) if first_value is not None else None
+
+    return None
