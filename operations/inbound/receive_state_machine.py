@@ -15,6 +15,7 @@ from config.operations_config import OperationConfig, ScreenSelectors
 from utils.retry import retry_with_context
 from DB import DB
 from config.settings import Settings
+from config.workflow_config import FlowType
 
 
 class ReceiveState(Enum):
@@ -439,11 +440,11 @@ class QtyEnteredHandler(StateHandler):
     
     def _state_to_flow_name(self, state: ReceiveState) -> str:
         mapping = {
-            ReceiveState.AWAITING_LOCATION: "HAPPY_PATH",
-            ReceiveState.AWAITING_BLIND_ILPN: "IB_RULE_EXCEPTION_BLIND_ILPN",
-            ReceiveState.CANT_FIND_PUTAWAY_LOCATION: "CANT_FIND_LOCATION",
+            ReceiveState.AWAITING_LOCATION: FlowType.HAPPY_PATH.value,
+            ReceiveState.AWAITING_BLIND_ILPN: FlowType.BLIND_ILPN.value,
+            ReceiveState.CANT_FIND_PUTAWAY_LOCATION: FlowType.CANT_FIND_PUTAWAY_LOCATION.value,
         }
-        return mapping.get(state, "UNKNOWN")
+        return mapping.get(state, FlowType.UNKNOWN.value)
 
 
 class AwaitingLocationHandler(StateHandler):
