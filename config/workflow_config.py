@@ -249,7 +249,7 @@ def create_default_workflows() -> list[Workflow]:
             ],
         ))
         .receivingStep(ReceivingStep(
-            flow=FlowType.HAPPY_PATH,
+            flow=FlowType.CANT_FIND_PUTAWAY_LOCATION,
             auto_handle_deviation=True,
             open_ui=OpenUIConfig(entries=[
                 OpenIlpnUiStep(drill_detail=True),
