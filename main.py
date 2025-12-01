@@ -10,20 +10,7 @@ from config.settings import Settings
 from core.connection_guard import ConnectionResetDetected
 from core.logger import app_log
 from operations import create_operation_services
-
-# Import new workflow system (optional - for gradual migration)
-create_default_workflows = None  # type: ignore
-flatten_new_workflows = None  # type: ignore
-Workflow = None  # type: ignore
-try:
-    from config.workflow_config import (
-        Workflow,
-        create_default_workflows,
-        flatten_workflows as flatten_new_workflows,
-    )
-    NEW_WORKFLOW_SYSTEM = True
-except ImportError:
-    NEW_WORKFLOW_SYSTEM = False
+from config.workflow_config import Workflow, create_default_workflows, flatten_workflows
 
 
 def main():
@@ -82,18 +69,17 @@ def load_workflows() -> list[tuple[str, dict[str, Any]]]:
     - Legacy nested dict format (fallback)
     """
     # Try new system first
-    if NEW_WORKFLOW_SYSTEM and callable(create_default_workflows) and callable(flatten_new_workflows):
+    if callable(create_default_workflows) and callable(flatten_workflows):
         try:
             workflows = cast(list[Any], create_default_workflows())
             if workflows:
                 app_log(f"📋 Loaded {len(workflows)} workflows (new format)")
-                return cast(list[tuple[str, dict[str, Any]]], flatten_new_workflows(workflows))
+                return cast(list[tuple[str, dict[str, Any]]], flatten_workflows(workflows))
         except Exception as e:
             app_log(f"⚠️ Failed to load new workflows: {e}")
+    app_log("⚠️ No workflows defined; nothing to run.")
+    return []
 
-    # Fall back to legacy format
-    app_log("📋 Using legacy workflow configuration")
-    return flatten_legacy_workflows(OperationConfig.DEFAULT_WORKFLOWS)
 
 
 def flatten_legacy_workflows(workflow_map: dict) -> list[tuple[str, dict[str, Any]]]:
