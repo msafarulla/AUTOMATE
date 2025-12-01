@@ -14,7 +14,7 @@ class FlowType(Enum):
     """Known receive flow variants."""
     HAPPY_PATH = "HAPPY_PATH"
     BLIND_ILPN = "IB_RULE_EXCEPTION_BLIND_ILPN"
-    QUANTITY_ADJUST = "QUANTITY_ADJUST"
+    CANT_FIND_PUTAWAY_LOCATION = "CANT_FIND_PUTAWAY_LOCATION"
     UNKNOWN = "UNKNOWN"
 
 
@@ -245,7 +245,6 @@ def create_default_workflows() -> list[Workflow]:
             lookback_days=14,
             db_env="prod",
             asn_items=[
-                AsnItem(item_name="81402XC01C", shipped_qty=20000),
                 AsnItem(item_name="45119VA010", shipped_qty=10000),
             ],
         ))
