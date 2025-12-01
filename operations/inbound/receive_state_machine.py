@@ -522,6 +522,7 @@ class CantFindPutawayLocationHandler(StateHandler):
                 )
                 if not has_error:
                     machine.rf_capture("R_Stage_entered Successfully", f"R Stage Location: {location_value}")
+                    machine.invoke_post_location_hook()
                     return ReceiveState.COMPLETE
             except Exception:
                 continue
