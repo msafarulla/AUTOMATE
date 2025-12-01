@@ -419,6 +419,11 @@ class QtyEnteredHandler(StateHandler):
     
     def _is_qty_adjust_prompt(self, machine: ReceiveStateMachine, text: str) -> bool:
         return 'qty adjust' in text or 'quantity adjust' in text
+
+    def _r_stage_prompt(self, machine: ReceiveStateMachine, text: str) -> bool:
+        if machine.is_element_visible(machine.deviation_selectors.lpn_input, timeout=300):
+            return False
+        return 'exception r-stage' in text.lower() or 'r-stage' in text.lower()
     
     def _state_to_flow_name(self, state: ReceiveState) -> str:
         mapping = {
@@ -497,7 +502,7 @@ class CantFindPutawayLocationHandler(StateHandler):
     
     def detect(self, machine: ReceiveStateMachine) -> bool:
         text = machine.read_screen_text()
-        return 'qty adjust' in text or 'quantity adjust' in text
+        return 'exception r-stage' in text.lower() or 'r-stage' in text.lower()
 
 
 class CompleteHandler(StateHandler):
