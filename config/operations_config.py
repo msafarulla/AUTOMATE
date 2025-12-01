@@ -53,25 +53,6 @@ class OperationConfig:
         'lpn_input_name': "input[name='lpninput']",
     })
 
-    # Metadata for receive flows that may branch off the happy path.
-    RECEIVE_FLOW_METADATA = {
-        'HAPPY_PATH': {
-            'description': 'Standard location confirmation screen after quantity entry',
-            'keywords': ['aloc','cloc'],
-        },
-        'IB_RULE_EXCEPTION_BLIND_ILPN': {
-            'description': 'IB rule exception where iLPN prompt appears instead of suggested location',
-            'keywords': ['blind ilpn', 'ilpn#'],
-        },
-        'CANT_FIND_LOCATION': {
-            'description': 'Quantity adjustment flow, typically recoverable',
-            'keywords': ['qty adjust', 'quantity adjust'],
-        },
-        'UNKNOWN': {
-            'description': 'Unknown/uncategorized screen – treat as deviation',
-        },
-    }
-
     LOADING_MENU = MenuConfig(
         name="Load Trailer",
         tran_id="1012334"
@@ -101,47 +82,4 @@ class OperationConfig:
         'asn': r'^\d{8}$',
         'item': r'^[A-Z0-9]{10,}$',
         'location': r'^[A-Z0-9-]{4,}$',
-    }
-
-    DEFAULT_WORKFLOWS = {
-        'inbound': {
-            'receive_HAPPY_PATH': {
-                STEP_NAMES.postMessage: {
-                    'enabled': True,
-                    'source': 'db',
-                    'type': 'ASN',
-                    'message': None,  # manually an xml can be put here
-                    'lookback_days': 14,
-                    'db_env': 'prod',
-                    'asn_items': [
-                        {
-                            'ItemName': '81402XC01C',
-                            'Quantity': {'ShippedQty': 20000},
-                        },
-                                              {
-                            'ItemName': '45119VA010',
-                            'Quantity': {'ShippedQty': 10000},
-                        },
-                    ],
-                },
-                STEP_NAMES.runReceiving: {
-                    'asn': '',
-                    'item': '',
-                    'quantity': 0,
-                    'flow': 'HAPPY_PATH',
-                    'auto_handle_deviation': True,
-                    'open_ui': {
-                        'entries': [
-                            {
-                                'search_term': 'ILPNS',
-                                'match_text': 'iLPNs (Distribution)',
-                                'operation_note': 'verify iLPNs from the UI',
-                                'rf_focus_title': 'RF Menu',
-                                'fill_ilpn': True,
-                            },
-                        ],
-                    },
-                },
-            },
-        },
     }
