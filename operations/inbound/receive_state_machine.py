@@ -26,7 +26,7 @@ class ReceiveState(Enum):
     # Post-quantity branches
     AWAITING_LOCATION = auto()
     AWAITING_BLIND_ILPN = auto()
-    AWAITING_QTY_ADJUST = auto()
+    CANT_FIND_PUTAWAY_LOCATION = auto()
     
     # Terminal states
     COMPLETE = auto()
@@ -123,7 +123,7 @@ class ReceiveStateMachine:
             QtyEnteredHandler(),
             AwaitingLocationHandler(),
             AwaitingBlindIlpnHandler(),
-            AwaitingQtyAdjustHandler(),
+            CantFindPutawayLocationHandler(),
             CompleteHandler(),
             ErrorHandler(),
         ]
@@ -373,7 +373,7 @@ class QtyEnteredHandler(StateHandler):
         # (next_state, detection_method)
         (ReceiveState.AWAITING_LOCATION, '_is_location_prompt'),
         (ReceiveState.AWAITING_BLIND_ILPN, '_is_blind_ilpn_prompt'),
-        (ReceiveState.AWAITING_QTY_ADJUST, '_is_qty_adjust_prompt'),
+        (ReceiveState.CANT_FIND_PUTAWAY_LOCATION, '_r_stage_prompt'),
     ]
     
     def execute(self, machine: ReceiveStateMachine) -> ReceiveState:
@@ -424,7 +424,7 @@ class QtyEnteredHandler(StateHandler):
         mapping = {
             ReceiveState.AWAITING_LOCATION: "HAPPY_PATH",
             ReceiveState.AWAITING_BLIND_ILPN: "IB_RULE_EXCEPTION_BLIND_ILPN",
-            ReceiveState.AWAITING_QTY_ADJUST: "QUANTITY_ADJUST",
+            ReceiveState.CANT_FIND_PUTAWAY_LOCATION: "CANT_FIND_LOCATION",
         }
         return mapping.get(state, "UNKNOWN")
 
@@ -484,13 +484,13 @@ class AwaitingBlindIlpnHandler(StateHandler):
         return 'blind ilpn' in text or 'ilpn#' in text
 
 
-class AwaitingQtyAdjustHandler(StateHandler):
-    state = ReceiveState.AWAITING_QTY_ADJUST
+class CantFindPutawayLocationHandler(StateHandler):
+    state = ReceiveState.CANT_FIND_PUTAWAY_LOCATION
     
     def execute(self, machine: ReceiveStateMachine) -> ReceiveState:
         # Qty adjust usually requires accepting and continuing
         machine.rf.primitive.accept_message()
-        machine.rf_capture("qty_adjust_accepted", "Quantity adjustment accepted")
+        machine.rf_capture("Cant find location", "Accepted the Warning")
 
         # Re-detect what screen we're on now
         return machine.detect_current_state()
