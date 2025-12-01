@@ -57,13 +57,13 @@ class OperationConfig:
     RECEIVE_FLOW_METADATA = {
         'HAPPY_PATH': {
             'description': 'Standard location confirmation screen after quantity entry',
-            'keywords': ['aloc'],
+            'keywords': ['aloc','cloc'],
         },
         'IB_RULE_EXCEPTION_BLIND_ILPN': {
             'description': 'IB rule exception where iLPN prompt appears instead of suggested location',
             'keywords': ['blind ilpn', 'ilpn#'],
         },
-        'QUANTITY_ADJUST': {
+        'CANT_FIND_LOCATION': {
             'description': 'Quantity adjustment flow, typically recoverable',
             'keywords': ['qty adjust', 'quantity adjust'],
         },
