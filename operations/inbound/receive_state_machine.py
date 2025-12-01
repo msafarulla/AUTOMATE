@@ -13,6 +13,8 @@ from core.screenshot import ScreenshotManager
 from operations.rf_primitives import RFWorkflows
 from config.operations_config import OperationConfig, ScreenSelectors
 from utils.retry import retry_with_context
+from DB import DB
+from config.settings import Settings
 
 
 class ReceiveState(Enum):
@@ -503,7 +505,10 @@ class CantFindPutawayLocationHandler(StateHandler):
     state = ReceiveState.CANT_FIND_PUTAWAY_LOCATION
     
     def execute(self, machine: ReceiveStateMachine) -> ReceiveState:
-        rstage = datetime.now().strftime("%y%m%d%H%M%S")
+        location_value = _fetch_rstage_location()
+        if not location_value:
+            machine.context.error_message = "No valid R-stage location defined"
+            return ReceiveState.ERROR
         
         selectors_to_try = [
             machine.deviation_selectors.rstage_location,
@@ -513,11 +518,10 @@ class CantFindPutawayLocationHandler(StateHandler):
         for selector in selectors_to_try:
             try:
                 has_error, msg = machine.rf.primitive.fill_and_submit(
-                    selector, rstage, "rstage_location", f"Entered R-Stage Location: {rstage}"
+                    selector, location_value, "R_Stage_location_prompt", f"Entered R-Stage Location: {location_value}"
                 )
                 if not has_error:
-                    machine.rf_capture("R_Stage_entered", f"R Stage Location: {rstage}")
-                    # After ILPN, usually goes to location
+                    machine.rf_capture("R_Stage_entered", f"R Stage Location: {location_value}")
                     return ReceiveState.CANT_FIND_PUTAWAY_LOCATION
             except Exception:
                 continue
@@ -621,3 +625,39 @@ def _read_suggested_location(machine: ReceiveStateMachine) -> str:
         pass
     
     return ""
+
+
+def _fetch_rstage_location() -> str | None:
+    """Fetch the most recent R-stage location from the database."""
+    whse = Settings.app.change_warehouse
+    if not whse:
+        return None
+
+    query = f"""
+        select locn_brcd
+        from locn_hdr
+        where whse = '{whse}'
+          and putwy_zone = 'RST'
+        order by locn_putwy_seq desc
+        fetch first 10 row only
+    """
+
+    try:
+        with DB(whse=whse) as db:
+            db.runSQL(query, whse_specific=False)
+            rows, columns = db.fetchall()
+    except Exception as exc:
+        rf_log(f"⚠️ R-stage location query failed: {exc}")
+        return None
+
+    if not rows:
+        return None
+
+    col_index = 0
+    if columns:
+        try:
+            col_index = columns.index("LOCN_BRCD")
+        except ValueError:
+            pass
+
+    return rows[0][col_index]
