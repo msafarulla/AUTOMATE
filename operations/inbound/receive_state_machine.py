@@ -632,21 +632,22 @@ def _read_suggested_location(machine: ReceiveStateMachine) -> str:
 def _fetch_rstage_location() -> str | None:
     """Fetch the most recent R-stage location from the database."""
     whse = Settings.app.change_warehouse
+    env = Settings.app.credentials_env
     if not whse:
         return None
 
     query = f"""
         select LOCN_BRCD
         from LOCN_HDR
-        where WHSE = '{whse}'
-          and PUTWY_ZONE = 'RST'
+        where
+          PUTWY_ZONE = 'RST'
         order by LOCN_PUTWY_SEQ desc
         fetch first 1 row only
     """
 
     try:
-        with DB(whse=whse) as db:
-            db.runSQL(query, whse_specific=False)
+        with DB(env, whse) as db:
+            db.runSQL(query)
             row = db.fetchone()
     except Exception as exc:
         rf_log(f"⚠️ R-stage location query failed: {exc}")
