@@ -483,7 +483,7 @@ class AwaitingBlindIlpnHandler(StateHandler):
         
         for selector in selectors_to_try:
             try:
-                has_error, msg = machine.rf.primitive.fill_and_submit(
+                has_error, msg = machine.rf.primitive.fill_capture_submit(
                     selector, lpn, "blind_ilpn", f"Entered LPN: {lpn}"
                 )
                 if not has_error:
@@ -517,12 +517,12 @@ class CantFindPutawayLocationHandler(StateHandler):
         
         for selector in selectors_to_try:
             try:
-                has_error, msg = machine.rf.primitive.fill_and_submit(
+                has_error, msg = machine.rf.primitive.fill_capture_submit(
                     selector, location_value, "R_Stage_location_prompt", f"Entered R-Stage Location: {location_value}"
                 )
                 if not has_error:
-                    machine.rf_capture("R_Stage_entered Successfully", f"R Stage Location: {location_value}")
                     machine.invoke_post_location_hook()
+                    machine.rf_capture("R_Stage_entered Successfully", f"R Stage Location: {location_value}")
                     return ReceiveState.COMPLETE
             except Exception:
                 continue

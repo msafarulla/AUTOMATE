@@ -31,7 +31,7 @@ class RFPrimitives:
     # PRIMITIVE 1: Fill input field and submit
     # ========================================================================
 
-    def fill_and_submit(
+    def fill_capture_submit(
         self,
         selector: str,
         value: str,
@@ -176,7 +176,7 @@ class RFPrimitives:
         label: str,
         timeout: int = 1000
     ) -> tuple[bool, str | None]:
-        return self.fill_and_submit(
+        return self.fill_capture_submit(
             selector="input[type='text']:visible",
             value=choice,
             screenshot_label=f"choice_{label}",
@@ -310,7 +310,7 @@ class RFWorkflows:
         rf.go_home()
         rf.press_rf_hot_key("Control+f", "rf_menu_search", "Opened menu search")
 
-        has_error, msg = rf.fill_and_submit(
+        has_error, msg = rf.fill_capture_submit(
             selector="input[type='text']:visible",
             value=search_term,
             screenshot_label=f"menu_search_{slug}",
@@ -351,7 +351,7 @@ class RFWorkflows:
                 )
                 return False
 
-        has_error, msg = rf.fill_and_submit(
+        has_error, msg = rf.fill_capture_submit(
             selector="input[type='text']:visible",
             value=option_number,
             screenshot_label=f"menu_select_{slug}",
@@ -392,7 +392,7 @@ class RFWorkflows:
         # Auto-enter flows shouldn't leave stale selectors
         self._last_scanned_selector = None
 
-        has_error, msg = self.primitive.fill_and_submit(
+        has_error, msg = self.primitive.fill_capture_submit(
             selector=selector,
             value=value,
             screenshot_label=f"scan_{label}_{value}",
@@ -476,7 +476,7 @@ class RFWorkflows:
             if info_parts:
                 context_note = " (" + ", ".join(info_parts) + ")"
 
-        has_error, msg = self.primitive.fill_and_submit(
+        has_error, msg = self.primitive.fill_capture_submit(
             selector=selector,
             value=str(qty),
             screenshot_label=label,
@@ -495,7 +495,7 @@ class RFWorkflows:
         location: str,
         timeout: int = 3000
     ) -> tuple[bool, str | None]:
-        return self.primitive.fill_and_submit(
+        return self.primitive.fill_capture_submit(
             selector=selector,
             value=location,
             screenshot_label=f"location_{location}",
