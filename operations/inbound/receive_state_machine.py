@@ -421,8 +421,18 @@ class QtyEnteredHandler(StateHandler):
         return 'qty adjust' in text or 'quantity adjust' in text
 
     def _r_stage_prompt(self, machine: ReceiveStateMachine, text: str) -> bool:
-        if machine.is_element_visible(machine.deviation_selectors.lpn_input, timeout=300):
-            return False
+        try:
+            if machine.is_element_visible(machine.deviation_selectors.rstage_location, timeout=300):
+                return True
+        except Exception:
+            pass
+
+        try:
+            if machine.is_element_visible(machine.deviation_selectors.rstage_location_name, timeout=300):
+                return True
+        except Exception:
+            pass
+
         return 'exception r-stage' in text.lower() or 'r-stage' in text.lower()
     
     def _state_to_flow_name(self, state: ReceiveState) -> str:
