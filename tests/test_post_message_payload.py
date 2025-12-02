@@ -13,7 +13,6 @@ from core.post_message_payload import (
     _extract_asn_id,
     _value_case_insensitive,
     _values_have_quantity,
-    _coerce_numeric,
     _set_child_text,
     _extract_quantity_overrides,
     _default_quantity_value,
@@ -126,25 +125,6 @@ class TestValuesHaveQuantity:
         """Test returns False when no quantity key."""
         assert _values_have_quantity({"ItemName": "ABC"}) is False
         assert _values_have_quantity({}) is False
-
-
-class TestCoerceNumeric:
-    """Tests for _coerce_numeric function."""
-
-    def test_coerces_integer_string(self):
-        """Test coercing integer string."""
-        assert _coerce_numeric("123") == "123"
-        assert _coerce_numeric("0") == "0"
-        assert _coerce_numeric("-456") == "-456"
-
-    def test_preserves_non_numeric_string(self):
-        """Test preserves non-numeric strings."""
-        assert _coerce_numeric("abc") == "abc"
-        assert _coerce_numeric("12.34") == "12.34"
-
-    def test_handles_empty_string(self):
-        """Test handles empty string."""
-        assert _coerce_numeric("") == ""
 
 
 class TestSetChildText:

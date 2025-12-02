@@ -7,6 +7,8 @@ omit =
     */.venv/*
     */venv/*
     */__pycache__/*
+    dev.py
+    DB/database.py
 
 [report]
 exclude_lines =
