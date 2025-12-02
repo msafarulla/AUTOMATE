@@ -409,6 +409,72 @@ def login_and_setup_tab(context, env_name, url, password):
     }})();
     """)
 
+    # Lock warehouse selection across refreshes
+    page.add_init_script(f"""
+    (() => {{
+        const targetWarehouse = "{whse}";
+
+        async function ensureWarehouse() {{
+            try {{
+                // Wait for the page to be ready
+                await new Promise(resolve => {{
+                    if (document.readyState === 'complete') {{
+                        resolve();
+                    }} else {{
+                        window.addEventListener('load', resolve);
+                    }}
+                }});
+
+                // Give the app a moment to initialize
+                await new Promise(resolve => setTimeout(resolve, 2000));
+
+                // Check if we need to change warehouse (look for "- SOA" text)
+                const facilityText = document.querySelector('[class*="facility"]')?.textContent;
+                if (facilityText && !facilityText.includes(targetWarehouse)) {{
+                    console.log('🏭 Warehouse mismatch detected, reapplying:', targetWarehouse);
+
+                    // Click the facility dropdown
+                    const dropdown = Array.from(document.querySelectorAll('*'))
+                        .find(el => el.textContent?.includes('- SOA'));
+                    if (dropdown) {{
+                        dropdown.click();
+                        await new Promise(resolve => setTimeout(resolve, 500));
+
+                        // Click the input field
+                        const input = document.querySelector("input[type='text']:not([style*='display: none'])");
+                        if (input) {{
+                            input.click();
+                            await new Promise(resolve => setTimeout(resolve, 500));
+
+                            // Select the warehouse from list
+                            const option = Array.from(document.querySelectorAll('ul.x-list-plain li'))
+                                .find(li => li.textContent.includes(targetWarehouse));
+                            if (option) {{
+                                option.click();
+                                await new Promise(resolve => setTimeout(resolve, 500));
+
+                                // Click Apply button
+                                const applyBtn = Array.from(document.querySelectorAll('*'))
+                                    .find(el => el.textContent === 'Apply' && el.tagName !== 'DIV');
+                                if (applyBtn) {{
+                                    applyBtn.click();
+                                    console.log('✅ Warehouse reapplied:', targetWarehouse);
+                                }}
+                            }}
+                        }}
+                    }}
+                }}
+            }} catch (err) {{
+                console.warn('⚠️ Warehouse persistence check failed:', err);
+            }}
+        }}
+
+        // Run on every load
+        window.addEventListener('load', ensureWarehouse);
+        ensureWarehouse();
+    }})();
+    """)
+
     # Close any popup windows
     close_visible_windows_dom(page, env_name)
 
