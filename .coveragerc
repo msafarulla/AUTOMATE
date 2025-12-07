@@ -9,6 +9,7 @@ omit =
     */__pycache__/*
     dev.py
     DB/database.py
+    DB/__init__.py
 
 [report]
 exclude_lines =
