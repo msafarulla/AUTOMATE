@@ -16,6 +16,8 @@ import select
 import queue
 from typing import cast, Optional
 from utils.wait_utils import WaitUtils
+from core.screenshot import ScreenshotManager
+from ui.navigation import NavigationManager
 
 c1 = DB('dev')
 config = configparser.ConfigParser()
@@ -25,6 +27,8 @@ config.read_string(c1.clean_content)
 whse = 'LPM'
 
 _snap_counters = {}
+
+navigation_screenshot_mgr = ScreenshotManager(output_dir="screenshots_navigation")
 
 username = config['dev']['app_server_user']
 
@@ -209,35 +213,6 @@ def close_visible_windows_dom(page: Page, env_name: Optional[str] = None):
         return False
 
 
-def select_facility(page: Page, env_name: str, warehouse: str):
-    """Select warehouse facility using DOM selectors"""
-    try:
-        # Click the facility dropdown (look for "- SOA" text)
-        dropdown = page.locator(":text-matches('- SOA')").first
-        dropdown.click()
-        print(f"✅ [{env_name}] Clicked facility dropdown")
-
-        # Click the input field and wait for options to appear
-        warehouse_input = page.locator("input[type='text']:visible").first
-        warehouse_input.click()
-        page.wait_for_selector("ul.x-list-plain li", timeout=2000)
-
-        # Select the warehouse from the list
-        page.locator(f"ul.x-list-plain li:has-text('{warehouse}')").click()
-        print(f"✅ [{env_name}] Selected warehouse: {warehouse}")
-
-        # Click Apply button
-        page.get_by_text("Apply", exact=True).click()
-        WaitUtils.wait_brief(page)
-
-        # Wait for UI to be ready
-        page.locator("a.x-btn").first.wait_for(timeout=1000)
-        print(f"✅ [{env_name}] Facility selection complete")
-
-    except Exception as e:
-        raise RuntimeError(f"Failed to select facility: {e}")
-
-
 # HTTP Server for screenshot button
 screenshot_queue = queue.Queue()
 restart_queue = queue.Queue()
@@ -283,6 +258,7 @@ def login_and_setup_tab(context, env_name, url, password):
     print(f"🌐 Opening {env_name}...")
 
     warehouse_reapply_state = {"ready": False, "busy": False}
+    nav_mgr = NavigationManager(page, navigation_screenshot_mgr)
 
     def reapply_warehouse_on_load():
         if not warehouse_reapply_state["ready"] or warehouse_reapply_state["busy"]:
@@ -297,7 +273,7 @@ def login_and_setup_tab(context, env_name, url, password):
                 print(f"⚠️ [{env_name}] Error closing popups before reload reapply: {exc}")
 
             page.wait_for_timeout(1500)
-            select_facility(page, env_name, whse)
+            nav_mgr.change_warehouse(whse, onDemand=False)
             facility_label = page.evaluate(
                 """(warehouse) => document.querySelector('[class*="facility"]')?.textContent || ''""",
                 whse,
@@ -521,7 +497,7 @@ def login_and_setup_tab(context, env_name, url, password):
 
     # Select warehouse
     try:
-        select_facility(page, env_name, whse)
+        nav_mgr.change_warehouse(whse, onDemand=False)
         warehouse_reapply_state["ready"] = True
     except Exception as e:
         print(f"❌ [{env_name}] Facility selection failed: {e}")
