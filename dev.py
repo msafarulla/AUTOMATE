@@ -240,6 +240,16 @@ def select_facility(page: Page, env_name: str, warehouse: str):
 
 # HTTP Server for screenshot button
 screenshot_queue = queue.Queue()
+restart_queue = queue.Queue()
+restart_lock = threading.Lock()
+restart_pending = set()
+
+def request_restart(env_name):
+    with restart_lock:
+        if env_name in restart_pending:
+            return
+        restart_pending.add(env_name)
+    restart_queue.put(env_name)
 
 
 class ScreenshotHandler(BaseHTTPRequestHandler):
@@ -294,8 +304,10 @@ def login_and_setup_tab(context, env_name, url, password):
             )
             if whse and whse not in facility_label:
                 print(f"⚠️ [{env_name}] Warehouse label still missing after reapply: {facility_label}")
+                request_restart(env_name)
         except Exception as exc:
             print(f"⚠️ [{env_name}] Reload reapply failed: {exc}")
+            request_restart(env_name)
         finally:
             warehouse_reapply_state["busy"] = False
 
@@ -580,11 +592,32 @@ with sync_playwright() as playwright:
     server_thread = threading.Thread(target=run_server, daemon=True)
     server_thread.start()
 
-    tabs = []
+    tabs = {}
     for env, (url, password) in environments.items():
         page = login_and_setup_tab(context, env, url, password)
         if page:
-            tabs.append(page)
+            tabs[env] = page
+
+    def restart_env_tab(env_name):
+        if env_name not in environments:
+            return
+
+        url, password = environments[env_name]
+        old_page = tabs.pop(env_name, None)
+        if old_page:
+            try:
+                old_page.close()
+            except Exception as exc:
+                print(f"⚠️ [{env_name}] Error closing old tab for restart: {exc}")
+
+        new_page = login_and_setup_tab(context, env_name, url, password)
+        if new_page:
+            tabs[env_name] = new_page
+        else:
+            print(f"⚠️ [{env_name}] Restarting tab failed, keeping existing state")
+
+        with restart_lock:
+            restart_pending.discard(env_name)
 
     print("📸 Press ~ (tilde/Shift+`) in browser to capture screenshots")
     print("   Type 'x' + Enter in terminal to exit")
@@ -604,8 +637,7 @@ with sync_playwright() as playwright:
             env = screenshot_queue.get(timeout=1)
 
             found = False
-            for page in tabs:
-                env_name = page.title().split(" - ")[0]
+            for env_name, page in tabs.items():
                 if env_name.upper() == env.upper():
                     print(f"📸 Capturing tab: {env_name}")
                     snap(page, "button_capture", env_name)
@@ -616,6 +648,13 @@ with sync_playwright() as playwright:
                 print(f"⚠️ No open tab found for environment '{env}'")
 
             screenshot_queue.task_done()
+        except queue.Empty:
+            pass
 
+        try:
+            while True:
+                env_to_restart = restart_queue.get_nowait()
+                restart_env_tab(env_to_restart)
+                restart_queue.task_done()
         except queue.Empty:
             pass
