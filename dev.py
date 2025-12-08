@@ -280,16 +280,14 @@ def login_and_setup_tab(context, env_name, url, password):
         if not warehouse_reapply_state["ready"] or warehouse_reapply_state["busy"]:
             return
 
-        try:
-            title = page.title()
-        except Exception:
-            return
-
-        if env_name.upper() not in title.upper():
+        current_host = urlparse(page.url).netloc.lower()
+        expected_host = urlparse(url).netloc.lower()
+        if expected_host and expected_host not in current_host:
             return
 
         warehouse_reapply_state["busy"] = True
         try:
+            page.wait_for_timeout(1500)
             print(f"🔁 [{env_name}] Reload detected, reapplying warehouse {whse}")
             select_facility(page, env_name, whse)
         except Exception as exc:
