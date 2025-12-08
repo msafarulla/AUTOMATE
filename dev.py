@@ -281,8 +281,19 @@ def login_and_setup_tab(context, env_name, url, password):
         warehouse_reapply_state["busy"] = True
         try:
             print(f"🔁 [{env_name}] Refresh detected, reapplying warehouse {whse}")
+            try:
+                close_visible_windows_dom(page, env_name)
+            except Exception as exc:
+                print(f"⚠️ [{env_name}] Error closing popups before reload reapply: {exc}")
+
             page.wait_for_timeout(1500)
             select_facility(page, env_name, whse)
+            facility_label = page.evaluate(
+                """(warehouse) => document.querySelector('[class*="facility"]')?.textContent || ''""",
+                whse,
+            )
+            if whse and whse not in facility_label:
+                print(f"⚠️ [{env_name}] Warehouse label still missing after reapply: {facility_label}")
         except Exception as exc:
             print(f"⚠️ [{env_name}] Reload reapply failed: {exc}")
         finally:
