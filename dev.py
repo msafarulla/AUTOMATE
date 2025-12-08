@@ -272,6 +272,33 @@ def login_and_setup_tab(context, env_name, url, password):
     page = context.new_page()
     print(f"🌐 Opening {env_name}...")
 
+    # Track whether we've successfully selected the warehouse;
+    # only reapply after the initial attempt completes.
+    warehouse_reapply_state = {"ready": False, "busy": False}
+
+    def reapply_warehouse_on_load():
+        if not warehouse_reapply_state["ready"] or warehouse_reapply_state["busy"]:
+            return
+
+        try:
+            title = page.title()
+        except Exception:
+            return
+
+        if env_name.upper() not in title.upper():
+            return
+
+        warehouse_reapply_state["busy"] = True
+        try:
+            print(f"🔁 [{env_name}] Reload detected, reapplying warehouse {whse}")
+            select_facility(page, env_name, whse)
+        except Exception as exc:
+            print(f"⚠️ [{env_name}] Warehouse reapply failed after reload: {exc}")
+        finally:
+            warehouse_reapply_state["busy"] = False
+
+    page.on("load", lambda _: reapply_warehouse_on_load())
+
     # Add cyan click dot animation + track mouse position
     page.add_init_script("""
     // Track mouse position globally
@@ -481,6 +508,7 @@ def login_and_setup_tab(context, env_name, url, password):
     # Select warehouse
     try:
         select_facility(page, env_name, whse)
+        warehouse_reapply_state["ready"] = True
     except Exception as e:
         print(f"❌ [{env_name}] Facility selection failed: {e}")
         return
